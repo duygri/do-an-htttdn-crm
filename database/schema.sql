@@ -1,0 +1,2 @@
+-- CRM database schema placeholder.
+-- Implement the tables and constraints from Issues II-01, I-08, I-09, and I-10.

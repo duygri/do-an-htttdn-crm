@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+coverage/
+.next/
+
+# Logs and local files
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Local database and backup files
+*.dump
+*.backup
+*.bak
+
+# Test artifacts
+test-results/
+playwright-report/

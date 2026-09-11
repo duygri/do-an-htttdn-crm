@@ -1,0 +1,2 @@
+-- CRM seed data placeholder.
+-- Add reproducible development and demo data for Issue II-06.
