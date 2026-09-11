@@ -15,7 +15,7 @@ The complete task list is tracked in [GitHub Issues](https://github.com/duygri/d
 ## Planned technology stack
 
 - Frontend: React
-- Backend: Node.js
+- Backend: Java 21 with Spring Boot REST API
 - Database: PostgreSQL
 - Design and diagrams: Google Stitch or Figma, draw.io, and related tools
 
@@ -24,7 +24,7 @@ The complete task list is tracked in [GitHub Issues](https://github.com/duygri/d
 ```text
 docs/       Requirements, diagrams, architecture, and user documentation
 database/   Schema, seed data, and backup or restore documentation
-backend/    Node.js backend application
+backend/    Java Spring Boot backend application
 frontend/   React frontend application
 tests/      Test cases, scenarios, and test evidence
 ```

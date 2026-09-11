@@ -1,6 +1,6 @@
 # Backend
 
-This directory will contain the Node.js backend application.
+This directory will contain the Java 21 Spring Boot backend application.
 
 ## Planned responsibilities
 
