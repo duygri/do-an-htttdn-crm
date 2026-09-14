@@ -1,0 +1,67 @@
+@startuml
+title III-02 - Customer login, refresh-token rotation and logout
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Customer
+boundary "Customer Portal" as Web
+control "Auth API" as API
+database "Auth Database / Redis" as DB
+
+== Login ==
+
+Customer -> Web: Enter email and password
+Web -> API: POST /api/auth/login
+API -> DB: Find user by email
+API -> API: Verify password and account status
+
+alt Invalid credentials or locked account
+    API --> Web: 401/423 authentication error
+    Web --> Customer: Show login error
+else Valid credentials
+    API -> API: Create short-lived access JWT
+    API -> API: Create refresh token
+    API -> API: Hash refresh token
+API -> DB: Store hash, userId, expiresAt, token family,\nstatus ACTIVE
+    API --> Web: accessToken + refreshToken
+    Web --> Customer: Open customer portal
+end
+
+== Refresh with rotation ==
+
+Customer -> Web: Access token expired
+Web -> API: POST /api/auth/refresh\n(refreshToken)
+API -> API: Hash presented refresh token
+API -> DB: Find token hash FOR UPDATE
+
+alt Missing, expired, revoked or already-used token
+    API --> Web: 401 INVALID_REFRESH_TOKEN
+    Web --> Customer: Redirect to login
+else Active token
+    API -> DB: Revoke old token
+    API -> API: Create new access JWT
+    API -> API: Create and hash replacement refresh token
+    API -> DB: Store replacement token with same token family
+    API --> Web: New accessToken + refreshToken
+end
+
+== Logout ==
+
+Customer -> Web: Click logout
+Web -> API: POST /api/auth/logout\n(refreshToken)
+API -> API: Hash presented refresh token
+API -> DB: Revoke refresh token and token family
+API --> Web: 204 No Content
+Web --> Customer: Clear local tokens and show login
+
+note over API,DB
+  Refresh tokens are not treated as revocable stateless JWTs.
+  Persisting the hash enables logout, password-change revocation,
+  expiry checks and replay detection through rotation.
+end note
+
+@enduml
