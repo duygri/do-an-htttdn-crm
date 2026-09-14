@@ -115,7 +115,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | FR-01 | Account | Customer đăng ký tài khoản | Email không trùng, trường bắt buộc được kiểm tra, mật khẩu không lưu plaintext | #23 |
 | FR-02 | Authentication | Customer đăng nhập và truy cập khu vực được phép | Sai thông tin trả lỗi; phiên đăng nhập được xác thực | #24 |
 | FR-03 | Profile | Customer xem và cập nhật hồ sơ/sở thích | Chỉ tài khoản hiện tại được cập nhật; dữ liệu được validate | #25 |
-| FR-04 | Feedback | Customer gửi feedback và rating | Rating trong khoảng 1–5; feedback lưu kèm Customer và thời gian | #26 |
+| FR-04 | Feedback | Customer gửi feedback và rating sau khi đã mua sản phẩm | Rating trong khoảng 1–5; backend xác nhận Customer có đơn hợp lệ chứa sản phẩm; mỗi Customer chỉ feedback một lần cho một sản phẩm | #26 |
 | FR-05 | Survey | Customer xem và trả lời khảo sát | Chỉ khảo sát đã phát hành được trả lời; câu trả lời bắt buộc được kiểm tra | #27 |
 | FR-06 | Catalog | Customer xem, tìm kiếm và lọc sản phẩm | Hiển thị đúng tên, giá, tồn kho và bộ lọc | #28 |
 | FR-07 | Order | Customer quản lý giỏ hàng và tạo đơn | Số lượng hợp lệ, tổng tiền đúng, đơn hàng ghi nhận đúng sản phẩm | #29 |
@@ -162,6 +162,8 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 - Mật khẩu phải được hash bằng BCrypt hoặc cơ chế tương đương.
 - Customer chỉ truy cập dữ liệu thuộc tài khoản của mình.
 - Rating nằm trong khoảng 1–5.
+- Customer chỉ được feedback/rating sản phẩm khi có `order_items` tương ứng trong một đơn hàng hợp lệ. MVP xem đơn hàng có trạng thái `CONFIRMED`, `SHIPPED`, `DELIVERED` hoặc `COMPLETED` là đã mua; đơn `CANCELLED` không đủ điều kiện.
+- Database nên có unique constraint trên cặp `(customer_id, product_id)` trong feedback để bảo đảm một Customer không gửi feedback trùng cho cùng sản phẩm. Backend bắt lỗi constraint và trả `409 DUPLICATE_FEEDBACK`.
 - Không tạo đơn với sản phẩm không tồn tại hoặc số lượng không hợp lệ.
 - Tổng tiền lấy từ `order_items`, không tin giá trị do frontend gửi lên.
 - Khóa ngoại không được tạo bản ghi mồ côi.
