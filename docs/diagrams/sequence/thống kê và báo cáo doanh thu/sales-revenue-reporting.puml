@@ -1,0 +1,24 @@
+@startuml
+title II-08 - Admin Sales: Sales-revenue reporting
+
+actor ADMIN as Admin
+boundary "Trang thống kê báo cáo" as UI
+control "Control thống kê doanh thu" as Controller
+database "CSDL hóa đơn và sản phẩm" as DB
+
+Admin -> UI: Truy cập trang thống kê báo cáo
+Admin -> UI: Chọn mốc thời gian và tiêu chí
+UI -> Controller: Gửi yêu cầu tổng hợp dữ liệu
+Controller -> DB: Truy vấn hóa đơn và sản phẩm bán chạy
+DB --> Controller: Doanh thu, lợi nhuận, top sản phẩm
+Controller -> Controller: Tính toán và gom nhóm dữ liệu
+Controller --> UI: Truyền kết quả báo cáo
+UI --> Admin: Hiển thị bảng số liệu và biểu đồ
+
+note right of Controller
+  Tiêu chí báo cáo:
+  - Doanh thu theo thời gian
+  - Sản phẩm bán chạy
+  - Lợi nhuận
+end note
+@enduml
