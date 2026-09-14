@@ -174,7 +174,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 - Đơn hàng phải lưu `payment_method`, `payment_status`, `gateway_txn_ref`, `gateway_transaction_no`, `payment_response_code` và thời điểm thanh toán nếu có.
 - `PENDING_PAYMENT` chưa được xem là thanh toán thành công. Chỉ IPN hợp lệ từ VNPay mới được chuyển payment status sang `PAID` và order status sang `CONFIRMED`.
 - Xử lý IPN phải idempotent: khóa bản ghi order/payment bằng `SELECT ... FOR UPDATE` và lưu event với unique key như `(order_id, ipn_type)` hoặc gateway event key; callback lặp lại không được tạo giao dịch hoặc trừ tồn kho lần thứ hai.
-- IPN hợp lệ và IPN đã xử lý phải trả HTTP 200 với `{"RspCode":"00","Message":"Confirm Success"}`; chữ ký hoặc dữ liệu không hợp lệ phải trả mã lỗi phù hợp và không cập nhật đơn.
+- IPN hợp lệ lần đầu phải trả HTTP 200 với `{"RspCode":"00","Message":"Confirm Success"}`; IPN lặp lại cho đơn đã chốt trả HTTP 200 với `{"RspCode":"02","Message":"Order already confirmed"}`; chữ ký hoặc dữ liệu không hợp lệ phải trả mã lỗi phù hợp và không cập nhật đơn.
 - Scheduled job phải hủy đơn `PENDING_PAYMENT` quá thời hạn, chuyển payment sang `EXPIRED`, chuyển order sang `CANCELLED` và release tồn kho đúng một lần.
 - Khóa ngoại không được tạo bản ghi mồ côi.
 - Trạng thái đơn hàng chỉ chuyển theo luồng đã thống nhất.
@@ -229,7 +229,7 @@ MVP sử dụng môi trường Sandbox của VNPay, không dùng merchant produc
 | Chữ ký | Sắp xếp tham số theo tên, tạo checksum bằng secret key và không đưa secret ra frontend |
 | Return URL | Kiểm tra checksum và hiển thị kết quả cho Customer; không dùng Return URL làm nguồn duy nhất để chốt đơn |
 | IPN URL | Endpoint server-to-server kiểm tra checksum, mã đơn, số tiền và trạng thái; cập nhật thanh toán idempotent |
-| IPN acknowledgment | Callback hợp lệ hoặc đã xử lý trả HTTP 200 với `{"RspCode":"00","Message":"Confirm Success"}`; callback không hợp lệ không cập nhật order |
+| IPN acknowledgment | Callback hợp lệ lần đầu trả `RspCode=00`; callback đã xử lý trả `RspCode=02`; cả hai đều HTTP 200, callback không hợp lệ không cập nhật order |
 | IPN concurrency | Khóa order/payment bằng `SELECT ... FOR UPDATE` và lưu event bằng unique key để chống check-then-insert race |
 | Thành công | `vnp_ResponseCode=00` và `vnp_TransactionStatus=00` → `PAID`/`CONFIRMED` |
 | Thất bại/hết hạn | Cập nhật `FAILED` hoặc `CANCELLED`, giải phóng phần tồn kho đã reserve |
