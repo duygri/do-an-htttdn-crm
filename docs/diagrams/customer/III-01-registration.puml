@@ -1,0 +1,42 @@
+@startuml
+title III-01 - Customer account registration
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Customer
+boundary "Customer Portal" as Web
+control "Account API" as API
+database "CRM Database" as DB
+
+Customer -> Web: Enter registration form
+Web -> API: POST /api/auth/register
+API -> API: Validate required fields,\nemail format and password policy
+
+alt Invalid input
+    API --> Web: 400 VALIDATION_ERROR
+    Web --> Customer: Show field errors
+else Valid input
+    API -> API: Hash password with BCrypt
+    API -> DB: INSERT user
+
+    alt Duplicate email constraint violation
+        DB --> API: UNIQUE(email) violation
+        API --> Web: 409 EMAIL_ALREADY_EXISTS
+        Web --> Customer: Show email already registered
+    else User created
+        DB --> API: User created
+        API --> Web: 201 Created
+        Web --> Customer: Show registration success
+    end
+end
+
+note over API,DB
+  UNIQUE(email) is the concurrency guard.
+  Do not rely on a check-before-insert query alone.
+end note
+
+@enduml

@@ -1,0 +1,43 @@
+@startuml
+title III-08 - Customer order history and delivery-status tracking
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Customer
+boundary "Customer Portal" as Web
+control "Order History API" as API
+database "CRM Database" as DB
+
+Customer -> Web: Open order history
+Web -> API: GET /api/orders\nAuthorization: Bearer accessToken
+API -> API: Verify JWT and customer identity
+
+alt Missing or invalid JWT
+    API --> Web: 401 UNAUTHORIZED
+    Web --> Customer: Redirect to login
+else Authenticated
+    API -> DB: SELECT orders WHERE customer_id = currentUser
+    DB --> API: Customer's orders and statuses
+    API --> Web: 200 OrderHistory
+    Web --> Customer: Display order history
+
+    Customer -> Web: Select an order
+    Web -> API: GET /api/orders/{orderId}
+    API -> DB: SELECT order and order_items
+    API -> API: Check order ownership
+
+    alt Order not found or belongs to another customer
+        API --> Web: 404 ORDER_NOT_FOUND
+        Web --> Customer: Show unavailable order
+    else Customer owns order
+        DB --> API: Order details and delivery status
+        API --> Web: 200 OrderDetail
+        Web --> Customer: Show items and delivery progress
+    end
+end
+
+@enduml
