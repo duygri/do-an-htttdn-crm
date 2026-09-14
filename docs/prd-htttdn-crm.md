@@ -58,12 +58,13 @@ Dữ liệu khách hàng và bán hàng thường bị phân tán trong nhiều 
 - Tạo, phát hành, trả lời và thống kê khảo sát.
 - Danh mục sản phẩm và tồn kho.
 - Giỏ hàng, đặt hàng, lịch sử đơn hàng và trạng thái giao hàng.
+- Thanh toán trực tuyến qua VNPay Sandbox, Return URL và server-to-server IPN.
 - Báo cáo khách hàng, khảo sát và doanh thu.
 - Kiểm thử, tài liệu kỹ thuật và demo.
 
 ### 3.2. Ngoài phạm vi MVP
 
-- Thanh toán trực tuyến thật hoặc kết nối ngân hàng.
+- Thanh toán production với tiền thật, merchant go-live, refund production và đối soát thật.
 - Tích hợp đơn vị vận chuyển thực tế.
 - Social login, xác thực đa yếu tố và password reset qua email.
 - Ứng dụng native cho Android hoặc iOS.
@@ -118,7 +119,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | FR-04 | Feedback | Customer gửi feedback và rating sau khi đã mua sản phẩm | Rating trong khoảng 1–5; backend xác nhận Customer có đơn hợp lệ chứa sản phẩm; mỗi Customer chỉ feedback một lần cho một sản phẩm | #26 |
 | FR-05 | Survey | Customer xem và trả lời khảo sát | Chỉ khảo sát đã phát hành được trả lời; câu trả lời bắt buộc được kiểm tra | #27 |
 | FR-06 | Catalog | Customer xem, tìm kiếm và lọc sản phẩm | Hiển thị đúng tên, giá, tồn kho và bộ lọc | #28 |
-| FR-07 | Order | Customer quản lý giỏ hàng và tạo đơn | Số lượng hợp lệ, tổng tiền đúng, đơn hàng ghi nhận đúng sản phẩm | #29 |
+| FR-07 | Order/Payment | Customer quản lý giỏ hàng, tạo đơn và thanh toán qua VNPay Sandbox | Tồn kho được khóa trong transaction; đơn chuyển `PENDING_PAYMENT`; VNPAY Return URL chỉ hiển thị kết quả, IPN xác thực checksum và cập nhật trạng thái thanh toán idempotent | #21, #29 |
 | FR-08 | Tracking | Customer xem lịch sử và trạng thái đơn | Không xem được đơn của Customer khác | #30 |
 | FR-09 | Customer Admin | Admin quản lý tài khoản Customer | Có tìm kiếm, phân trang, sửa và khóa tài khoản | #31 |
 | FR-10 | Feedback Admin | Admin xem và xử lý feedback | Có danh sách, chi tiết, cập nhật trạng thái và ghi nhận xử lý | #32 |
@@ -166,6 +167,9 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 - Database nên có unique constraint trên cặp `(customer_id, product_id)` trong feedback để bảo đảm một Customer không gửi feedback trùng cho cùng sản phẩm. Backend bắt lỗi constraint và trả `409 DUPLICATE_FEEDBACK`.
 - Không tạo đơn với sản phẩm không tồn tại hoặc số lượng không hợp lệ.
 - Tổng tiền lấy từ `order_items`, không tin giá trị do frontend gửi lên.
+- Đơn hàng phải lưu `payment_method`, `payment_status`, `gateway_txn_ref`, `gateway_transaction_no`, `payment_response_code` và thời điểm thanh toán nếu có.
+- `PENDING_PAYMENT` chưa được xem là thanh toán thành công. Chỉ IPN hợp lệ từ VNPay mới được chuyển payment status sang `PAID` và order status sang `CONFIRMED`.
+- Xử lý IPN phải idempotent: callback lặp lại không được tạo giao dịch hoặc trừ tồn kho lần thứ hai.
 - Khóa ngoại không được tạo bản ghi mồ côi.
 - Trạng thái đơn hàng chỉ chuyển theo luồng đã thống nhất.
 - Survey chỉ nhận response khi đã phát hành và còn hiệu lực.
@@ -205,6 +209,25 @@ React Customer Portal       React Admin Portal
 - Documentation chứa requirements, ERD, sequence diagram, test evidence, report và demo.
 
 API dùng JSON và status code phù hợp `200`, `201`, `400`, `401`, `403`, `404`, `409`, `500`. Lỗi nên có mã lỗi và thông báo có thể hiển thị trên frontend.
+
+### 10.1. Tích hợp thanh toán VNPay Sandbox
+
+MVP sử dụng môi trường Sandbox của VNPay, không dùng merchant production và không xử lý tiền thật. Backend tạo URL thanh toán từ các tham số đã ký, chuyển Customer sang VNPay, nhận kết quả hiển thị qua Return URL và cập nhật trạng thái giao dịch qua IPN URL.
+
+| Thành phần | Quy định |
+| --- | --- |
+| Sandbox payment URL | `https://sandbox.vnpayment.vn/paymentv2/vpcpay.html` |
+| Cấu hình bắt buộc | `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAYMENT_URL`, `VNPAY_RETURN_URL`, `VNPAY_IPN_URL` |
+| Tạo giao dịch | Backend tạo order trước, lưu `PENDING_PAYMENT`, tạo `vnp_TxnRef` duy nhất và số tiền theo đơn hàng |
+| Số tiền | Gửi theo đơn vị nhỏ nhất theo đặc tả VNPay, tức số tiền VND nhân 100 |
+| Chữ ký | Sắp xếp tham số theo tên, tạo checksum bằng secret key và không đưa secret ra frontend |
+| Return URL | Kiểm tra checksum và hiển thị kết quả cho Customer; không dùng Return URL làm nguồn duy nhất để chốt đơn |
+| IPN URL | Endpoint server-to-server kiểm tra checksum, mã đơn, số tiền và trạng thái; cập nhật thanh toán idempotent |
+| Thành công | `vnp_ResponseCode=00` và `vnp_TransactionStatus=00` → `PAID`/`CONFIRMED` |
+| Thất bại/hết hạn | Cập nhật `FAILED` hoặc `CANCELLED`, giải phóng phần tồn kho đã reserve |
+| Local demo | Dùng HTTPS tunnel hoặc môi trường có URL public để VNPay gọi được IPN URL |
+
+Không commit `VNPAY_TMN_CODE` hoặc `VNPAY_HASH_SECRET` vào repository. Dùng biến môi trường hoặc file local bị `.gitignore` loại trừ. Tài liệu tham khảo: [VNPay payment integration](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html), [VNPay introduction and configuration](https://sandbox.vnpayment.vn/apis/docs/gioi-thieu/), [VNPay FAQ về Return URL và IPN](https://sandbox.vnpayment.vn/apis/docs/faqs/).
 
 ## 11. Dependency và kế hoạch triển khai
 
