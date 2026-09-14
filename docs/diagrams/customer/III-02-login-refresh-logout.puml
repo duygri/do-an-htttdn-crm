@@ -26,9 +26,13 @@ else Valid credentials
     API -> API: Create short-lived access JWT
     API -> API: Create refresh token
     API -> API: Hash refresh token
-API -> DB: Store hash, userId, expiresAt, token family,\nstatus ACTIVE
-    API --> Web: accessToken + refreshToken
+    API -> DB: Store hash, userId, expiresAt, token family,\nstatus ACTIVE, revokeReason NULL
+    API --> Web: accessToken\nSet-Cookie refreshToken=...; HttpOnly; Secure; SameSite
     Web --> Customer: Open customer portal
+    note right of Web
+      FE keeps accessToken in memory only.
+      Browser manages the refresh cookie.
+    end note
 end
 
 == Refresh with rotation ==
@@ -36,32 +40,46 @@ end
 Customer -> Web: Access token expired
 Web -> API: POST /api/auth/refresh\n(refreshToken)
 API -> API: Hash presented refresh token
-API -> DB: Find token hash FOR UPDATE
+API -> DB: SELECT token hash FOR UPDATE
 
-alt Missing, expired, revoked or already-used token
+alt Token missing
     API --> Web: 401 INVALID_REFRESH_TOKEN
     Web --> Customer: Redirect to login
+else Token expired
+    API --> Web: 401 REFRESH_TOKEN_EXPIRED
+    Web --> Customer: Request login again
+else Token already rotated or used again
+    API -> DB: Revoke entire token family\nreason REUSE_DETECTED
+    API -> DB: Record security event
+    API --> Web: 401 REFRESH_TOKEN_REUSE_DETECTED
+    Web --> Customer: Revoke local session and request login
+else Token revoked by logout or admin
+    API --> Web: 401 INVALID_REFRESH_TOKEN
+    Web --> Customer: Request login again
 else Active token
-    API -> DB: Revoke old token
+    API -> DB: Revoke old token\nreason ROTATED
     API -> API: Create new access JWT
     API -> API: Create and hash replacement refresh token
     API -> DB: Store replacement token with same token family
-    API --> Web: New accessToken + refreshToken
+    API --> Web: New accessToken\nSet-Cookie replacement refreshToken
 end
 
 == Logout ==
 
 Customer -> Web: Click logout
-Web -> API: POST /api/auth/logout\n(refreshToken)
+Web -> API: POST /api/auth/logout
+API -> API: Read refresh token from HttpOnly cookie
 API -> API: Hash presented refresh token
-API -> DB: Revoke refresh token and token family
-API --> Web: 204 No Content
+API -> DB: SELECT token FOR UPDATE
+API -> DB: Revoke current token only\nreason LOGOUT
+API --> Web: 204 No Content\nClear refresh cookie
 Web --> Customer: Clear local tokens and show login
 
 note over API,DB
-  Refresh tokens are not treated as revocable stateless JWTs.
-  Persisting the hash enables logout, password-change revocation,
-  expiry checks and replay detection through rotation.
+  Refresh tokens are stored as hashes and sent only by
+  HttpOnly, Secure, SameSite cookies.
+  Normal logout revokes the current session only.
+  Token-family revocation is reserved for reuse detection.
 end note
 
 @enduml

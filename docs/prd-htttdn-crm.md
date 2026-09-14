@@ -114,7 +114,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | Mã | Nhóm | Yêu cầu | Tiêu chí nghiệm thu | Issue |
 | --- | --- | --- | --- | --- |
 | FR-01 | Account | Customer đăng ký tài khoản | Email không trùng, trường bắt buộc được kiểm tra, mật khẩu không lưu plaintext | #23 |
-| FR-02 | Authentication | Customer đăng nhập, refresh phiên và đăng xuất | Access token ngắn hạn; refresh token được lưu dạng hash, có rotation, revoke và logout rõ ràng | #24 |
+| FR-02 | Authentication | Customer đăng nhập, refresh phiên và đăng xuất | Access token ngắn hạn trả trong response body; refresh token lưu dạng hash và gửi bằng HttpOnly/Secure/SameSite cookie; rotation, reuse detection và logout được phân biệt | #24 |
 | FR-03 | Profile | Customer xem và cập nhật hồ sơ/sở thích | Chỉ tài khoản hiện tại được cập nhật; dữ liệu được validate | #25 |
 | FR-04 | Feedback | Customer gửi feedback và rating sau khi đã mua sản phẩm | Rating trong khoảng 1–5; backend xác nhận Customer có đơn hợp lệ chứa sản phẩm; mỗi Customer chỉ feedback một lần cho một sản phẩm | #26 |
 | FR-05 | Survey | Customer xem và trả lời khảo sát | Chỉ khảo sát đã phát hành được trả lời; câu trả lời bắt buộc được kiểm tra | #27 |
@@ -163,8 +163,11 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 
 - Email tài khoản phải duy nhất.
 - Mật khẩu phải được hash bằng BCrypt hoặc cơ chế tương đương.
-- Access token nên có thời hạn ngắn. Refresh token phải lưu dưới dạng hash cùng `user_id`, `expires_at`, token family và trạng thái; mỗi lần refresh phải revoke token cũ và phát token mới. Logout, đổi mật khẩu và khóa tài khoản phải có khả năng revoke refresh token.
-- Refresh token đã revoke hoặc bị tái sử dụng phải bị từ chối và có thể revoke toàn bộ token family để chống replay.
+- Access token nên có thời hạn ngắn và chỉ nằm trong memory của frontend. Refresh token phải lưu dưới dạng hash cùng `user_id`, `expires_at`, token family, trạng thái và `revoke_reason`; token được gửi bằng `HttpOnly`, `Secure`, `SameSite` cookie, không lưu trong localStorage hoặc truy cập được bởi JavaScript.
+- Mỗi lần refresh hợp lệ phải revoke token cũ với lý do `ROTATED` và phát token mới trong cùng family. Token hết hạn hoặc bị revoke bởi logout/admin chỉ trả lỗi, không tự động revoke cả family.
+- Nếu token đã ở trạng thái `ROTATED`/`USED` nhưng bị gửi lại, đó là reuse detection: revoke toàn bộ token family, ghi security event và trả `401 REFRESH_TOKEN_REUSE_DETECTED`.
+- Logout bình thường chỉ revoke refresh token hiện tại với lý do `LOGOUT` và xóa cookie. Logout tất cả thiết bị, nếu có, là thao tác riêng để revoke toàn bộ family.
+- Đổi mật khẩu, khóa tài khoản và security reset phải có khả năng revoke refresh token đang hoạt động.
 - Customer chỉ truy cập dữ liệu thuộc tài khoản của mình.
 - Rating nằm trong khoảng 1–5.
 - Customer chỉ được feedback/rating sản phẩm khi có `order_items` tương ứng trong một đơn hàng hợp lệ. MVP xem đơn hàng có trạng thái `CONFIRMED`, `SHIPPED`, `DELIVERED` hoặc `COMPLETED` là đã mua; đơn `CANCELLED` không đủ điều kiện.

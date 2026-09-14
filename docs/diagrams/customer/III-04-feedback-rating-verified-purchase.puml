@@ -20,7 +20,11 @@ alt Invalid or missing JWT
     API --> Web: 401 UNAUTHORIZED
     Web --> Customer: Redirect to login
 else Authenticated customer
-    API -> DB: Check eligible order_items and order status
+    API -> DB: Check order_items and status\n(CONFIRMED/SHIPPED/DELIVERED/COMPLETED)
+    note right of DB
+      PENDING_PAYMENT and CANCELLED
+      do not grant feedback eligibility.
+    end note
 
     alt No eligible purchase
         API --> Web: 403 PURCHASE_REQUIRED
