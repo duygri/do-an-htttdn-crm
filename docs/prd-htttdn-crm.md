@@ -114,7 +114,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | Mã | Nhóm | Yêu cầu | Tiêu chí nghiệm thu | Issue |
 | --- | --- | --- | --- | --- |
 | FR-01 | Account | Customer đăng ký tài khoản | Email không trùng, trường bắt buộc được kiểm tra, mật khẩu không lưu plaintext | #23 |
-| FR-02 | Authentication | Customer đăng nhập và truy cập khu vực được phép | Sai thông tin trả lỗi; phiên đăng nhập được xác thực | #24 |
+| FR-02 | Authentication | Customer đăng nhập, refresh phiên và đăng xuất | Access token ngắn hạn; refresh token được lưu dạng hash, có rotation, revoke và logout rõ ràng | #24 |
 | FR-03 | Profile | Customer xem và cập nhật hồ sơ/sở thích | Chỉ tài khoản hiện tại được cập nhật; dữ liệu được validate | #25 |
 | FR-04 | Feedback | Customer gửi feedback và rating sau khi đã mua sản phẩm | Rating trong khoảng 1–5; backend xác nhận Customer có đơn hợp lệ chứa sản phẩm; mỗi Customer chỉ feedback một lần cho một sản phẩm | #26 |
 | FR-05 | Survey | Customer xem và trả lời khảo sát | Chỉ khảo sát đã phát hành được trả lời; câu trả lời bắt buộc được kiểm tra | #27 |
@@ -154,22 +154,28 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | `surveys` | Thông tin khảo sát, trạng thái phát hành và thời gian áp dụng |
 | `survey_responses` | Câu trả lời của Customer |
 | `products` | Sản phẩm, giá, mô tả và tồn kho |
-| `orders` | Customer, tổng tiền và trạng thái đơn hàng |
+| `orders` | Customer, tổng tiền, trạng thái đơn hàng và trạng thái thanh toán |
 | `order_items` | Sản phẩm, số lượng và đơn giá trong đơn hàng |
+| `refresh_tokens` | Hash refresh token, user, token family, thời hạn và trạng thái revoke |
+| `payment_events` | Sự kiện IPN, mã giao dịch và khóa idempotency của payment gateway |
 
 ### 8.2. Quy tắc chính
 
 - Email tài khoản phải duy nhất.
 - Mật khẩu phải được hash bằng BCrypt hoặc cơ chế tương đương.
+- Access token nên có thời hạn ngắn. Refresh token phải lưu dưới dạng hash cùng `user_id`, `expires_at`, token family và trạng thái; mỗi lần refresh phải revoke token cũ và phát token mới. Logout, đổi mật khẩu và khóa tài khoản phải có khả năng revoke refresh token.
+- Refresh token đã revoke hoặc bị tái sử dụng phải bị từ chối và có thể revoke toàn bộ token family để chống replay.
 - Customer chỉ truy cập dữ liệu thuộc tài khoản của mình.
 - Rating nằm trong khoảng 1–5.
 - Customer chỉ được feedback/rating sản phẩm khi có `order_items` tương ứng trong một đơn hàng hợp lệ. MVP xem đơn hàng có trạng thái `CONFIRMED`, `SHIPPED`, `DELIVERED` hoặc `COMPLETED` là đã mua; đơn `CANCELLED` không đủ điều kiện.
-- Database nên có unique constraint trên cặp `(customer_id, product_id)` trong feedback để bảo đảm một Customer không gửi feedback trùng cho cùng sản phẩm. Backend bắt lỗi constraint và trả `409 DUPLICATE_FEEDBACK`.
+- Database phải có unique constraint trên cặp `(customer_id, product_id)` trong feedback. Sau khi kiểm tra quyền mua, backend insert trực tiếp; không dùng bước check-trước làm cơ chế chống race condition. Bắt lỗi constraint và trả `409 DUPLICATE_FEEDBACK`.
 - Không tạo đơn với sản phẩm không tồn tại hoặc số lượng không hợp lệ.
 - Tổng tiền lấy từ `order_items`, không tin giá trị do frontend gửi lên.
 - Đơn hàng phải lưu `payment_method`, `payment_status`, `gateway_txn_ref`, `gateway_transaction_no`, `payment_response_code` và thời điểm thanh toán nếu có.
 - `PENDING_PAYMENT` chưa được xem là thanh toán thành công. Chỉ IPN hợp lệ từ VNPay mới được chuyển payment status sang `PAID` và order status sang `CONFIRMED`.
-- Xử lý IPN phải idempotent: callback lặp lại không được tạo giao dịch hoặc trừ tồn kho lần thứ hai.
+- Xử lý IPN phải idempotent: khóa bản ghi order/payment bằng `SELECT ... FOR UPDATE` và lưu event với unique key như `(order_id, ipn_type)` hoặc gateway event key; callback lặp lại không được tạo giao dịch hoặc trừ tồn kho lần thứ hai.
+- IPN hợp lệ và IPN đã xử lý phải trả HTTP 200 với `{"RspCode":"00","Message":"Confirm Success"}`; chữ ký hoặc dữ liệu không hợp lệ phải trả mã lỗi phù hợp và không cập nhật đơn.
+- Scheduled job phải hủy đơn `PENDING_PAYMENT` quá thời hạn, chuyển payment sang `EXPIRED`, chuyển order sang `CANCELLED` và release tồn kho đúng một lần.
 - Khóa ngoại không được tạo bản ghi mồ côi.
 - Trạng thái đơn hàng chỉ chuyển theo luồng đã thống nhất.
 - Survey chỉ nhận response khi đã phát hành và còn hiệu lực.
@@ -223,8 +229,11 @@ MVP sử dụng môi trường Sandbox của VNPay, không dùng merchant produc
 | Chữ ký | Sắp xếp tham số theo tên, tạo checksum bằng secret key và không đưa secret ra frontend |
 | Return URL | Kiểm tra checksum và hiển thị kết quả cho Customer; không dùng Return URL làm nguồn duy nhất để chốt đơn |
 | IPN URL | Endpoint server-to-server kiểm tra checksum, mã đơn, số tiền và trạng thái; cập nhật thanh toán idempotent |
+| IPN acknowledgment | Callback hợp lệ hoặc đã xử lý trả HTTP 200 với `{"RspCode":"00","Message":"Confirm Success"}`; callback không hợp lệ không cập nhật order |
+| IPN concurrency | Khóa order/payment bằng `SELECT ... FOR UPDATE` và lưu event bằng unique key để chống check-then-insert race |
 | Thành công | `vnp_ResponseCode=00` và `vnp_TransactionStatus=00` → `PAID`/`CONFIRMED` |
 | Thất bại/hết hạn | Cập nhật `FAILED` hoặc `CANCELLED`, giải phóng phần tồn kho đã reserve |
+| Dọn đơn treo | Scheduled job định kỳ tìm `PENDING_PAYMENT` quá timeout, chuyển `EXPIRED`/`CANCELLED` và release tồn kho một lần |
 | Local demo | Dùng HTTPS tunnel hoặc môi trường có URL public để VNPay gọi được IPN URL |
 
 Không commit `VNPAY_TMN_CODE` hoặc `VNPAY_HASH_SECRET` vào repository. Dùng biến môi trường hoặc file local bị `.gitignore` loại trừ. Tài liệu tham khảo: [VNPay payment integration](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html), [VNPay introduction and configuration](https://sandbox.vnpayment.vn/apis/docs/gioi-thieu/), [VNPay FAQ về Return URL và IPN](https://sandbox.vnpayment.vn/apis/docs/faqs/).
