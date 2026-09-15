@@ -3,8 +3,14 @@ name: Backend Check
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-check.yml'
   push:
     branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-check.yml'
   workflow_dispatch:
 
 permissions:
