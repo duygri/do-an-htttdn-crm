@@ -4,7 +4,7 @@ title Tạo và gửi bảng khảo sát đến khách hàng
 actor ADMIN as Admin
 boundary "Trang quản lý khảo sát" as Boundary
 control "Control tạo và gửi khảo sát" as Control
-database "e_bảng khảo sát" as Entity
+entity "e_bảng khảo sát" as Entity
 
 Admin -> Boundary: 1 Truy cập trang quản lý khảo sát
 Boundary -> Control: 1.1 Gửi yêu cầu tạo bảng khảo sát mới
@@ -13,15 +13,15 @@ Boundary -> Control: 2.1 Truyền dữ liệu câu hỏi đến bộ điều khi
 Control -> Entity: 2.1.1 Lưu thông tin bảng khảo sát vào CSDL
 Entity --> Control: 2.1.1.1 Trả kết quả lưu thành công
 
-alt Gửi khảo sát thành công
-  Control -> Entity: Kích hoạt tác vụ phân phối khảo sát đến khách hàng
-  Entity --> Control: Xác nhận đã gửi thông báo/email cho khách hàng
-  Control -> Boundary: Hiển thị thông báo tạo và gửi khảo sát thành công
-  Boundary --> Admin: Thông báo hoàn tất đến Admin
-else Gửi khảo sát thất bại hoặc lưu nháp
-  Control -> Entity: Cập nhật trạng thái bản nháp
-  Entity --> Control: Trả kết quả khảo sát
-  Control -> Boundary: Báo lỗi hoặc lưu nháp thành công
-  Boundary --> Admin: Hiển thị kết quả
+alt 2.1.1.1.1.1 Gửi khảo sát thành công
+  Control -> Entity: 2.1.1.1.1.1.1 Kích hoạt tác vụ phân phối khảo sát đến khách hàng
+  Entity --> Control: 2.1.1.1.1.1.1.1 Xác nhận đã gửi thông báo/email cho khách hàng
+  Control -> Boundary: 2.1.1.1.1.1.1.1.1 Hiển thị thông báo tạo và gửi khảo sát thành công
+  Boundary --> Admin: 2.1.1.1.1.1.1.1.1.1 Thông báo hoàn tất đến Admin
+else 2.1.1.1.1.1 Gửi khảo sát thất bại hoặc lưu nháp
+  Control -> Entity: 2.1.1.1.1.1.1.2 Cập nhật trạng thái bản nháp
+  Entity --> Control: 2.1.1.1.1.1.1.3 Trả kết quả khảo sát
+  Control -> Boundary: 2.1.1.1.1.1.1.4 Báo lỗi hoặc lưu nháp thành công
+  Boundary --> Admin: 2.1.1.1.1.1.1.4.1 Hiển thị kết quả
 end
 @enduml

@@ -4,7 +4,7 @@ title Quản lý danh mục và thông tin sản phẩm
 actor ADMIN as Admin
 boundary "Trang quản lý sản phẩm" as Boundary
 control "Control quản lý sản phẩm" as Control
-database "e_sản phẩm và kho" as Entity
+entity "e_sản phẩm và kho" as Entity
 
 Admin -> Boundary: 1 Truy cập trang quản lý sản phẩm
 Boundary -> Control: 1.1 Gửi yêu cầu xem danh sách sản phẩm và kho

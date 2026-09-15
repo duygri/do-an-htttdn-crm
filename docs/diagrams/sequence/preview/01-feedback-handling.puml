@@ -4,7 +4,7 @@ title Tiếp nhận và xử lý phản hồi của khách hàng
 actor ADMIN as Admin
 boundary "Trang quản lý khiếu nại" as Boundary
 control "Control xử lý phản hồi" as Control
-database "e_phản hồi khách hàng" as Entity
+entity "e_phản hồi khách hàng" as Entity
 
 Admin -> Boundary: 1 Truy cập trang quản lý khiếu nại
 Boundary -> Control: 1.1 Gửi yêu cầu xem danh sách phản hồi
@@ -23,7 +23,8 @@ alt Duyệt thành công
   Boundary --> Admin: 2.3 Đã duyệt thành công
 else Duyệt thất bại
   Control -> Entity: 2.4 Ghi nhận lý do từ chối
-  Control -> Boundary: 2.4.1 Báo lỗi/từ chối thành công
-  Boundary --> Admin: 2.4.2 Duyệt thất bại
+  Entity --> Control: 2.4.1 Xác nhận ghi nhận lý do từ chối
+  Control -> Boundary: 2.4.2 Báo lỗi/từ chối thành công
+  Boundary --> Admin: 2.4.3 Duyệt thất bại
 end
 @enduml

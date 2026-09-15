@@ -4,7 +4,7 @@ title Quản lý và duyệt đơn hàng bán
 actor ADMIN as Admin
 boundary "Trang quản lý đơn hàng" as Boundary
 control "Control xử lý đơn hàng" as Control
-database "e_đơn hàng" as Entity
+entity "e_đơn hàng" as Entity
 
 Admin -> Boundary: 1 Truy cập trang quản lý đơn hàng
 Boundary -> Control: 1.1 Gửi yêu cầu xem danh sách đơn hàng chờ duyệt

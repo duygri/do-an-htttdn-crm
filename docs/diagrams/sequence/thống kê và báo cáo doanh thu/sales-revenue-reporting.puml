@@ -1,21 +1,21 @@
 @startuml
-title II-08 - Admin Sales: Sales-revenue reporting
+title Thống kê và báo cáo doanh thu
 
 actor ADMIN as Admin
-boundary "Trang thống kê báo cáo" as UI
-control "Control thống kê doanh thu" as Controller
-database "CSDL hóa đơn và sản phẩm" as DB
+boundary "Trang thống kê báo cáo" as Boundary
+control "Control thống kê doanh thu" as Control
+entity "e_doanh_thu" as Entity
 
-Admin -> UI: Truy cập trang thống kê báo cáo
-Admin -> UI: Chọn mốc thời gian và tiêu chí
-UI -> Controller: Gửi yêu cầu tổng hợp dữ liệu
-Controller -> DB: Truy vấn dữ liệu hóa đơn, sản phẩm bán chạy và lợi nhuận
-DB --> Controller: Doanh thu, lợi nhuận, top sản phẩm
-Controller -> Controller: Tính toán và gom nhóm dữ liệu
-Controller --> UI: Truyền kết quả báo cáo
-UI --> Admin: Hiển thị bảng số liệu và biểu đồ
+Admin -> Boundary: 1 Truy cập trang thống kê báo cáo
+Admin -> Boundary: 2 Chọn mốc thời gian và tiêu chí thống kê
+Boundary -> Control: 2.1 Gửi yêu cầu tổng hợp dữ liệu thống kê
+Control -> Entity: 2.1.1 Truy vấn dữ liệu hóa đơn, sản phẩm bán chạy và lợi nhuận
+Entity --> Control: 2.1.1.1 Trả về dữ liệu thô
+Control -> Control: 2.1.1.1.1 Tính toán và gom nhóm dữ liệu biểu đồ
+Control -> Boundary: 2.1.1.1.2 Truyền kết quả báo cáo hiển thị
+Boundary --> Admin: 2.1.1.1.2.1 Hiển thị bảng số liệu và biểu đồ
 
-note right of Controller
+note right of Control
   Tiêu chí báo cáo:
   - Doanh thu theo thời gian
   - Sản phẩm bán chạy

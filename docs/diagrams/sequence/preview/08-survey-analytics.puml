@@ -4,7 +4,7 @@ title Thống kê và phân tích kết quả khảo sát
 actor ADMIN as Admin
 boundary "Trang thống kê khảo sát" as Boundary
 control "Control phân tích chỉ số CSAT" as Control
-database "e_kết quả khảo sát" as Entity
+entity "e_kết quả khảo sát" as Entity
 
 Admin -> Boundary: 1 Truy cập trang thống kê và phân tích khảo sát
 Boundary -> Control: 1.1 Gửi yêu cầu thống kê và phân tích khảo sát

@@ -4,7 +4,7 @@ title Báo cáo khách hàng (nhân khẩu học, độ tuổi, sở thích)
 actor ADMIN as Admin
 boundary "Trang báo cáo khách hàng" as Boundary
 control "Control phân tích khách hàng" as Control
-database "e_hồ sơ khách hàng" as Entity
+entity "e_hồ sơ khách hàng" as Entity
 
 Admin -> Boundary: 1 Truy cập trang báo cáo khách hàng
 Admin -> Boundary: 2 Chọn tiêu chí trích xuất (nhân khẩu học, độ tuổi, sở thích)
