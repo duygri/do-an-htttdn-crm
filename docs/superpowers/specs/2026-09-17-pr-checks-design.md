@@ -30,9 +30,12 @@ The `CodeQL` workflow analyzes Java with manual build mode and runs the Maven pa
 
 ### Path-to-workflow mapping
 
+The entries under each `paths` list are ORed. A trigger runs when at least one listed path changes.
+
 | Changed area | Backend Check | CodeQL |
 |---|---:|---:|
 | `backend/**` | Run | Run |
+| `backend/README.md` | Run | Run |
 | `.github/workflows/backend-check.yml` | Run | Skip |
 | `.github/workflows/codeql.yml` | Skip | Run |
 | both workflow files | Run | Run |
@@ -42,6 +45,15 @@ The `CodeQL` workflow analyzes Java with manual build mode and runs the Maven pa
 | mixed backend + frontend/docs changes | Run | Run |
 
 Root-level files do not trigger these workflows because the repository's Maven project is under `backend/`. If a root-level build configuration is introduced later, the path filters must be revisited.
+
+### Event behavior
+
+| Event | Backend Check | CodeQL | Path-filtered |
+|---|---|---|---:|
+| `pull_request` targeting `main` | Enabled | Enabled | Yes |
+| `push` to `main` | Enabled | Enabled | Yes |
+| `workflow_dispatch` | Enabled | Enabled | No |
+| CodeQL `schedule` at `30 2 * * 1` UTC | N/A | Enabled | No |
 
 ### Branch protection
 
