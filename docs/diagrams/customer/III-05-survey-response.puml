@@ -1,0 +1,48 @@
+@startuml
+title III-05 - Customer survey response
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Customer
+boundary "Customer Portal" as Web
+control "Survey API" as API
+database "CRM Database" as DB
+
+Customer -> Web: Open survey
+Web -> API: GET /api/surveys/{surveyId}
+API -> DB: Find published survey and questions
+
+alt Survey not found, unpublished or expired
+    API --> Web: 404 SURVEY_NOT_AVAILABLE
+    Web --> Customer: Show unavailable message
+else Survey available
+    DB --> API: Survey and questions
+    API --> Web: 200 Survey
+    Web --> Customer: Display questions
+    Customer -> Web: Answer required questions
+    Web -> API: POST /api/surveys/{surveyId}/responses
+    API -> API: Validate required answers and answer format
+
+    alt Missing or invalid answer
+        API --> Web: 400 VALIDATION_ERROR
+        Web --> Customer: Ask customer to complete answers
+    else Valid response
+        API -> DB: INSERT survey_response
+
+        alt Duplicate response constraint violation
+            DB --> API: UNIQUE(customer_id, survey_id) violation
+            API --> Web: 409 DUPLICATE_RESPONSE
+            Web --> Customer: Survey already submitted
+        else Response saved
+            DB --> API: Response created
+            API --> Web: 201 Created
+            Web --> Customer: Show completion result
+        end
+    end
+end
+
+@enduml
