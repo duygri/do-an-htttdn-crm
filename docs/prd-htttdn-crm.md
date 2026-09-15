@@ -58,7 +58,7 @@ Dữ liệu khách hàng và bán hàng thường bị phân tán trong nhiều 
 - Tạo, phát hành, trả lời và thống kê khảo sát.
 - Danh mục sản phẩm và tồn kho.
 - Giỏ hàng, đặt hàng, lịch sử đơn hàng và trạng thái giao hàng.
-- Thanh toán trực tuyến qua VNPay Sandbox, Return URL và server-to-server IPN.
+- Thanh toán trực tuyến qua payOS, Return URL/cancelUrl và webhook.
 - Báo cáo khách hàng, khảo sát và doanh thu.
 - Kiểm thử, tài liệu kỹ thuật và demo.
 
@@ -119,7 +119,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | FR-04 | Feedback | Customer gửi feedback và rating sau khi đã mua sản phẩm | Rating trong khoảng 1–5; backend xác nhận Customer có đơn hợp lệ chứa sản phẩm; mỗi Customer chỉ feedback một lần cho một sản phẩm | #26 |
 | FR-05 | Survey | Customer xem và trả lời khảo sát | Chỉ khảo sát đã phát hành được trả lời; câu trả lời bắt buộc được kiểm tra | #27 |
 | FR-06 | Catalog | Customer xem, tìm kiếm và lọc sản phẩm | Hiển thị đúng tên, giá, tồn kho và bộ lọc | #28 |
-| FR-07 | Order/Payment | Customer quản lý giỏ hàng, tạo đơn và thanh toán qua VNPay Sandbox | Tồn kho được khóa trong transaction; đơn chuyển `PENDING_PAYMENT`; VNPAY Return URL chỉ hiển thị kết quả, IPN xác thực checksum và cập nhật trạng thái thanh toán idempotent | #21, #29 |
+| FR-07 | Order/Payment | Customer quản lý giỏ hàng, tạo đơn và thanh toán qua payOS | Tồn kho được khóa trong transaction; đơn chuyển `PENDING_PAYMENT`; Return URL/cancelUrl chỉ hiển thị kết quả, webhook xác thực chữ ký và cập nhật trạng thái thanh toán idempotent | #21, #29 |
 | FR-08 | Tracking | Customer xem lịch sử và trạng thái đơn | Không xem được đơn của Customer khác | #30 |
 | FR-09 | Customer Admin | Admin quản lý tài khoản Customer | Có tìm kiếm, phân trang, sửa và khóa tài khoản | #31 |
 | FR-10 | Feedback Admin | Admin xem và xử lý feedback | Có danh sách, chi tiết, cập nhật trạng thái và ghi nhận xử lý | #32 |
@@ -157,7 +157,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | `orders` | Customer, tổng tiền, trạng thái đơn hàng và trạng thái thanh toán |
 | `order_items` | Sản phẩm, số lượng và đơn giá trong đơn hàng |
 | `refresh_tokens` | Hash refresh token, user, token family, thời hạn và trạng thái revoke |
-| `payment_events` | Sự kiện IPN, mã giao dịch và khóa idempotency của payment gateway |
+| `payment_events` | Sự kiện webhook, mã giao dịch và khóa idempotency của payment gateway |
 
 ### 8.2. Quy tắc chính
 
@@ -175,9 +175,9 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 - Không tạo đơn với sản phẩm không tồn tại hoặc số lượng không hợp lệ.
 - Tổng tiền lấy từ `order_items`, không tin giá trị do frontend gửi lên.
 - Đơn hàng phải lưu `payment_method`, `payment_status`, `gateway_txn_ref`, `gateway_transaction_no`, `payment_response_code` và thời điểm thanh toán nếu có.
-- `PENDING_PAYMENT` chưa được xem là thanh toán thành công. Chỉ IPN hợp lệ từ VNPay mới được chuyển payment status sang `PAID` và order status sang `CONFIRMED`.
-- Xử lý IPN phải idempotent: khóa bản ghi order/payment bằng `SELECT ... FOR UPDATE` và lưu event với unique key như `(order_id, ipn_type)` hoặc gateway event key; callback lặp lại không được tạo giao dịch hoặc trừ tồn kho lần thứ hai.
-- IPN hợp lệ lần đầu phải trả HTTP 200 với `{"RspCode":"00","Message":"Confirm Success"}`; IPN lặp lại cho đơn đã chốt trả HTTP 200 với `{"RspCode":"02","Message":"Order already confirmed"}`; chữ ký hoặc dữ liệu không hợp lệ phải trả mã lỗi phù hợp và không cập nhật đơn.
+- `PENDING_PAYMENT` chưa được xem là thanh toán thành công. Chỉ webhook payOS hợp lệ mới được chuyển payment status sang `PAID` và order status sang `CONFIRMED`.
+- Xử lý webhook phải idempotent: khóa bản ghi order/payment bằng `SELECT ... FOR UPDATE` và lưu event với unique key như `(order_id, webhook_type, gateway_reference)`; callback lặp lại không được tạo giao dịch hoặc trừ tồn kho lần thứ hai.
+- Webhook hợp lệ lần đầu hoặc đã xử lý phải trả HTTP 2xx; chữ ký, `orderCode` hoặc số tiền không hợp lệ phải bị từ chối và không cập nhật đơn.
 - Scheduled job phải hủy đơn `PENDING_PAYMENT` quá thời hạn, chuyển payment sang `EXPIRED`, chuyển order sang `CANCELLED` và release tồn kho đúng một lần.
 - Khóa ngoại không được tạo bản ghi mồ côi.
 - Trạng thái đơn hàng chỉ chuyển theo luồng đã thống nhất.
@@ -219,27 +219,28 @@ React Customer Portal       React Admin Portal
 
 API dùng JSON và status code phù hợp `200`, `201`, `400`, `401`, `403`, `404`, `409`, `500`. Lỗi nên có mã lỗi và thông báo có thể hiển thị trên frontend.
 
-### 10.1. Tích hợp thanh toán VNPay Sandbox
+### 10.1. Tích hợp thanh toán payOS
 
-MVP sử dụng môi trường Sandbox của VNPay, không dùng merchant production và không xử lý tiền thật. Backend tạo URL thanh toán từ các tham số đã ký, chuyển Customer sang VNPay, nhận kết quả hiển thị qua Return URL và cập nhật trạng thái giao dịch qua IPN URL.
+MVP sử dụng payOS cho thanh toán chuyển khoản/VietQR. payOS hiện không có môi trường Sandbox/Staging riêng; kiểm thử phải dùng tài khoản payOS đã xác thực và giao dịch thật giá trị nhỏ. Backend tạo payment link, chuyển Customer sang checkoutUrl, nhận kết quả hiển thị qua Return URL/cancelUrl và cập nhật trạng thái giao dịch qua webhook.
 
 | Thành phần | Quy định |
 | --- | --- |
-| Sandbox payment URL | `https://sandbox.vnpayment.vn/paymentv2/vpcpay.html` |
-| Cấu hình bắt buộc | `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAYMENT_URL`, `VNPAY_RETURN_URL`, `VNPAY_IPN_URL` |
-| Tạo giao dịch | Backend tạo order trước, lưu `PENDING_PAYMENT`, tạo `vnp_TxnRef` duy nhất và số tiền theo đơn hàng |
-| Số tiền | Gửi theo đơn vị nhỏ nhất theo đặc tả VNPay, tức số tiền VND nhân 100 |
-| Chữ ký | Sắp xếp tham số theo tên, tạo checksum bằng secret key và không đưa secret ra frontend |
-| Return URL | Kiểm tra checksum và hiển thị kết quả cho Customer; không dùng Return URL làm nguồn duy nhất để chốt đơn |
-| IPN URL | Endpoint server-to-server kiểm tra checksum, mã đơn, số tiền và trạng thái; cập nhật thanh toán idempotent |
-| IPN acknowledgment | Callback hợp lệ lần đầu trả `RspCode=00`; callback đã xử lý trả `RspCode=02`; cả hai đều HTTP 200, callback không hợp lệ không cập nhật order |
-| IPN concurrency | Khóa order/payment bằng `SELECT ... FOR UPDATE` và lưu event bằng unique key để chống check-then-insert race |
-| Thành công | `vnp_ResponseCode=00` và `vnp_TransactionStatus=00` → `PAID`/`CONFIRMED` |
-| Thất bại/hết hạn | Cập nhật `FAILED` hoặc `CANCELLED`, giải phóng phần tồn kho đã reserve |
-| Dọn đơn treo | Scheduled job định kỳ tìm `PENDING_PAYMENT` quá timeout, chuyển `EXPIRED`/`CANCELLED` và release tồn kho một lần |
-| Local demo | Dùng HTTPS tunnel hoặc môi trường có URL public để VNPay gọi được IPN URL |
+| API base URL | `https://api-merchant.payos.vn` |
+| Tạo payment link | `POST /v2/payment-requests` với `orderCode` số nguyên duy nhất, `amount`, `description`, `items`, `returnUrl`, `cancelUrl`, `expiredAt` |
+| Cấu hình bắt buộc | `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`, `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL`, `PAYOS_WEBHOOK_URL` |
+| Tạo giao dịch | Backend tạo order trước, lưu `PENDING_PAYMENT`, tạo `orderCode`/payment link duy nhất và trả `checkoutUrl` cho frontend |
+| Số tiền | Gửi trực tiếp theo số tiền VND của đơn hàng |
+| Chữ ký tạo link | Dùng HMAC-SHA256 với checksum key, chuỗi dữ liệu sắp xếp theo alphabet; secret chỉ nằm ở backend |
+| Return/cancel URL | Nhận query params để hiển thị kết quả cho Customer; không dùng làm nguồn duy nhất để chốt đơn |
+| Webhook | Endpoint public HTTPS kiểm tra `signature`, `orderCode`, `amount`, `data.code` và trạng thái trước khi cập nhật order |
+| Webhook acknowledgment | Webhook hợp lệ hoặc đã xử lý trả HTTP 2xx; chữ ký/dữ liệu sai trả lỗi và không cập nhật order |
+| Thành công | `success=true`, webhook `code=00` và giao dịch hợp lệ → `PAID`/`CONFIRMED` |
+| Thất bại/hủy/hết hạn | Cập nhật `FAILED`, `CANCELLED` hoặc `EXPIRED`, giải phóng phần tồn kho đã reserve |
+| Webhook concurrency | Khóa order/payment bằng `SELECT ... FOR UPDATE` và lưu event bằng unique key để chống check-then-insert race |
+| Dọn đơn treo | Scheduled job định kỳ tìm `PENDING_PAYMENT` quá timeout hoặc payment link hết hạn, chuyển `EXPIRED`/`CANCELLED` và release tồn kho một lần |
+| Local demo | Dùng HTTPS tunnel hoặc môi trường có URL public để payOS gọi được webhook |
 
-Không commit `VNPAY_TMN_CODE` hoặc `VNPAY_HASH_SECRET` vào repository. Dùng biến môi trường hoặc file local bị `.gitignore` loại trừ. Tài liệu tham khảo: [VNPay payment integration](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html), [VNPay introduction and configuration](https://sandbox.vnpayment.vn/apis/docs/gioi-thieu/), [VNPay FAQ về Return URL và IPN](https://sandbox.vnpayment.vn/apis/docs/faqs/).
+Không commit `PAYOS_CLIENT_ID`, `PAYOS_API_KEY` hoặc `PAYOS_CHECKSUM_KEY` vào repository. Dùng biến môi trường hoặc file local bị `.gitignore` loại trừ. Tài liệu tham khảo: [payOS API](https://payos.vn/docs/api/), [payOS webhook](https://payos.vn/docs/du-lieu-tra-ve/webhook/), [payOS signature](https://payos.vn/docs/tich-hop-webhook/kiem-tra-du-lieu-voi-signature/), [payOS test environment](https://payos.vn/docs/moi-truong-test/).
 
 ## 11. Dependency và kế hoạch triển khai
 
