@@ -9,7 +9,7 @@ database "CSDL hóa đơn và sản phẩm" as DB
 Admin -> UI: Truy cập trang thống kê báo cáo
 Admin -> UI: Chọn mốc thời gian và tiêu chí
 UI -> Controller: Gửi yêu cầu tổng hợp dữ liệu
-Controller -> DB: Truy vấn hóa đơn và sản phẩm bán chạy
+Controller -> DB: Truy vấn dữ liệu hóa đơn, sản phẩm bán chạy và lợi nhuận
 DB --> Controller: Doanh thu, lợi nhuận, top sản phẩm
 Controller -> Controller: Tính toán và gom nhóm dữ liệu
 Controller --> UI: Truyền kết quả báo cáo

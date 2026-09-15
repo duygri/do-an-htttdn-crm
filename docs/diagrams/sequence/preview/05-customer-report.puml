@@ -1,0 +1,17 @@
+@startuml
+title Báo cáo khách hàng (nhân khẩu học, độ tuổi, sở thích)
+
+actor ADMIN as Admin
+boundary "Trang báo cáo khách hàng" as Boundary
+control "Control phân tích khách hàng" as Control
+database "e_hồ sơ khách hàng" as Entity
+
+Admin -> Boundary: 1 Truy cập trang báo cáo khách hàng
+Admin -> Boundary: 2 Chọn tiêu chí trích xuất (nhân khẩu học, độ tuổi, sở thích)
+Boundary -> Control: 2.1 Gửi yêu cầu trích xuất dữ liệu báo cáo
+Control -> Entity: 2.1.1 Truy vấn dữ liệu khách hàng theo tiêu chí
+Entity --> Control: 2.1.1.1 Trả về tập dữ liệu thô khách hàng
+Control -> Control: 2.1.1.1.1 Tổng hợp và phân loại nhóm khách hàng
+Control -> Boundary: 2.1.1.1.2 Truyền dữ liệu báo cáo hiển thị
+Boundary --> Admin: 2.1.1.1.2.1 Hiển thị bảng/biểu đồ phân tích
+@enduml
