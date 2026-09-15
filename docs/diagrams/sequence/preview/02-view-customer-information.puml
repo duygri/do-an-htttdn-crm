@@ -1,0 +1,21 @@
+@startuml
+title Xem thông tin khách hàng
+
+actor ADMIN as Admin
+boundary "Trang thông tin khách hàng" as Boundary
+control "Control xem thông tin khách hàng" as Control
+entity "e_xem thông tin khách hàng" as Entity
+
+Admin -> Boundary: 1 Truy cập trang quản lý khách hàng
+Boundary -> Control: 1.1 Gửi yêu cầu xem thông tin khách hàng
+Control -> Entity: 1.1.1 Chọn khách hàng cần xem
+Entity --> Control: 1.1.1.1 Trả về kết quả thông tin khách hàng cần xem
+
+alt Không tìm thấy / xem thông tin thất bại
+  Control -> Boundary: 1.1.1.1.1 Thông báo không tìm thấy thông tin khách hàng
+  Boundary --> Admin: 1.1.1.1.1.1 Thông báo xem thông tin khách hàng thất bại
+else Đã tìm thấy / xem thông tin thành công
+  Control -> Boundary: 1.1.1.1.1 Hiển thị thông tin khách hàng
+  Boundary --> Admin: 1.1.1.1.1.1 Thông báo xem thông tin khách hàng thành công
+end
+@enduml
