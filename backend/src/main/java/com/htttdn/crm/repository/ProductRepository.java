@@ -1,0 +1,2 @@
+package com.htttdn.crm.repository; import com.htttdn.crm.entity.Product; import org.springframework.data.jpa.repository.*; import org.springframework.data.domain.Page; import java.util.*; import java.math.*;
+public interface ProductRepository extends JpaRepository<Product,Long> { Page<Product> findByNameContainingIgnoreCaseAndActiveTrue(String n,org.springframework.data.domain.Pageable p); Optional<Product> findByIdAndActiveTrue(Long id); long countByActiveTrue(); }
