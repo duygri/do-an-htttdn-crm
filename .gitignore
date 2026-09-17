@@ -26,3 +26,5 @@ Thumbs.db
 # Test artifacts
 test-results/
 playwright-report/
+# Java/Maven build output
+backend/target/
