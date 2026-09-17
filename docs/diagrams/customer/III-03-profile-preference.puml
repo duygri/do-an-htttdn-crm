@@ -20,7 +20,7 @@ alt Missing or invalid JWT
     API --> Web: 401 UNAUTHORIZED
     Web --> Customer: Redirect to login
 else Authenticated
-    API -> DB: SELECT own profile and preferences
+    API -> DB: Load current customer's profile and preferences
     DB --> API: Profile data
     API --> Web: 200 Profile
     Web --> Customer: Display profile
@@ -33,7 +33,7 @@ else Authenticated
         API --> Web: 400 VALIDATION_ERROR
         Web --> Customer: Show field errors
     else Valid update
-        API -> DB: UPDATE own profile and preferences
+        API -> DB: Save profile and preference changes
         DB --> API: Updated profile
         API --> Web: 200 Updated profile
         Web --> Customer: Show saved changes

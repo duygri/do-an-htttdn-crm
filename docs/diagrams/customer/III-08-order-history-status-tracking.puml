@@ -20,14 +20,14 @@ alt Missing or invalid JWT
     API --> Web: 401 UNAUTHORIZED
     Web --> Customer: Redirect to login
 else Authenticated
-    API -> DB: SELECT orders WHERE customer_id = currentUser
+    API -> DB: Load orders belonging to the current customer
     DB --> API: Customer's orders and statuses
     API --> Web: 200 OrderHistory
     Web --> Customer: Display order history
 
     Customer -> Web: Select an order
     Web -> API: GET /api/orders/{orderId}
-    API -> DB: SELECT order and order_items
+    API -> DB: Load order details and purchased items
     API -> API: Check order ownership
 
     alt Order not found or belongs to another customer
