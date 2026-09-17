@@ -7,23 +7,23 @@ control "Control xử lý phản hồi" as Control
 database "e_phản hồi khách hàng" as Entity
 
 Admin -> Boundary: 1 Truy cập trang quản lý khiếu nại
-Boundary -> Control: 1.1 Gửi yêu cầu xem danh sách phản hồi
-Control -> Entity: 1.1.1 Lấy dữ liệu phản hồi chờ duyệt
-Entity --> Control: 1.1.1.1 Trả về danh sách phản hồi
-Control -> Boundary: 1.1.1.1.1 Hiển thị danh sách khiếu nại
-Boundary --> Admin: 1.1.1.1.1.1 Hiển thị danh sách được khiếu nại
+Boundary -> Control: 1. Gửi yêu cầu xem danh sách phản hồi
+Control -> Entity: 2. Lấy dữ liệu phản hồi chờ duyệt
+Entity --> Control: 3. Trả về danh sách phản hồi
+Control -> Boundary: 4. Hiển thị danh sách khiếu nại
+Boundary --> Admin: 5. Hiển thị danh sách được khiếu nại
 
-Admin -> Boundary: 2 Chọn khiếu nại và bấm duyệt/phản hồi
-Boundary -> Control: 2.1 Gửi thông tin xử lý (Duyệt/Từ chối)
+Admin -> Boundary: 6. Chọn khiếu nại và bấm duyệt/phản hồi
+Boundary -> Control: 7. Gửi thông tin xử lý (Duyệt/Từ chối)
 
 alt Duyệt thành công
-  Control -> Entity: 2.1.1 Cập nhật trạng thái đã duyệt và gửi thông báo
-  Entity --> Control: 2.1.2 Thông báo thành công
-  Control -> Boundary: 2.2 Gửi email/SMS phản hồi cho khách
-  Boundary --> Admin: 2.3 Đã duyệt thành công
+  Control -> Entity: 8. Cập nhật trạng thái đã duyệt và gửi thông báo
+  Entity --> Control: 9. Thông báo thành công
+  Control -> Boundary: 10. Gửi email/SMS phản hồi cho khách
+  Boundary --> Admin: 11. Đã duyệt thành công
 else Duyệt thất bại
-  Control -> Entity: 2.4 Ghi nhận lý do từ chối
-  Control -> Boundary: 2.4.1 Báo lỗi/từ chối thành công
-  Boundary --> Admin: 2.4.2 Duyệt thất bại
+  Control -> Entity: 12. Ghi nhận lý do từ chối
+  Control -> Boundary: 13. Báo lỗi/từ chối thành công
+  Boundary --> Admin: 14. Duyệt thất bại
 end
 @enduml
