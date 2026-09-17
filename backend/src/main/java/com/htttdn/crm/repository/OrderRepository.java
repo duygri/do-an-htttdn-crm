@@ -1,0 +1,2 @@
+package com.htttdn.crm.repository; import com.htttdn.crm.entity.*; import org.springframework.data.jpa.repository.*; import org.springframework.data.domain.Page; import java.util.*;
+public interface OrderRepository extends JpaRepository<Order,Long> { Page<Order> findByStatus(String status,org.springframework.data.domain.Pageable p); long countByStatus(String status); @Query("select coalesce(sum(o.totalAmount),0) from Order o where o.status <> 'CANCELLED'") java.math.BigDecimal revenue(); }
