@@ -1,6 +1,6 @@
 package com.htttdn.crm.controller;
-import com.htttdn.crm.entity.Order; import com.htttdn.crm.repository.OrderRepository; import com.htttdn.crm.dto.admin.AdminDtos.StatusRequest; import jakarta.validation.Valid; import org.springframework.data.domain.Page; import org.springframework.web.bind.annotation.*; import java.util.*; import java.time.Instant;
-@RestController @RequestMapping("/api/admin/orders") public class AdminOrderController extends AdminPageSupport { private final OrderRepository orders; private static final Set<String> STATUSES=Set.of("PENDING_PAYMENT","CONFIRMED","SHIPPED","DELIVERED","COMPLETED","CANCELLED"); public AdminOrderController(OrderRepository orders){this.orders=orders;}
- @GetMapping public Page<Order> list(@RequestParam(required=false)String status,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return status==null?orders.findAll(page(page,size)):orders.findByStatus(status,page(page,size));}
- @GetMapping("/{id}") public Order get(@PathVariable Long id){return orders.findById(id).orElseThrow();}
- @PatchMapping("/{id}/status") public Order updateStatus(@PathVariable Long id,@Valid @RequestBody StatusRequest r){if(!STATUSES.contains(r.status()))throw new IllegalArgumentException("Invalid order status");Order order=get(id);order.setStatus(r.status());order.setUpdatedAt(Instant.now());return orders.save(order);} }
+import com.htttdn.crm.entity.Order; import com.htttdn.crm.dto.admin.AdminDtos.StatusRequest; import com.htttdn.crm.service.AdminOrderService; import jakarta.validation.Valid; import org.springframework.data.domain.Page; import org.springframework.web.bind.annotation.*;
+@RestController @RequestMapping("/api/admin/orders") public class AdminOrderController { private final AdminOrderService service; public AdminOrderController(AdminOrderService service){this.service=service;}
+ @GetMapping public Page<Order> list(@RequestParam(required=false)String status,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return service.list(status,page,size);}
+ @GetMapping("/{id}") public Order get(@PathVariable Long id){return service.get(id);}
+ @PatchMapping("/{id}/status") public Order updateStatus(@PathVariable Long id,@Valid @RequestBody StatusRequest r){return service.updateStatus(id,r);} }
