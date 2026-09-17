@@ -1,9 +1,10 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 export async function api(path, options = {}) {
+  const token = localStorage.getItem('crm_access_token');
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) },
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -11,6 +12,11 @@ export async function api(path, options = {}) {
   }
   return response.status === 204 ? null : response.json();
 }
+
+export const authApi = {
+  login: (payload) => api('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  logout: () => api('/api/auth/logout', { method: 'POST' }).catch(() => null),
+};
 
 export const endpoints = {
   users: (q = '') => `/api/admin/users?q=${encodeURIComponent(q)}&page=0&size=8`,
