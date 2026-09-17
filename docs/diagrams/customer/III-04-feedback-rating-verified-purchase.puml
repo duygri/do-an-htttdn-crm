@@ -30,19 +30,19 @@ else Authenticated customer
         API --> Web: 403 PURCHASE_REQUIRED
         Web --> Customer: Show purchase-required message
     else Eligible purchase exists
-        API -> DB: INSERT feedback
+        API -> DB: Create feedback record
         note right of DB
-          UNIQUE(customer_id, product_id)
-          is the concurrency guard.
+          The database allows one feedback
+          per customer and product.
           Do not rely on a pre-check alone.
         end note
 
-        alt Insert succeeds
+        alt Create succeeds
             DB --> API: Feedback created
             API --> Web: 201 Created
             Web --> Customer: Show submitted feedback
-        else Unique constraint violation
-            DB --> API: Duplicate feedback constraint error
+        else Duplicate feedback rule triggered
+            DB --> API: Feedback already exists
             API --> Web: 409 DUPLICATE_FEEDBACK
             Web --> Customer: Show already-submitted message
         end

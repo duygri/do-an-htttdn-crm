@@ -31,10 +31,10 @@ else Survey available
         API --> Web: 400 VALIDATION_ERROR
         Web --> Customer: Ask customer to complete answers
     else Valid response
-        API -> DB: INSERT survey_response
+        API -> DB: Save survey response
 
         alt Duplicate response constraint violation
-            DB --> API: UNIQUE(customer_id, survey_id) violation
+            DB --> API: Survey response already exists
             API --> Web: 409 DUPLICATE_RESPONSE
             Web --> Customer: Survey already submitted
         else Response saved

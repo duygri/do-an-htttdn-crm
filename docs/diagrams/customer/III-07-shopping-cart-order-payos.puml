@@ -27,18 +27,18 @@ Web --> Customer: Show updated cart
 
 Customer -> Web: Confirm address and payment method
 Web -> API: POST /api/orders\n(cart, address, paymentMethod)
-API -> DB: BEGIN transaction
+API -> DB: Start checkout transaction
 API -> DB: Lock products and read current stock
 
 alt Insufficient stock or invalid item
-    API -> DB: ROLLBACK
+    API -> DB: Cancel checkout and release changes
     API --> Web: 409 OUT_OF_STOCK / 400 INVALID_CART
     Web --> Customer: Show checkout error
 else Stock available
-    API -> DB: Insert order (PENDING_PAYMENT)
-    API -> DB: Insert order_items
-    API -> DB: Reserve/decrease stock
-    API -> DB: COMMIT transaction
+    API -> DB: Create pending order
+    API -> DB: Add order items
+    API -> DB: Reserve inventory atomically
+    API -> DB: Finish checkout transaction
     API -> API: Create unique numeric orderCode
     API -> PayOS: POST /v2/payment-requests\n(amount, items, returnUrl, cancelUrl, expiredAt, signature)
     PayOS --> API: checkoutUrl, paymentLinkId, status PENDING
@@ -66,23 +66,23 @@ else Stock available
     alt Invalid signature or mismatched data
         API --> PayOS: HTTP 400 Invalid webhook
     else Valid webhook
-        API -> DB: BEGIN payment update transaction
-        API -> DB: SELECT payment/order FOR UPDATE
-        API -> DB: Insert webhook event\nUNIQUE(order_id, webhook_type, gateway_reference)
+        API -> DB: Start payment update transaction
+        API -> DB: Lock and load payment/order
+        API -> DB: Record webhook event\nDatabase prevents duplicate event
 
         alt success=true and data.code=00
             API -> DB: Update payment PAID
             API -> DB: Update order CONFIRMED
-            API -> DB: COMMIT
+            API -> DB: Finish payment update
             API --> PayOS: HTTP 200 OK
         else Failed, cancelled or expired payment
             API -> DB: Update payment FAILED/CANCELLED/EXPIRED
             API -> DB: Release reserved stock once
-            API -> DB: COMMIT
+            API -> DB: Finish payment update
             API --> PayOS: HTTP 200 OK
         else Duplicate webhook callback
             API -> DB: No-op because event was processed
-            API -> DB: COMMIT
+            API -> DB: Finish payment update
             API --> PayOS: HTTP 200 OK
         end
     end
@@ -91,15 +91,15 @@ end
 == Expired pending-payment cleanup ==
 
 Job -> API: Run every 5 minutes
-API -> DB: BEGIN cleanup transaction
-API -> DB: SELECT PENDING_PAYMENT orders older than timeout\nFOR UPDATE SKIP LOCKED
+API -> DB: Start cleanup transaction
+API -> DB: Load expired pending orders with lock\nProcess batches without overlap
 alt Expired orders found
     API -> DB: Update payment EXPIRED
     API -> DB: Update order CANCELLED
     API -> DB: Release reserved stock once
-    API -> DB: COMMIT
+    API -> DB: Finish cleanup transaction
 else No expired orders
-    API -> DB: COMMIT
+    API -> DB: Finish cleanup transaction
 end
 
 note over API,PayOS
