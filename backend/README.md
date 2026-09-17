@@ -2,6 +2,20 @@
 
 Java 21 / Spring Boot REST backend for the admin CRM and sales module (issues V-01 through V-08). PostgreSQL is accessed through Spring Data JPA; Hibernate creates/updates the development schema.
 
+## Package structure
+
+```text
+com.htttdn.crm
+├── config/       # application and infrastructure configuration
+├── controller/   # REST controllers and HTTP mapping
+├── dto/          # request/response contracts (grouped by feature)
+├── entity/       # JPA entities and relationships
+├── exception/    # API exception handling and error responses
+├── repository/   # Spring Data repositories
+├── security/     # authentication/authorization filters
+└── service/      # business use cases (ready for feature services)
+```
+
 ## Run locally
 
 ```powershell

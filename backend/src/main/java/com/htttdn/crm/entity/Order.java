@@ -1,4 +1,4 @@
-package com.htttdn.crm.domain;
+package com.htttdn.crm.entity;
 import jakarta.persistence.*; import lombok.*; import java.math.BigDecimal; import java.time.Instant; import java.util.*; import com.fasterxml.jackson.annotation.JsonManagedReference;
 @Entity @Table(name="orders") @Getter @Setter @NoArgsConstructor
 public class Order { @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id; @Column(nullable=false,unique=true) private Long orderCode; @ManyToOne(optional=false) @JoinColumn(name="customer_id") private User customer; @Column(nullable=false,precision=15,scale=2) private BigDecimal totalAmount=BigDecimal.ZERO; private String status="PENDING_PAYMENT"; private String paymentStatus="PENDING"; private String paymentMethod; private String deliveryAddress; private Instant createdAt=Instant.now(); private Instant updatedAt=Instant.now(); @JsonManagedReference @OneToMany(mappedBy="order",cascade=CascadeType.ALL) private List<OrderItem> items=new ArrayList<>(); }

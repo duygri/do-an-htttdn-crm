@@ -1,6 +1,6 @@
-package com.htttdn.crm.web;
+package com.htttdn.crm.controller;
 
-import com.htttdn.crm.domain.*; import com.htttdn.crm.repo.*; import jakarta.transaction.Transactional; import jakarta.validation.Valid; import org.springframework.data.domain.*; import org.springframework.web.bind.annotation.*; import java.math.*; import java.time.*; import java.util.*;
+import com.htttdn.crm.entity.*; import com.htttdn.crm.repository.*; import jakarta.transaction.Transactional; import jakarta.validation.Valid; import org.springframework.data.domain.*; import org.springframework.web.bind.annotation.*; import java.math.*; import java.time.*; import java.util.*;
 
 @RestController @RequestMapping("/api/admin")
 public class AdminController {
