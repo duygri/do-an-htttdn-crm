@@ -1,0 +1,28 @@
+@startuml
+title Use case - Khóa/mở tài khoản khách hàng
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "ADMIN" as Admin
+
+rectangle "Hệ thống CRM" {
+  usecase "Quản lý trạng thái\ntài khoản khách hàng" as ManageAccount
+  usecase "Chọn khách hàng" as SelectCustomer
+  usecase "Kiểm tra trạng thái\ntài khoản" as CheckAccountStatus
+  usecase "Khóa tài khoản" as LockAccount
+  usecase "Mở tài khoản" as UnlockAccount
+  usecase "Cập nhật trạng thái\ntài khoản" as UpdateAccountStatus
+  usecase "Thông báo khóa/mở\nthất bại" as AccountFailure
+}
+
+Admin --> ManageAccount
+ManageAccount .> SelectCustomer : <<include>>
+ManageAccount .> CheckAccountStatus : <<include>>
+LockAccount .> ManageAccount : <<extend>>
+UnlockAccount .> ManageAccount : <<extend>>
+LockAccount .> UpdateAccountStatus : <<include>>
+UnlockAccount .> UpdateAccountStatus : <<include>>
+AccountFailure .> ManageAccount : <<extend>>
+@enduml

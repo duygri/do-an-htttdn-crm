@@ -1,0 +1,29 @@
+@startuml
+title Use case - Thống kê và báo cáo doanh thu
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "ADMIN" as Admin
+
+rectangle "Hệ thống CRM" {
+  usecase "Thống kê và báo cáo\ndoanh thu" as RevenueReport
+  usecase "Chọn mốc thời gian\nvà tiêu chí" as SelectRevenueCriteria
+  usecase "Truy vấn dữ liệu hóa đơn\nvà sản phẩm" as QueryRevenueData
+  usecase "Tổng hợp và phân tích\ndữ liệu báo cáo" as AnalyzeRevenue
+  usecase "Hiển thị bảng số liệu\nvà biểu đồ" as DisplayRevenue
+  usecase "Xem doanh thu theo\nthời gian" as ViewRevenueByTime
+  usecase "Xem sản phẩm bán chạy" as ViewBestSellingProducts
+  usecase "Xem lợi nhuận" as ViewProfit
+}
+
+Admin --> RevenueReport
+RevenueReport .> SelectRevenueCriteria : <<include>>
+RevenueReport .> QueryRevenueData : <<include>>
+RevenueReport .> AnalyzeRevenue : <<include>>
+RevenueReport .> DisplayRevenue : <<include>>
+ViewRevenueByTime .> RevenueReport : <<extend>>
+ViewBestSellingProducts .> RevenueReport : <<extend>>
+ViewProfit .> RevenueReport : <<extend>>
+@enduml

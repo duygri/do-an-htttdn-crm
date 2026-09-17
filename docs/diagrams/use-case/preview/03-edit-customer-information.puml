@@ -1,0 +1,25 @@
+@startuml
+title Use case - Sửa thông tin khách hàng
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "ADMIN" as Admin
+
+rectangle "Hệ thống CRM" {
+  usecase "Sửa thông tin\nkhách hàng" as EditCustomer
+  usecase "Nhập thông tin cần sửa" as EnterCustomerData
+  usecase "Kiểm tra thông tin\ntrùng lặp" as ValidateCustomerData
+  usecase "Lưu thông tin khách hàng" as SaveCustomerData
+  usecase "Thông báo sửa\nthành công" as EditSuccess
+  usecase "Thông báo sửa\nthất bại" as EditFailure
+}
+
+Admin --> EditCustomer
+EditCustomer .> EnterCustomerData : <<include>>
+EditCustomer .> ValidateCustomerData : <<include>>
+EditCustomer .> SaveCustomerData : <<include>>
+EditSuccess .> EditCustomer : <<extend>>
+EditFailure .> EditCustomer : <<extend>>
+@enduml
