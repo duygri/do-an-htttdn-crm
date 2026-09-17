@@ -40,7 +40,7 @@ end
 Customer -> Web: Access token expired
 Web -> API: POST /api/auth/refresh\n(refreshToken)
 API -> API: Hash presented refresh token
-API -> DB: SELECT token hash FOR UPDATE
+API -> DB: Lock and load the refresh-token record
 
 alt Token missing
     API --> Web: 401 INVALID_REFRESH_TOKEN
@@ -70,7 +70,7 @@ Customer -> Web: Click logout
 Web -> API: POST /api/auth/logout
 API -> API: Read refresh token from HttpOnly cookie
 API -> API: Hash presented refresh token
-API -> DB: SELECT token FOR UPDATE
+API -> DB: Lock and load the current refresh-token record
 API -> DB: Revoke current token only\nreason LOGOUT
 API --> Web: 204 No Content\nClear refresh cookie
 Web --> Customer: Clear local tokens and show login

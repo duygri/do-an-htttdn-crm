@@ -21,10 +21,10 @@ alt Invalid input
     Web --> Customer: Show field errors
 else Valid input
     API -> API: Hash password with BCrypt
-    API -> DB: INSERT user
+    API -> DB: Create customer account
 
     alt Duplicate email constraint violation
-        DB --> API: UNIQUE(email) violation
+        DB --> API: Email is already registered
         API --> Web: 409 EMAIL_ALREADY_EXISTS
         Web --> Customer: Show email already registered
     else User created
@@ -35,8 +35,8 @@ else Valid input
 end
 
 note over API,DB
-  UNIQUE(email) is the concurrency guard.
-  Do not rely on a check-before-insert query alone.
+  The database allows only one account per email.
+  Do not rely on an early email-availability check alone.
 end note
 
 @enduml
