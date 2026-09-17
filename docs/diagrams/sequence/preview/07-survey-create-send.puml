@@ -7,11 +7,11 @@ control "Control tạo và gửi khảo sát" as Control
 database "e_bảng khảo sát" as Entity
 
 Admin -> Boundary: 1 Truy cập trang quản lý khảo sát
-Boundary -> Control: 1.1 Gửi yêu cầu tạo bảng khảo sát mới
-Admin -> Boundary: 2 Nhập nội dung và danh sách câu hỏi khảo sát
-Boundary -> Control: 2.1 Truyền dữ liệu câu hỏi đến bộ điều khiển
-Control -> Entity: 2.1.1 Lưu thông tin bảng khảo sát vào CSDL
-Entity --> Control: 2.1.1.1 Trả kết quả lưu thành công
+Boundary -> Control: 2 Gửi yêu cầu tạo bảng khảo sát mới
+Admin -> Boundary: 3 Nhập nội dung và danh sách câu hỏi khảo sát
+Boundary -> Control: 4 Truyền dữ liệu câu hỏi đến bộ điều khiển
+Control -> Entity: 5 Lưu thông tin bảng khảo sát vào CSDL
+Entity --> Control: 6 Trả kết quả lưu thành công
 
 alt Gửi khảo sát thành công
   Control -> Entity: Kích hoạt tác vụ phân phối khảo sát đến khách hàng
