@@ -1,12 +1,11 @@
 # Use case diagrams
 
-Bộ này chuyển 12 sequence diagram hiện có thành 12 use case diagram tương ứng. Use case chỉ mô tả mục tiêu của actor và quan hệ `include`/`extend`; các chi tiết Boundary–Control–Entity vẫn nằm trong sequence diagram.
+Bộ này chuyển 11 sequence diagram hiện có thành 11 use case diagram tương ứng. Chức năng sửa thông tin khách hàng đã được loại bỏ theo yêu cầu nghiệp vụ. Use case chỉ mô tả mục tiêu của actor và quan hệ `include`/`extend`; các chi tiết Boundary–Control–Entity vẫn nằm trong sequence diagram.
 
 | Mã | Sequence | Use case source | Image |
 | --- | --- | --- | --- |
 | 01 | Tiếp nhận và xử lý phản hồi của khách hàng | `preview/01-feedback-handling.puml` | `images/01-feedback-handling.png` |
 | 02 | Xem thông tin khách hàng | `preview/02-view-customer-information.puml` | `images/02-view-customer-information.png` |
-| 03 | Sửa thông tin khách hàng | `preview/03-edit-customer-information.puml` | `images/03-edit-customer-information.png` |
 | 04 | Khóa/mở tài khoản khách hàng | `preview/04-lock-unlock-account.puml` | `images/04-lock-unlock-account.png` |
 | 05 | Báo cáo khách hàng | `preview/05-customer-report.puml` | `images/05-customer-report.png` |
 | 06 | Quản lý danh mục và thông tin sản phẩm | `preview/06-product-management.puml` | `images/06-product-management.png` |
