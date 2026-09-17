@@ -7,32 +7,32 @@ control "Control quản lý sản phẩm" as Control
 database "e_sản phẩm và kho" as Entity
 
 Admin -> Boundary: 1 Truy cập trang quản lý sản phẩm
-Boundary -> Control: 1.1 Gửi yêu cầu xem danh sách sản phẩm và kho
-Control -> Entity: 1.1.1 Truy vấn dữ liệu sản phẩm, giá và tồn kho
-Entity --> Control: 1.1.1.1 Trả về danh sách sản phẩm
-Control -> Boundary: 1.1.1.1.1 Hiển thị danh sách sản phẩm
-Boundary --> Admin: 1.1.1.1.1.1 Hiển thị danh sách cho Admin
+Boundary -> Control: 2 Gửi yêu cầu xem danh sách sản phẩm và kho
+Control -> Entity: 3 Truy vấn dữ liệu sản phẩm, giá và tồn kho
+Entity --> Control: 4 Trả về danh sách sản phẩm
+Control -> Boundary: 5 Hiển thị danh sách sản phẩm
+Boundary --> Admin: 6 Hiển thị danh sách cho Admin
 
 alt Thêm mới sản phẩm
-  Admin -> Boundary: 2 Nhập thông tin sản phẩm mới, giá và số lượng kho
-  Boundary -> Control: 2.1 Gửi dữ liệu thêm sản phẩm
-  Control -> Entity: 2.1.1 Lưu thông tin sản phẩm mới vào CSDL
-  Entity --> Control: 2.1.1.1 Trả về thông tin được lưu
-  Control -> Boundary: 2.1.1.1.1 Thông báo lưu thành công
-  Boundary --> Admin: 3 Hiển thị thông báo thành công
+  Admin -> Boundary: 7 Nhập thông tin sản phẩm mới, giá và số lượng kho
+  Boundary -> Control: 8 Gửi dữ liệu thêm sản phẩm
+  Control -> Entity: 9 Lưu thông tin sản phẩm mới vào CSDL
+  Entity --> Control: 10 Trả về thông tin được lưu
+  Control -> Boundary: 11 Thông báo lưu thành công
+  Boundary --> Admin: 12 Hiển thị thông báo thành công
 else Sửa thông tin sản phẩm
-  Admin -> Boundary: 4 Cập nhật thông tin, giá và kho
-  Boundary -> Control: 4.1 Gửi yêu cầu cập nhật
-  Control -> Entity: 4.1.1 Cập nhật dữ liệu sản phẩm trong CSDL
-  Entity --> Control: 4.1.2 Trả về yêu cầu được cập nhật
-  Control -> Boundary: 4.2 Thông báo cập nhật thành công
-  Boundary --> Admin: 4.3 Hiển thị kết quả
+  Admin -> Boundary: 13 Cập nhật thông tin, giá và kho
+  Boundary -> Control: 14 Gửi yêu cầu cập nhật
+  Control -> Entity: 15 Cập nhật dữ liệu sản phẩm trong CSDL
+  Entity --> Control: 16 Trả về yêu cầu được cập nhật
+  Control -> Boundary: 17 Thông báo cập nhật thành công
+  Boundary --> Admin: 18 Hiển thị kết quả
 else Xóa sản phẩm
-  Admin -> Boundary: 5 Chọn sản phẩm cần xóa và xác nhận
-  Boundary -> Control: 5.1 Gửi yêu cầu xóa sản phẩm
-  Control -> Entity: 5.1.1 Cập nhật yêu cầu xóa sản phẩm
-  Entity --> Control: 5.1.1.1 Trả về kết quả yêu cầu xóa
-  Control -> Boundary: 5.1.1.1.1 Thông báo xóa sản phẩm thành công
-  Boundary --> Admin: 5.1.1.1.1.1 Hiển thị kết quả
+  Admin -> Boundary: 19 Chọn sản phẩm cần xóa và xác nhận
+  Boundary -> Control: 20 Gửi yêu cầu xóa sản phẩm
+  Control -> Entity: 21 Cập nhật yêu cầu xóa sản phẩm
+  Entity --> Control: 22 Trả về kết quả yêu cầu xóa
+  Control -> Boundary: 23 Thông báo xóa sản phẩm thành công
+  Boundary --> Admin: 24 Hiển thị kết quả
 end
 @enduml
