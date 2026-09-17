@@ -1,0 +1,2 @@
+package com.htttdn.crm.repo; import com.htttdn.crm.domain.*; import org.springframework.data.jpa.repository.*; import org.springframework.data.domain.Page; import java.util.*;
+public interface FeedbackRepository extends JpaRepository<Feedback,Long> { Page<Feedback> findByStatus(String status,org.springframework.data.domain.Pageable p); long countByStatus(String status); Optional<Feedback> findByCustomerIdAndProductId(Long c,Long p); }

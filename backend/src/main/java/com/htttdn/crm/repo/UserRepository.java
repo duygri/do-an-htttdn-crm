@@ -1,0 +1,2 @@
+package com.htttdn.crm.repo; import com.htttdn.crm.domain.User; import org.springframework.data.jpa.repository.*; import org.springframework.data.domain.Page; import java.util.*;
+public interface UserRepository extends JpaRepository<User,Long> { Page<User> findByRoleAndFullNameContainingIgnoreCaseOrRoleAndEmailContainingIgnoreCase(String r1,String n,String r2,String e,org.springframework.data.domain.Pageable p); long countByRole(String role); }
