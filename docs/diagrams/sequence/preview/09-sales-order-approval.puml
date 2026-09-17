@@ -1,0 +1,31 @@
+@startuml
+title Quản lý và duyệt đơn hàng bán
+
+actor ADMIN as Admin
+boundary "Trang quản lý đơn hàng" as Boundary
+control "Control xử lý đơn hàng" as Control
+database "e_đơn hàng" as Entity
+
+Admin -> Boundary: 1 Truy cập trang quản lý đơn hàng
+Boundary -> Control: 2 Gửi yêu cầu xem danh sách đơn hàng chờ duyệt
+Control -> Entity: 3 Truy vấn dữ liệu đơn hàng từ CSDL
+Entity --> Control: 4 Trả về danh sách đơn hàng
+Control -> Boundary: 5 Hiển thị danh sách đơn hàng
+Boundary --> Admin: 6 Hiển thị danh sách đơn hàng cho Admin
+
+alt Duyệt đơn hàng
+  Admin -> Boundary: 7 Chọn đơn hàng và bấm duyệt
+  Boundary -> Control: 8 Gửi yêu cầu cập nhật trạng thái
+  Control -> Entity: 9 Cập nhật trạng thái đơn thành Đã duyệt/Đang giao
+  Entity --> Control: 10 Xác nhận cập nhật thành công
+  Control -> Boundary: 11 Thông báo duyệt đơn thành công
+  Boundary --> Admin: 12 Hiển thị thông báo thành công
+else Hủy đơn hàng
+  Admin -> Boundary: 13 Chọn đơn hàng và bấm hủy
+  Boundary -> Control: 14 Gửi yêu cầu hủy đơn hàng
+  Control -> Entity: 15 Cập nhật trạng thái Đã hủy và hoàn lại tồn kho
+  Entity --> Control: 16 Xác nhận hủy đơn thành công
+  Control -> Boundary: 17 Thông báo hủy đơn thành công
+  Boundary --> Admin: 18 Hiển thị kết quả
+end
+@enduml

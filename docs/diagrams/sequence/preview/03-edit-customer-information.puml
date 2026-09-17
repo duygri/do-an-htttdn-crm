@@ -1,0 +1,19 @@
+@startuml
+title Sửa thông tin khách hàng
+
+actor ADMIN as Admin
+boundary "Form sửa khách hàng" as Boundary
+control "Control sửa khách hàng" as Control
+database "e_sửa khách hàng" as Entity
+
+Admin -> Boundary: 1 Điền thông tin cần sửa
+Boundary -> Control: 2 Gửi yêu cầu sửa thông tin khách hàng
+Control -> Entity: 3 Yêu cầu sửa thông tin khách hàng
+Entity --> Control: 4 Trả kết quả sửa thông tin khách hàng
+
+alt Trùng thông tin với khách hàng khác
+  Boundary --> Admin: Thông báo sửa thông tin khách hàng thất bại
+else Không trùng thông tin với khách hàng khác
+  Boundary --> Admin: Thông báo sửa thông tin khách hàng thành công
+end
+@enduml

@@ -1,0 +1,16 @@
+@startuml
+title Thống kê và phân tích kết quả khảo sát
+
+actor ADMIN as Admin
+boundary "Trang thống kê khảo sát" as Boundary
+control "Control phân tích chỉ số CSAT" as Control
+database "e_kết quả khảo sát" as Entity
+
+Admin -> Boundary: 1 Truy cập trang thống kê và phân tích khảo sát
+Boundary -> Control: 2 Gửi yêu cầu thống kê và phân tích khảo sát
+Control -> Entity: 3 Truy vấn phản hồi khảo sát từ CSDL
+Entity --> Control: 4 Trả về tập dữ liệu câu trả lời khảo sát
+Control -> Control: 5 Tính tỷ lệ phần trăm và chỉ số hài lòng CSAT
+Control -> Boundary: 6 Truyền kết quả phân tích về giao diện
+Boundary --> Admin: 7 Hiển thị báo cáo CSAT và biểu đồ
+@enduml

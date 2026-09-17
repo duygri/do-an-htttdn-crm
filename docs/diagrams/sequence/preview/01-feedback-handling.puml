@@ -1,0 +1,29 @@
+@startuml
+title Tiếp nhận và xử lý phản hồi của khách hàng
+
+actor ADMIN as Admin
+boundary "Trang quản lý khiếu nại" as Boundary
+control "Control xử lý phản hồi" as Control
+database "e_phản hồi khách hàng" as Entity
+
+Admin -> Boundary: 1 Truy cập trang quản lý khiếu nại
+Boundary -> Control: 2 Gửi yêu cầu xem danh sách phản hồi
+Control -> Entity: 3 Lấy dữ liệu phản hồi chờ duyệt
+Entity --> Control: 4 Trả về danh sách phản hồi
+Control -> Boundary: 5 Hiển thị danh sách khiếu nại
+Boundary --> Admin: 6 Hiển thị danh sách được khiếu nại
+
+Admin -> Boundary: 7 Chọn khiếu nại và bấm duyệt/phản hồi
+Boundary -> Control: 8 Gửi thông tin xử lý (Duyệt/Từ chối)
+
+alt Duyệt thành công
+  Control -> Entity: 9 Cập nhật trạng thái đã duyệt và gửi thông báo
+  Entity --> Control: 10 Thông báo thành công
+  Control -> Boundary: 11 Gửi email/SMS phản hồi cho khách
+  Boundary --> Admin: 12 Đã duyệt thành công
+else Duyệt thất bại
+  Control -> Entity: 13 Ghi nhận lý do từ chối
+  Control -> Boundary: 14 Báo lỗi/từ chối thành công
+  Boundary --> Admin: 15 Duyệt thất bại
+end
+@enduml

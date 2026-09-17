@@ -1,0 +1,19 @@
+@startuml
+title Khóa/mở tài khoản khách hàng
+
+actor ADMIN as Admin
+boundary "Trang quản lý khách hàng" as Boundary
+control "Control mở/khóa tài khoản" as Control
+database "e_mở/khóa tài khoản" as Entity
+
+Admin -> Boundary: 1 Chọn chức năng mở/khóa tài khoản
+Boundary -> Control: 2 Gửi yêu cầu mở/khóa tài khoản
+Control -> Entity: 3 Yêu cầu mở/khóa tài khoản
+Entity --> Control: 4 Trả về kết quả khóa/mở
+
+alt Khóa/mở tài khoản thất bại
+  Boundary --> Admin: Thông báo khóa/mở tài khoản thất bại
+else Khóa/mở tài khoản thành công
+  Boundary --> Admin: Thông báo khóa/mở tài khoản thành công
+end
+@enduml

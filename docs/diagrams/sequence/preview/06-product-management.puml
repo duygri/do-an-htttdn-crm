@@ -1,0 +1,38 @@
+@startuml
+title Quản lý danh mục và thông tin sản phẩm
+
+actor ADMIN as Admin
+boundary "Trang quản lý sản phẩm" as Boundary
+control "Control quản lý sản phẩm" as Control
+database "e_sản phẩm và kho" as Entity
+
+Admin -> Boundary: 1 Truy cập trang quản lý sản phẩm
+Boundary -> Control: 2 Gửi yêu cầu xem danh sách sản phẩm và kho
+Control -> Entity: 3 Truy vấn dữ liệu sản phẩm, giá và tồn kho
+Entity --> Control: 4 Trả về danh sách sản phẩm
+Control -> Boundary: 5 Hiển thị danh sách sản phẩm
+Boundary --> Admin: 6 Hiển thị danh sách cho Admin
+
+alt Thêm mới sản phẩm
+  Admin -> Boundary: 7 Nhập thông tin sản phẩm mới, giá và số lượng kho
+  Boundary -> Control: 8 Gửi dữ liệu thêm sản phẩm
+  Control -> Entity: 9 Lưu thông tin sản phẩm mới vào CSDL
+  Entity --> Control: 10 Trả về thông tin được lưu
+  Control -> Boundary: 11 Thông báo lưu thành công
+  Boundary --> Admin: 12 Hiển thị thông báo thành công
+else Sửa thông tin sản phẩm
+  Admin -> Boundary: 13 Cập nhật thông tin, giá và kho
+  Boundary -> Control: 14 Gửi yêu cầu cập nhật
+  Control -> Entity: 15 Cập nhật dữ liệu sản phẩm trong CSDL
+  Entity --> Control: 16 Trả về yêu cầu được cập nhật
+  Control -> Boundary: 17 Thông báo cập nhật thành công
+  Boundary --> Admin: 18 Hiển thị kết quả
+else Xóa sản phẩm
+  Admin -> Boundary: 19 Chọn sản phẩm cần xóa và xác nhận
+  Boundary -> Control: 20 Gửi yêu cầu xóa sản phẩm
+  Control -> Entity: 21 Cập nhật yêu cầu xóa sản phẩm
+  Entity --> Control: 22 Trả về kết quả yêu cầu xóa
+  Control -> Boundary: 23 Thông báo xóa sản phẩm thành công
+  Boundary --> Admin: 24 Hiển thị kết quả
+end
+@enduml
