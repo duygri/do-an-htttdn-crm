@@ -1,0 +1,112 @@
+@startuml
+title III-07 - Customer shopping cart, ordering and payOS payment
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Customer
+boundary "Customer Portal" as Web
+control "Order API" as API
+database "CRM Database" as DB
+participant "payOS API" as PayOS
+participant "Payment Timeout Scheduler" as Job
+
+== Cart management ==
+
+Customer -> Web: Add, edit or remove cart item
+Web -> API: PUT /api/cart
+API -> DB: Save cart changes
+DB --> API: Cart saved
+API --> Web: Cart summary
+Web --> Customer: Show updated cart
+
+== Create order and reserve stock ==
+
+Customer -> Web: Confirm address and payment method
+Web -> API: POST /api/orders\n(cart, address, paymentMethod)
+API -> DB: BEGIN transaction
+API -> DB: Lock products and read current stock
+
+alt Insufficient stock or invalid item
+    API -> DB: ROLLBACK
+    API --> Web: 409 OUT_OF_STOCK / 400 INVALID_CART
+    Web --> Customer: Show checkout error
+else Stock available
+    API -> DB: Insert order (PENDING_PAYMENT)
+    API -> DB: Insert order_items
+    API -> DB: Reserve/decrease stock
+    API -> DB: COMMIT transaction
+    API -> API: Create unique numeric orderCode
+    API -> PayOS: POST /v2/payment-requests\n(amount, items, returnUrl, cancelUrl, expiredAt, signature)
+    PayOS --> API: checkoutUrl, paymentLinkId, status PENDING
+    API --> Web: 201 paymentUrl = checkoutUrl
+    Web -> PayOS: Redirect to checkoutUrl
+    Customer -> PayOS: Scan VietQR or complete bank transfer
+
+    == Return/cancel URL: display only ==
+
+    PayOS --> Web: Redirect returnUrl/cancelUrl\n(code, status, orderCode, paymentLinkId)
+    Web -> API: GET /api/payments/payos/return
+    API --> Web: Display payment or cancellation result
+    Web --> Customer: Show result
+    note right of Web
+      Return URL and cancelUrl are for display only.
+      They do not finalize the order.
+    end note
+
+    == Webhook: source of truth ==
+
+    PayOS ->> API: POST /api/payments/payos/webhook\nJSON payload + signature
+    API -> API: Verify HMAC-SHA256 signature
+    API -> API: Verify orderCode, amount and data.code
+
+    alt Invalid signature or mismatched data
+        API --> PayOS: HTTP 400 Invalid webhook
+    else Valid webhook
+        API -> DB: BEGIN payment update transaction
+        API -> DB: SELECT payment/order FOR UPDATE
+        API -> DB: Insert webhook event\nUNIQUE(order_id, webhook_type, gateway_reference)
+
+        alt success=true and data.code=00
+            API -> DB: Update payment PAID
+            API -> DB: Update order CONFIRMED
+            API -> DB: COMMIT
+            API --> PayOS: HTTP 200 OK
+        else Failed, cancelled or expired payment
+            API -> DB: Update payment FAILED/CANCELLED/EXPIRED
+            API -> DB: Release reserved stock once
+            API -> DB: COMMIT
+            API --> PayOS: HTTP 200 OK
+        else Duplicate webhook callback
+            API -> DB: No-op because event was processed
+            API -> DB: COMMIT
+            API --> PayOS: HTTP 200 OK
+        end
+    end
+end
+
+== Expired pending-payment cleanup ==
+
+Job -> API: Run every 5 minutes
+API -> DB: BEGIN cleanup transaction
+API -> DB: SELECT PENDING_PAYMENT orders older than timeout\nFOR UPDATE SKIP LOCKED
+alt Expired orders found
+    API -> DB: Update payment EXPIRED
+    API -> DB: Update order CANCELLED
+    API -> DB: Release reserved stock once
+    API -> DB: COMMIT
+else No expired orders
+    API -> DB: COMMIT
+end
+
+note over API,PayOS
+  payOS has no separate Sandbox/Staging environment.
+  Test with a verified account and a small real transaction.
+  Keep PAYOS_CLIENT_ID, PAYOS_API_KEY and PAYOS_CHECKSUM_KEY
+  on the backend only.
+end note
+
+@enduml

@@ -1,0 +1,52 @@
+@startuml
+title III-04 - Verified-purchase feedback and rating
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Customer
+boundary "Customer Portal" as Web
+control "Feedback API" as API
+database "CRM Database" as DB
+
+Customer -> Web: Enter rating and comment
+Web -> API: POST /api/products/{productId}/feedback\n(JWT, rating, comment)
+API -> API: Verify JWT and customer identity
+
+alt Invalid or missing JWT
+    API --> Web: 401 UNAUTHORIZED
+    Web --> Customer: Redirect to login
+else Authenticated customer
+    API -> DB: Check order_items and status\n(CONFIRMED/SHIPPED/DELIVERED/COMPLETED)
+    note right of DB
+      PENDING_PAYMENT and CANCELLED
+      do not grant feedback eligibility.
+    end note
+
+    alt No eligible purchase
+        API --> Web: 403 PURCHASE_REQUIRED
+        Web --> Customer: Show purchase-required message
+    else Eligible purchase exists
+        API -> DB: INSERT feedback
+        note right of DB
+          UNIQUE(customer_id, product_id)
+          is the concurrency guard.
+          Do not rely on a pre-check alone.
+        end note
+
+        alt Insert succeeds
+            DB --> API: Feedback created
+            API --> Web: 201 Created
+            Web --> Customer: Show submitted feedback
+        else Unique constraint violation
+            DB --> API: Duplicate feedback constraint error
+            API --> Web: 409 DUPLICATE_FEEDBACK
+            Web --> Customer: Show already-submitted message
+        end
+    end
+end
+
+@enduml
