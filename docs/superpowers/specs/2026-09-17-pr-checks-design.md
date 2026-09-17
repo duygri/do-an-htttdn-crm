@@ -19,7 +19,7 @@ The `Backend Check` workflow runs from the `backend` directory with `actions/set
 
 ### Security scan
 
-The `CodeQL` workflow analyzes Java using GitHub's supported CodeQL action. It uses automatic build detection so it follows the repository's Maven configuration without adding project-specific build commands.
+The `CodeQL` workflow analyzes Java using GitHub's supported CodeQL action. It uses manual build mode and runs Maven from the `backend` directory because the repository keeps its `pom.xml` below the repository root.
 
 ### Branch protection
 
