@@ -3,18 +3,18 @@ title Khóa/mở tài khoản khách hàng
 
 actor ADMIN as Admin
 boundary "Trang quản lý khách hàng" as Boundary
-control "Control mở/khóa tài khoản" as Control
-entity "e_mở/khóa tài khoản" as Entity
+control "Control khóa/mở tài khoản" as Control
+entity "e_tài khoản khách hàng" as Entity
 
-Admin -> Boundary: 1 Chọn chức năng mở/khóa tài khoản
+Admin -> Boundary: 1 Chọn khách hàng và chức năng khóa/mở
 Boundary -> Control: 1.1 Gửi yêu cầu mở/khóa tài khoản
-Control -> Entity: 1.1.1 Yêu cầu mở/khóa tài khoản
+Control -> Entity: 1.1.1 Kiểm tra trạng thái và cập nhật tài khoản
 Entity --> Control: 1.1.1.1 Trả về kết quả khóa/mở
 Control -> Boundary: 1.1.1.1.1 Trả kết quả xử lý
 
-alt Khóa/mở tài khoản thất bại
-  Boundary --> Admin: 1.1.1.1.1.1 Thông báo khóa/mở tài khoản thất bại
-else Khóa/mở tài khoản thành công
-  Boundary --> Admin: 1.1.1.1.1.2 Thông báo khóa/mở tài khoản thành công
+alt Không tìm thấy khách hàng / cập nhật thất bại
+  Boundary --> Admin: 1.1.1.1.1.1 Hiển thị lỗi khóa/mở tài khoản
+else Khóa/mở thành công
+  Boundary --> Admin: 1.1.1.1.1.2 Hiển thị kết quả khóa/mở tài khoản
 end
 @enduml
