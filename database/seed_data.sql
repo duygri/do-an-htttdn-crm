@@ -123,13 +123,21 @@ SELECT 'khachhang@example.com', 'Nguyễn Minh Khang', '0900000000', 'Phong các
 WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = 'khachhang@example.com');
 
 INSERT INTO admins(role, password_hash)
-SELECT 'ADMIN', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
+SELECT 'ADMIN', '$2a$10$tAL0K4zyrX8mctqJC6ldHeAvlO8OMpEDI6HD.mMkb4IMoWGiCLxyW'
 WHERE NOT EXISTS (SELECT 1 FROM admins WHERE role = 'ADMIN');
 
 -- Admin login uses the same identity table as the application auth service.
+UPDATE customers
+SET email = 'admin@shop.com',
+    password_hash = '$2a$10$tAL0K4zyrX8mctqJC6ldHeAvlO8OMpEDI6HD.mMkb4IMoWGiCLxyW',
+    role = 'ADMIN',
+    locked = FALSE
+WHERE email = 'admin@example.com'
+  AND role = 'ADMIN';
+
 INSERT INTO customers(email, full_name, phone, preferences, password_hash, role)
-SELECT 'admin@example.com', 'Quản trị viên', NULL, NULL, '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN'
-WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = 'admin@example.com');
+SELECT 'admin@shop.com', 'Quản trị viên', NULL, NULL, '$2a$10$tAL0K4zyrX8mctqJC6ldHeAvlO8OMpEDI6HD.mMkb4IMoWGiCLxyW', 'ADMIN'
+WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = 'admin@shop.com');
 
 INSERT INTO survey_definitions(title, description, status, starts_at)
 SELECT 'Gu thời trang của bạn', 'Trả lời nhanh để ANH LỚN SHOP gợi ý những món đồ hợp với bạn hơn.', 'PUBLISHED', now()
