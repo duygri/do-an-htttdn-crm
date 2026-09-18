@@ -4,8 +4,8 @@ import com.htttdn.crm.entity.*; import com.htttdn.crm.repository.*; import jakar
 
 @RestController @RequestMapping("/api/admin")
 public class AdminController {
- private final UserRepository users; private final ProductRepository products; private final FeedbackRepository feedback; private final SurveyRepository surveys; private final OrderRepository orders;
- public AdminController(UserRepository u,ProductRepository p,FeedbackRepository f,SurveyRepository s,OrderRepository o){users=u;products=p;feedback=f;surveys=s;orders=o;}
+ private final UserRepository users; private final ProductRepository products; private final CategoryRepository categories; private final FeedbackRepository feedback; private final SurveyRepository surveys; private final OrderRepository orders;
+ public AdminController(UserRepository u,ProductRepository p,CategoryRepository c,FeedbackRepository f,SurveyRepository s,OrderRepository o){users=u;products=p;categories=c;feedback=f;surveys=s;orders=o;}
  private Pageable page(int n,int size){return PageRequest.of(Math.max(0,n),Math.min(100,Math.max(1,size)),Sort.by("id").descending());}
  @GetMapping("/users") public Page<User> userList(@RequestParam(defaultValue="") String q,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return users.findByRoleAndFullNameContainingIgnoreCaseOrRoleAndEmailContainingIgnoreCase("CUSTOMER",q,"CUSTOMER",q,page(page,size));}
  @GetMapping("/users/{id}") public User user(@PathVariable Long id){return users.findById(id).orElseThrow();}
@@ -22,7 +22,7 @@ public class AdminController {
  @PutMapping("/products/{id}") public Product updateProduct(@PathVariable Long id,@Valid @RequestBody ProductRequest r){Product p=products.findById(id).orElseThrow();copy(p,r);p.setUpdatedAt(Instant.now());return products.save(p);}
  @DeleteMapping("/products/{id}") public void archiveProduct(@PathVariable Long id){Product p=products.findById(id).orElseThrow();p.setActive(false);products.save(p);}
  @PatchMapping("/products/{id}/stock") public Product stock(@PathVariable Long id,@RequestBody StockRequest r){if(r.quantity()<0)throw new IllegalArgumentException("quantity must be non-negative");Product p=products.findById(id).orElseThrow();p.setStock(r.quantity());p.setUpdatedAt(Instant.now());return products.save(p);}
- private void copy(Product p,ProductRequest r){p.setName(r.name());p.setCategory(r.category());p.setDescription(r.description());p.setPrice(r.price());p.setStock(r.stock());p.setImageUrl(r.imageUrl());}
+ private void copy(Product p,ProductRequest r){p.setName(r.name());p.setDescription(r.description());p.setPrice(r.price());p.setStock(r.stock());p.setImageUrl(r.imageUrl());if(r.category()!=null&&!r.category().isBlank()){Category c=categories.findByNameIgnoreCase(r.category().trim()).orElseGet(()->{Category created=new Category();created.setName(r.category().trim());return categories.save(created);});p.setCategoryEntity(c);}}
  @GetMapping("/orders") public Page<Order> orderList(@RequestParam(required=false)String status,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return status==null?orders.findAll(page(page,size)):orders.findByStatus(status,page(page,size));}
  @GetMapping("/orders/{id}") public Order order(@PathVariable Long id){return orders.findById(id).orElseThrow();}
  @PatchMapping("/orders/{id}/status") public Order orderStatus(@PathVariable Long id,@RequestBody StatusRequest r){Order o=order(id);if(!Set.of("PENDING_PAYMENT","CONFIRMED","SHIPPED","DELIVERED","COMPLETED","CANCELLED").contains(r.status()))throw new IllegalArgumentException("Invalid order status");o.setStatus(r.status());o.setUpdatedAt(Instant.now());return orders.save(o);}

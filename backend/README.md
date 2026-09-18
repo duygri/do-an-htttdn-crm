@@ -1,6 +1,6 @@
 # CRM Admin Backend
 
-Java 21 / Spring Boot REST backend for the admin CRM and sales module (issues V-01 through V-08). PostgreSQL is accessed through Spring Data JPA; Hibernate creates/updates the development schema.
+Java 21 / Spring Boot REST backend for the Vietnamese men's clothing customer portal and the existing admin CRM module. PostgreSQL is accessed through Spring Data JPA; Hibernate creates/updates the development schema. The default database is `htttdn`.
 
 ## Package structure
 
@@ -19,11 +19,16 @@ com.htttdn.crm
 ## Run locally
 
 ```powershell
-$env:DB_URL='jdbc:postgresql://localhost:5432/crm'
+$env:DB_URL='jdbc:postgresql://localhost:5432/htttdn'
 $env:DB_USERNAME='postgres'
-$env:DB_PASSWORD='postgres'
+$env:DB_PASSWORD='mat-khau-postgres-cua-ban'
+$env:SERVER_PORT='8082'
 mvn spring-boot:run
 ```
+
+Customer APIs follow the sequence diagrams: `/api/auth/*`, `/api/customers/me`, `/api/products`, `/api/cart`, `/api/orders`, `/api/payments/payos/*`, `/api/products/{id}/feedback`, and `/api/surveys/*`.
+
+When payOS credentials are omitted, checkout returns a local development payment URL so the complete cart/order flow can be tested without external credentials. Refresh tokens are BCrypt-independent SHA-256 hashes in the database and are sent only as HttpOnly cookies; passwords use BCrypt.
 
 Set `ADMIN_GUARD_ENABLED=true` when the shared authentication module is available. In that mode, `/api/admin/**` requires the upstream auth layer to provide `X-User-Role: ADMIN` (the temporary development default is disabled).
 

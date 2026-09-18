@@ -40,4 +40,26 @@ tests/      Test cases, scenarios, and test evidence
 
 ## Local setup
 
-The application code has not been added yet. Each folder contains a short guide or placeholder so the team can add the implementation without changing the repository structure.
+Create a PostgreSQL database named `htttdn`, then run `database/schema.sql` and `database/seed_data.sql`. If the database was created from an older version of this project, run `database/cleanup_legacy.sql` once between the schema and seed scripts.
+
+Start the backend:
+
+```powershell
+cd backend
+$env:DB_URL='jdbc:postgresql://localhost:5432/htttdn'
+$env:DB_USERNAME='postgres'
+$env:DB_PASSWORD='mat-khau-postgres-cua-ban'
+$env:SERVER_PORT='8082'
+mvn spring-boot:run
+```
+
+Start the customer storefront in another terminal:
+
+```powershell
+cd frontend
+npm install
+$env:VITE_API_BASE_URL='http://localhost:8082'
+npm run dev
+```
+
+The default payOS mode is a local checkout link. Add `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`, `PAYOS_RETURN_URL`, and `PAYOS_CANCEL_URL` to enable the real provider.
