@@ -1,6 +1,8 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8082';
 let accessToken = null;
 let refreshing = null;
+let adminAccessToken = null;
+let adminRefreshing = null;
 
 async function parseResponse(response) {
   if (response.ok) return response.status === 204 ? null : response.json();
@@ -48,6 +50,40 @@ export async function signOut() {
   accessToken = null;
 }
 
+export async function adminRefreshSession() {
+  if (!adminRefreshing) {
+    adminRefreshing = fetch(`${API_BASE}/api/admin/auth/refresh`, { method: 'POST', credentials: 'include' })
+      .then(parseResponse)
+      .then(data => { adminAccessToken = data.accessToken; return data; })
+      .catch(() => null)
+      .finally(() => { adminRefreshing = null; });
+  }
+  return adminRefreshing;
+}
+
+export async function adminApi(path, options = {}, canRefresh = true) {
+  const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
+  if (adminAccessToken) headers.Authorization = `Bearer ${adminAccessToken}`;
+  const body = options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body;
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers, body, credentials: 'include' });
+  if (response.status === 401 && canRefresh && !path.startsWith('/api/admin/auth/')) {
+    const session = await adminRefreshSession();
+    if (session) return adminApi(path, options, false);
+  }
+  return parseResponse(response);
+}
+
+export async function adminSignIn(payload) {
+  const data = await adminApi('/api/admin/auth/login', { method: 'POST', body: payload }, false);
+  adminAccessToken = data.accessToken;
+  return data;
+}
+
+export async function adminSignOut() {
+  await adminApi('/api/admin/auth/logout', { method: 'POST' }, false).catch(() => null);
+  adminAccessToken = null;
+}
+
 export const endpoints = {
   catalog: ({ keyword = '', category = '', minPrice = '', maxPrice = '', gender = 'NAM', sort = 'newest', page = 0, size = 8 } = {}) => {
     const params = new URLSearchParams({ keyword, category, gender, sort, page, size });
@@ -66,6 +102,26 @@ export const endpoints = {
   surveys: '/api/surveys',
   survey: id => `/api/surveys/${id}`,
   surveyResponses: id => `/api/surveys/${id}/responses`,
+};
+
+export const adminEndpoints = {
+  revenue: '/api/admin/reports/revenue',
+  userReport: '/api/admin/reports/users',
+  surveyStats: '/api/admin/surveys/stats',
+  users: ({ q = '', page = 0, size = 10 } = {}) => `/api/admin/users?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
+  user: id => `/api/admin/users/${id}`,
+  lockUser: id => `/api/admin/users/${id}/lock`,
+  products: ({ q = '', page = 0, size = 10 } = {}) => `/api/admin/products?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
+  product: id => `/api/admin/products/${id}`,
+  productStock: id => `/api/admin/products/${id}/stock`,
+  orders: ({ status = '', page = 0, size = 10 } = {}) => `/api/admin/orders${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,
+  order: id => `/api/admin/orders/${id}`,
+  orderStatus: id => `/api/admin/orders/${id}/status`,
+  feedback: ({ status = '', page = 0, size = 10 } = {}) => `/api/admin/feedback${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,
+  feedbackItem: id => `/api/admin/feedback/${id}`,
+  surveys: ({ status = '', page = 0, size = 10 } = {}) => `/api/admin/surveys${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,
+  survey: id => `/api/admin/surveys/${id}`,
+  surveyPublish: id => `/api/admin/surveys/${id}/publish`,
 };
 
 export const currentApiBase = API_BASE;
