@@ -210,6 +210,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     family_id VARCHAR(64) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    audience VARCHAR(20) NOT NULL DEFAULT 'CUSTOMER',
     revoke_reason VARCHAR(80),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     revoked_at TIMESTAMPTZ
