@@ -7,7 +7,7 @@ Extend the customer checkout sequence so an optional promotion code is validated
 ## Scope
 
 - Update `docs/diagrams/customer/III-07-shopping-cart-order-payos.puml` only.
-- Add an optional `promoCode` to the order request.
+- Add an optional `promoCode` to the existing order request; keep `cart`, `address`, and `paymentMethod` unchanged. `promoCode` is the only client-supplied promotion field.
 - Show backend validation of the promotion's validity period, eligibility conditions, and remaining usage limit.
 - Show server-side calculation of `subtotal`, `discountAmount`, and `finalAmount`.
 - Show persistence of the promotion code and calculated amounts with the order.
@@ -19,17 +19,21 @@ Extend the customer checkout sequence so an optional promotion code is validated
 
 ### Trusted calculation boundary
 
-The customer portal sends only `promoCode` as an optional input. The backend does not trust client-provided discount or final amount values. It calculates all monetary values after loading the cart and before creating the pending order.
+The customer portal keeps sending `cart`, `address`, and `paymentMethod`, with optional `promoCode` added. It does not send `discountAmount` or `finalAmount`. The backend does not trust client-provided monetary values; it calculates them after loading the cart and before creating the pending order.
 
 ### Promotion validation and usage
 
-Inside the existing checkout transaction, the backend validates that the code exists, is active, is within its validity period, satisfies the order conditions, and has remaining usage capacity. When accepted, the backend reserves one usage so concurrent orders cannot consume the same last available use. The order stores the code, discount amount, and final amount.
+Inside the existing checkout transaction, the backend validates that the code exists, is active, is within its validity period, satisfies the order conditions, and has remaining usage capacity. The reservation is an atomic, concurrency-safe business operation tied to the order code. It records a `RESERVED` usage state so concurrent orders cannot consume the same last available use.
 
-If checkout cannot continue because the code is invalid or not applicable, the API returns a client error and does not create the order. If payment fails, is cancelled, expires, or is cleaned up, the reserved usage is released. If payment succeeds, the usage is confirmed.
+The calculation is `finalAmount = max(subtotal - discountAmount, 0)`. Amounts use VND with no fractional unit for the payOS request; the backend applies one canonical rounding rule before persisting and sending the amount. In the current domain model, the persisted payable amount represented as `finalAmount` maps to the order's existing `totalAmount`; it is not a second competing total.
+
+The order stores `promoCode`, `discountAmount`, and the canonical payable amount. If a future schema introduces a separate `finalAmount` field, it must remain equal to the payable amount used by payOS and webhook verification.
+
+If checkout cannot continue because the code is invalid or not applicable, the API returns `400 PROMO_NOT_APPLICABLE` and does not create the order. If payment fails, is cancelled, expires, or is cleaned up, the `RESERVED` usage is released exactly once. If payment succeeds, the reservation is finalized as `CONFIRMED` exactly once. Duplicate webhook delivery and cleanup races must be no-ops for an already finalized or released reservation.
 
 ### payOS and webhook verification
 
-The payment request sends `amount = finalAmount`. The webhook verifies the signature, order identity, and that the received amount equals the order's stored `finalAmount`. A mismatch is rejected and does not transition the order to `CONFIRMED` or `PAID`.
+The payment request sends `amount = finalAmount`. The webhook verifies the signature, order identity, `data.code`, and that the received integer VND amount equals the order's stored canonical payable amount. A mismatch is rejected and does not transition the order to `CONFIRMED` or `PAID`.
 
 ### Sequence outcomes
 
@@ -49,4 +53,6 @@ The payment request sends `amount = finalAmount`. The webhook verifies the signa
 - The payOS request visibly sends `finalAmount`, not the pre-discount total.
 - The webhook visibly compares the received amount with the stored `finalAmount` and rejects mismatches.
 - Failure, duplicate webhook, and timeout cleanup paths remain present.
+- Signature verification, `orderCode`/`data.code` validation, payment status transitions, display-only return/cancel handling, one-time stock release, and locked batch timeout cleanup remain present.
+- Promotion reservation and release/finalization are represented as concurrency-safe and idempotent business actions.
 - The diagram contains no raw SQL commands; database operations use business-language actions.
