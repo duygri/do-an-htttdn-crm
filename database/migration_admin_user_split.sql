@@ -1,0 +1,22 @@
+-- Compatibility migration for databases created before the storefront/auth split.
+-- Safe to run repeatedly; it only adds columns required by the current entities.
+
+BEGIN;
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS badge VARCHAR(80);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS featured BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(30) DEFAULT 'PENDING';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(30);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address VARCHAR(1000);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_released BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS audience VARCHAR(20);
+UPDATE refresh_tokens SET audience = 'CUSTOMER' WHERE audience IS NULL;
+
+COMMIT;

@@ -30,7 +30,7 @@ Customer APIs follow the sequence diagrams: `/api/auth/*`, `/api/customers/me`, 
 
 When payOS credentials are omitted, checkout returns a local development payment URL so the complete cart/order flow can be tested without external credentials. Refresh tokens are BCrypt-independent SHA-256 hashes in the database and are sent only as HttpOnly cookies; passwords use BCrypt.
 
-Set `ADMIN_GUARD_ENABLED=true` when the shared authentication module is available. In that mode, `/api/admin/**` requires the upstream auth layer to provide `X-User-Role: ADMIN` (the temporary development default is disabled).
+Admin APIs use a separate JWT flow: call `/api/admin/auth/login`, then send its Bearer token to `/api/admin/**`. Customer tokens and the legacy `X-User-Role` header are not accepted by admin APIs. Admin refresh tokens use the HttpOnly `adminRefreshToken` cookie and `/api/admin/auth` cookie path.
 
 ## Admin API
 
@@ -40,5 +40,8 @@ Set `ADMIN_GUARD_ENABLED=true` when the shared authentication module is availabl
 - `GET/POST /api/admin/products`, `PUT/DELETE /api/admin/products/{id}`, `PATCH /api/admin/products/{id}/stock`
 - `GET /api/admin/orders`, `GET /api/admin/orders/{id}`, `PATCH /api/admin/orders/{id}/status`
 - `GET /api/admin/reports/revenue`, `GET /api/admin/reports/users`, `GET /api/admin/surveys/stats`
+- `POST /api/admin/auth/login`, `POST /api/admin/auth/refresh`, `POST /api/admin/auth/logout`
 
 All list endpoints support `page` and `size`; users and products also support `q`, while feedback/survey/order lists support `status`.
+
+For an existing database created from an older schema, run `database/migration_admin_user_split.sql` before starting with `ddl-auto=none`. The script adds missing storefront/order columns and the refresh-token audience discriminator without deleting data.

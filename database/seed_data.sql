@@ -45,6 +45,11 @@ INSERT INTO admins(role, password_hash)
 SELECT 'ADMIN', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 WHERE NOT EXISTS (SELECT 1 FROM admins WHERE role = 'ADMIN');
 
+-- Admin login uses the same identity table as the application auth service.
+INSERT INTO customers(email, full_name, phone, preferences, password_hash, role)
+SELECT 'admin@example.com', 'Quản trị viên', NULL, NULL, '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN'
+WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = 'admin@example.com');
+
 INSERT INTO survey_definitions(title, description, status, starts_at)
 SELECT 'Gu thời trang của bạn', 'Trả lời nhanh để ANH LỚN SHOP gợi ý những món đồ hợp với bạn hơn.', 'PUBLISHED', now()
 WHERE NOT EXISTS (SELECT 1 FROM survey_definitions WHERE title = 'Gu thời trang của bạn');
