@@ -1,4 +1,8 @@
 package com.htttdn.crm.entity;
-import jakarta.persistence.*; import lombok.*; import java.time.Instant; import java.util.*; import com.fasterxml.jackson.annotation.JsonManagedReference;
-@Entity @Table(name="surveys") @Getter @Setter @NoArgsConstructor
-public class Survey { @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id; @Column(nullable=false) private String title; private String description; private String status="DRAFT"; private Instant startsAt; private Instant endsAt; private Instant createdAt=Instant.now(); @JsonManagedReference @OneToMany(mappedBy="survey",cascade=CascadeType.ALL,orphanRemoval=true) private List<SurveyQuestion> questions=new ArrayList<>(); }
+
+import com.fasterxml.jackson.annotation.JsonManagedReference; import jakarta.persistence.*; import java.time.Instant; import java.util.*;
+@Entity @Table(name="survey_definitions")
+public class Survey {
+    @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id; @Column(nullable=false) private String title; private String description; private String status="DRAFT"; private Instant startsAt; private Instant endsAt; private Instant createdAt=Instant.now(); @JsonManagedReference @OneToMany(mappedBy="survey",cascade=CascadeType.ALL,orphanRemoval=true,fetch=FetchType.EAGER) private List<SurveyQuestion> questions=new ArrayList<>();
+    public Survey(){} public Long getId(){return id;} public String getTitle(){return title;} public void setTitle(String v){title=v;} public String getDescription(){return description;} public void setDescription(String v){description=v;} public String getStatus(){return status;} public void setStatus(String v){status=v;} public Instant getStartsAt(){return startsAt;} public void setStartsAt(Instant v){startsAt=v;} public Instant getEndsAt(){return endsAt;} public void setEndsAt(Instant v){endsAt=v;} public Instant getCreatedAt(){return createdAt;} public void setCreatedAt(Instant v){createdAt=v;} public List<SurveyQuestion> getQuestions(){return questions;} public void setQuestions(List<SurveyQuestion> v){questions=v;}
+}
