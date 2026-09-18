@@ -25,9 +25,9 @@ The customer portal keeps sending `cart`, `address`, and `paymentMethod`, with o
 
 Inside the existing checkout transaction, the backend validates that the code exists, is active, is within its validity period, satisfies the order conditions, and has remaining usage capacity. The reservation is an atomic, concurrency-safe business operation tied to the order code. It records a `RESERVED` usage state so concurrent orders cannot consume the same last available use.
 
-The calculation is `finalAmount = max(subtotal - discountAmount, 0)`. Amounts use VND with no fractional unit for the payOS request; the backend applies one canonical rounding rule before persisting and sending the amount. In the current domain model, the persisted payable amount represented as `finalAmount` maps to the order's existing `totalAmount`; it is not a second competing total.
+The calculation is `finalAmount = max(subtotal - discountAmount, 0)`. Amounts use VND with no fractional unit for the payOS request; the backend rounds half up to the nearest VND before persisting and sending the amount. In the current domain model, the persisted payable amount represented as `finalAmount` maps to the order's existing `totalAmount`; it is not a second competing total.
 
-The order stores `promoCode`, `discountAmount`, and the canonical payable amount. If a future schema introduces a separate `finalAmount` field, it must remain equal to the payable amount used by payOS and webhook verification.
+The backend creates the pending order and makes its unique `orderCode` available before reserving the promotion usage. The reservation is keyed to that order identity and is committed in the same checkout transaction. The order stores `promoCode`, `discountAmount`, and the canonical payable amount. If a future schema introduces a separate `finalAmount` field, it must remain equal to the payable amount used by payOS and webhook verification.
 
 If checkout cannot continue because the code is invalid or not applicable, the API returns `400 PROMO_NOT_APPLICABLE` and does not create the order. If payment fails, is cancelled, expires, or is cleaned up, the `RESERVED` usage is released exactly once. If payment succeeds, the reservation is finalized as `CONFIRMED` exactly once. Duplicate webhook delivery and cleanup races must be no-ops for an already finalized or released reservation.
 
