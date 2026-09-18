@@ -1,0 +1,25 @@
+@startuml
+title Use case - Tạo và gửi bảng khảo sát đến khách hàng
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "ADMIN" as Admin
+
+rectangle "Hệ thống CRM" {
+  usecase "Tạo và gửi\nbảng khảo sát" as ManageSurvey
+  usecase "Nhập nội dung và\ncâu hỏi khảo sát" as EnterSurvey
+  usecase "Lưu bảng khảo sát" as SaveSurvey
+  usecase "Gửi khảo sát đến\nkhách hàng" as SendSurvey
+  usecase "Gửi thông báo/email\ncho khách hàng" as NotifySurvey
+  usecase "Lưu bản nháp" as SaveDraft
+}
+
+Admin --> ManageSurvey
+ManageSurvey .> EnterSurvey : <<include>>
+ManageSurvey .> SaveSurvey : <<include>>
+SendSurvey .> ManageSurvey : <<extend>>
+SendSurvey .> NotifySurvey : <<include>>
+SaveDraft .> ManageSurvey : <<extend>>
+@enduml

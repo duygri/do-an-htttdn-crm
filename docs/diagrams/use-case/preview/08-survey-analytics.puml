@@ -1,0 +1,21 @@
+@startuml
+title Use case - Thống kê và phân tích kết quả khảo sát
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "ADMIN" as Admin
+
+rectangle "Hệ thống CRM" {
+  usecase "Thống kê và phân tích\nkết quả khảo sát" as SurveyAnalytics
+  usecase "Truy vấn phản hồi\nkhảo sát" as QuerySurveyResponses
+  usecase "Tính chỉ số hài lòng\nCSAT" as CalculateCSAT
+  usecase "Hiển thị báo cáo CSAT\nvà biểu đồ" as DisplayCSAT
+}
+
+Admin --> SurveyAnalytics
+SurveyAnalytics .> QuerySurveyResponses : <<include>>
+SurveyAnalytics .> CalculateCSAT : <<include>>
+SurveyAnalytics .> DisplayCSAT : <<include>>
+@enduml
