@@ -41,8 +41,9 @@ else Promotion invalid, expired, ineligible or exhausted
     Web --> Customer: Show promotion error
 else Stock available
     API -> API: Calculate subtotal, discountAmount and finalAmount\n=max(subtotal - discountAmount, 0)\nusing VND half-up rounding before persistence and payment request;\nno promotion means discountAmount=0
-    API -> DB: Create order PENDING_PAYMENT\n(store promotion code and rounded calculated amounts;\nOrder.totalAmount = canonical payable amount)
-    API -> DB: Generate and store unique numeric orderCode
+    API -> API: Prepare PENDING_PAYMENT order in memory\n(with promotion code and rounded calculated amounts)
+    API -> API: Generate unique numeric orderCode
+    API -> DB: Persist PENDING_PAYMENT order with orderCode\nand rounded calculated amounts\n(Order.totalAmount = canonical payable amount)
     alt Accepted promotion code
         API -> DB: Reserve promotion usage atomically and concurrency-safely\n(keyed to pending order identity)\nstate RESERVED
     else No promotion code
@@ -93,12 +94,12 @@ else Stock available
                 API -> DB: Finish payment update
                 API --> PayOS: HTTP 200 OK
             else New webhook callback
-                API -> DB: Check order status is PENDING_PAYMENT
-                alt Order already PAID/CONFIRMED, CANCELLED, FAILED or EXPIRED
-                    API -> DB: No-op because order is no longer PENDING_PAYMENT
+                API -> DB: Check payment is PENDING and order is PENDING_PAYMENT
+                alt Payment is already PAID/FAILED/CANCELLED/EXPIRED\nor order is already CONFIRMED/CANCELLED
+                    API -> DB: No-op because payment/order is already finalized or cancelled
                     API -> DB: Finish payment update
                     API --> PayOS: HTTP 200 OK
-                else Order is PENDING_PAYMENT
+                else Payment is PENDING and order is PENDING_PAYMENT
                     alt success=true and data.code=00
                         API -> DB: Update payment PAID
                         API -> DB: Update order CONFIRMED
