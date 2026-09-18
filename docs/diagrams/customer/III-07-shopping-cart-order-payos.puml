@@ -26,21 +26,32 @@ Web --> Customer: Show updated cart
 == Create order and reserve stock ==
 
 Customer -> Web: Confirm address and payment method
-Web -> API: POST /api/orders\n(cart, address, paymentMethod)
+Web -> API: POST /api/orders\n(cart, address, paymentMethod, optional promoCode)
 API -> DB: Start checkout transaction
 API -> DB: Lock products and read current stock
+API -> DB: Validate promotion existence, active/validity period,\neligibility conditions and remaining usage
 
 alt Insufficient stock or invalid item
-    API -> DB: Cancel checkout and release changes
+    API -> DB: Roll back checkout transaction
     API --> Web: 409 OUT_OF_STOCK / 400 INVALID_CART
     Web --> Customer: Show checkout error
+else Promotion invalid, expired, ineligible or exhausted
+    API -> DB: Roll back checkout transaction\n(no order created)
+    API --> Web: 400 PROMO_NOT_APPLICABLE
+    Web --> Customer: Show promotion error
 else Stock available
-    API -> DB: Create pending order
+    API -> API: Calculate subtotal, discountAmount and finalAmount\n=max(subtotal - discountAmount, 0)\nVND half-up rounding; no promo means discountAmount=0
+    API -> DB: Create pending order\n(store promoCode and calculated amounts;\nOrder.totalAmount = canonical payable amount)
+    API -> DB: Generate unique numeric orderCode
+    alt Accepted promo code
+        API -> DB: Reserve promo usage atomically and concurrency-safely\n(keyed to pending order identity)\nstate RESERVED
+    else No promo code
+        API -> DB: Keep discountAmount=0 and no promo reservation
+    end
     API -> DB: Add order items
     API -> DB: Reserve inventory atomically
     API -> DB: Finish checkout transaction
-    API -> API: Create unique numeric orderCode
-    API -> PayOS: POST /v2/payment-requests\n(amount, items, returnUrl, cancelUrl, expiredAt, signature)
+    API -> PayOS: POST /v2/payment-requests\n(amount = finalAmount, items, returnUrl, cancelUrl, expiredAt, signature)
     PayOS --> API: checkoutUrl, paymentLinkId, status PENDING
     API --> Web: 201 paymentUrl = checkoutUrl
     Web -> PayOS: Redirect to checkoutUrl
@@ -61,29 +72,45 @@ else Stock available
 
     PayOS ->> API: POST /api/payments/payos/webhook\nJSON payload + signature
     API -> API: Verify HMAC-SHA256 signature
-    API -> API: Verify orderCode, amount and data.code
+    API -> API: Verify orderCode and data.code
 
-    alt Invalid signature or mismatched data
+    alt Invalid signature, orderCode or data.code
         API --> PayOS: HTTP 400 Invalid webhook
-    else Valid webhook
+    else Valid webhook data
         API -> DB: Start payment update transaction
         API -> DB: Lock and load payment/order
-        API -> DB: Record webhook event\nDatabase prevents duplicate event
+        API -> DB: Load stored canonical payable amount\n(Order.totalAmount)
+        API -> API: Compare received amount with stored canonical amount
 
-        alt success=true and data.code=00
-            API -> DB: Update payment PAID
-            API -> DB: Update order CONFIRMED
-            API -> DB: Finish payment update
-            API --> PayOS: HTTP 200 OK
-        else Failed, cancelled or expired payment
-            API -> DB: Update payment FAILED/CANCELLED/EXPIRED
-            API -> DB: Release reserved stock once
-            API -> DB: Finish payment update
-            API --> PayOS: HTTP 200 OK
-        else Duplicate webhook callback
-            API -> DB: No-op because event was processed
-            API -> DB: Finish payment update
-            API --> PayOS: HTTP 200 OK
+        alt Received amount mismatch
+            API -> DB: Roll back payment update transaction\n(do not update payment or order)
+            API --> PayOS: HTTP 400 Amount mismatch
+        else Amount matches canonical payable amount
+            API -> DB: Record webhook event\nDatabase prevents duplicate event
+
+            alt Duplicate webhook callback
+                API -> DB: No-op because event was processed
+                API -> DB: Finish payment update
+                API --> PayOS: HTTP 200 OK
+            else success=true and data.code=00
+                API -> DB: Update payment PAID
+                API -> DB: Update order CONFIRMED
+                API -> DB: Finalize reserved promo usage once\nRESERVED -> CONFIRMED
+                alt Promo reservation already CONFIRMED or RELEASED
+                    API -> DB: No-op promo finalization
+                end
+                API -> DB: Finish payment update
+                API --> PayOS: HTTP 200 OK
+            else Failed, cancelled or expired payment
+                API -> DB: Update payment FAILED/CANCELLED/EXPIRED
+                API -> DB: Release reserved stock once
+                API -> DB: Release reserved promo usage once\nRESERVED -> RELEASED
+                alt Promo reservation already RELEASED or CONFIRMED\nor cleanup race already handled it
+                    API -> DB: No-op promo release
+                end
+                API -> DB: Finish payment update
+                API --> PayOS: HTTP 200 OK
+            end
         end
     end
 end
@@ -97,6 +124,10 @@ alt Expired orders found
     API -> DB: Update payment EXPIRED
     API -> DB: Update order CANCELLED
     API -> DB: Release reserved stock once
+    API -> DB: Release reserved promo usage once\nRESERVED -> RELEASED
+    alt Cleanup race or promo reservation already RELEASED/CONFIRMED
+        API -> DB: No-op promo release
+    end
     API -> DB: Finish cleanup transaction
 else No expired orders
     API -> DB: Finish cleanup transaction
