@@ -1,6 +1,87 @@
 -- Dữ liệu mẫu cho website thời trang nam ANH LỚN SHOP.
 -- Mật khẩu tài khoản mẫu là: password
 
+-- Tương thích với database cũ còn cột products.stock.
+-- Backend hiện dùng products.quantity_remaining nên chuyển dữ liệu tồn kho
+-- trước khi chạy các câu lệnh seed bên dưới.
+DO $$
+DECLARE
+    constraint_row RECORD;
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'products'
+          AND column_name = 'stock'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'products'
+              AND column_name = 'quantity_remaining'
+        ) THEN
+            EXECUTE 'ALTER TABLE products ADD COLUMN quantity_remaining INTEGER';
+        END IF;
+
+        EXECUTE 'UPDATE products
+                 SET quantity_remaining = COALESCE(quantity_remaining, stock, 0)';
+        EXECUTE 'ALTER TABLE products ALTER COLUMN quantity_remaining SET DEFAULT 0';
+        EXECUTE 'ALTER TABLE products ALTER COLUMN quantity_remaining SET NOT NULL';
+        EXECUTE 'ALTER TABLE products DROP COLUMN stock';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'customers'
+          AND column_name = 'role'
+    ) THEN
+        EXECUTE 'UPDATE customers SET role = ''CUSTOMER'' WHERE role IS NULL';
+        EXECUTE 'ALTER TABLE customers ALTER COLUMN role SET DEFAULT ''CUSTOMER''';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'customers'
+          AND column_name = 'locked'
+    ) THEN
+        EXECUTE 'UPDATE customers SET locked = FALSE WHERE locked IS NULL';
+        EXECUTE 'ALTER TABLE customers ALTER COLUMN locked SET DEFAULT FALSE';
+        EXECUTE 'ALTER TABLE customers ALTER COLUMN locked SET NOT NULL';
+    END IF;
+
+    IF to_regclass('public.survey_questions') IS NOT NULL
+       AND to_regclass('public.surveys') IS NOT NULL THEN
+        FOR constraint_row IN
+            SELECT conname
+            FROM pg_constraint
+            WHERE conrelid = 'public.survey_questions'::regclass
+              AND contype = 'f'
+              AND confrelid = 'public.surveys'::regclass
+        LOOP
+            EXECUTE format('ALTER TABLE survey_questions DROP CONSTRAINT %I', constraint_row.conname);
+        END LOOP;
+    END IF;
+
+    IF to_regclass('public.survey_responses') IS NOT NULL
+       AND to_regclass('public.surveys') IS NOT NULL THEN
+        FOR constraint_row IN
+            SELECT conname
+            FROM pg_constraint
+            WHERE conrelid = 'public.survey_responses'::regclass
+              AND contype = 'f'
+              AND confrelid = 'public.surveys'::regclass
+        LOOP
+            EXECUTE format('ALTER TABLE survey_responses DROP CONSTRAINT %I', constraint_row.conname);
+        END LOOP;
+    END IF;
+END $$;
+
 INSERT INTO categories(name)
 SELECT value
 FROM (VALUES ('Áo khoác'), ('Áo thun'), ('Áo polo'), ('Quần')) AS seed(value)
