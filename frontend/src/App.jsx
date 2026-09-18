@@ -30,6 +30,7 @@ function App() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [surveysOpen, setSurveysOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notice, setNotice] = useState(null);
   const [catalogError, setCatalogError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -58,6 +59,7 @@ function App() {
     if (category) params.set('category', category);
     if (nextFilters.minPrice) params.set('minPrice', nextFilters.minPrice);
     if (nextFilters.maxPrice) params.set('maxPrice', nextFilters.maxPrice);
+    setMobileMenuOpen(false);
     setCatalogPage(true);
     setFilters(nextFilters);
     window.history.pushState({}, '', `/san-pham${params.toString() ? `?${params.toString()}` : ''}`);
@@ -65,6 +67,7 @@ function App() {
   };
   const goHome = event => {
     event?.preventDefault();
+    setMobileMenuOpen(false);
     setCatalogPage(false);
     setSearchInput('');
     setFilters(current => ({ ...current, keyword: '', category: '', minPrice: '', maxPrice: '', page: 0 }));
@@ -114,9 +117,9 @@ function App() {
   return <div className={catalogPage ? 'site-shell catalog-page' : 'site-shell'}>
     <div className="announcement">MIỄN PHÍ VẬN CHUYỂN ĐƠN TỪ 699.000₫ <span>•</span> ĐỔI SIZE TRONG 30 NGÀY</div>
     <header className="site-header">
-      <button className="mobile-menu" aria-label="Mở menu">☰</button>
+      <button className="mobile-menu" aria-label="Mở menu" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(value => !value)}>{mobileMenuOpen ? '×' : '☰'}</button>
       <a className="wordmark" href="/" onClick={goHome}>ANH LỚN <em>SHOP</em></a>
-      <nav className="main-nav"><button onClick={() => openCatalog('')}>HÀNG MỚI</button><button onClick={() => openCatalog('Áo khoác')}>ÁO KHOÁC</button><button onClick={() => openCatalog('Áo thun')}>ÁO THUN</button><button onClick={() => openCatalog('Áo polo')}>ÁO POLO</button><button onClick={() => openCatalog('Quần')}>QUẦN</button><button className="sale-link" onClick={() => openCatalog('', { minPrice: '', maxPrice: '500000' })}>ƯU ĐÃI</button></nav>
+      <nav className={`main-nav ${mobileMenuOpen ? 'is-open' : ''}`} aria-label="Điều hướng chính"><button onClick={() => openCatalog('')}>HÀNG MỚI</button><button onClick={() => openCatalog('Áo khoác')}>ÁO KHOÁC</button><button onClick={() => openCatalog('Áo thun')}>ÁO THUN</button><button onClick={() => openCatalog('Áo polo')}>ÁO POLO</button><button onClick={() => openCatalog('Quần')}>QUẦN</button><button className="sale-link" onClick={() => openCatalog('', { minPrice: '', maxPrice: '500000' })}>ƯU ĐÃI</button></nav>
       <div className="header-actions"><button aria-label="Tìm kiếm" onClick={() => openCatalog('')}>⌕</button><button aria-label="Tài khoản" onClick={() => user ? setProfileOpen(true) : setAuthOpen(true)}>♙</button><button className="cart-button" aria-label="Giỏ hàng" onClick={() => setCartOpen(true)}>▢<span>{cart.itemCount || 0}</span></button></div>
     </header>
 
