@@ -26,7 +26,7 @@ Web --> Customer: Show updated cart
 == Create order and reserve stock ==
 
 Customer -> Web: Confirm address and payment method
-Web -> API: POST /api/orders\n(cart, address, paymentMethod, optional promoCode)
+Web -> API: POST /api/orders\n(cart, address, paymentMethod, optional promotion code (promoCode))
 API -> DB: Start checkout transaction
 API -> DB: Lock products and read current stock
 API -> DB: Validate promotion existence, active/validity period,\neligibility conditions and remaining usage
@@ -40,18 +40,18 @@ else Promotion invalid, expired, ineligible or exhausted
     API --> Web: 400 PROMO_NOT_APPLICABLE
     Web --> Customer: Show promotion error
 else Stock available
-    API -> API: Calculate subtotal, discountAmount and finalAmount\n=max(subtotal - discountAmount, 0)\nVND half-up rounding; no promo means discountAmount=0
-    API -> DB: Create pending order\n(store promoCode and calculated amounts;\nOrder.totalAmount = canonical payable amount)
-    API -> DB: Generate unique numeric orderCode
-    alt Accepted promo code
-        API -> DB: Reserve promo usage atomically and concurrency-safely\n(keyed to pending order identity)\nstate RESERVED
-    else No promo code
-        API -> DB: Keep discountAmount=0 and no promo reservation
+    API -> API: Calculate subtotal, discountAmount and finalAmount\n=max(subtotal - discountAmount, 0)\nusing VND half-up rounding before persistence and payment request;\nno promotion means discountAmount=0
+    API -> DB: Create order PENDING_PAYMENT\n(store promotion code and rounded calculated amounts;\nOrder.totalAmount = canonical payable amount)
+    API -> DB: Generate and store unique numeric orderCode
+    alt Accepted promotion code
+        API -> DB: Reserve promotion usage atomically and concurrency-safely\n(keyed to pending order identity)\nstate RESERVED
+    else No promotion code
+        API -> DB: Keep discountAmount=0 and create no promotion reservation
     end
     API -> DB: Add order items
     API -> DB: Reserve inventory atomically
     API -> DB: Finish checkout transaction
-    API -> PayOS: POST /v2/payment-requests\n(amount = finalAmount, items, returnUrl, cancelUrl, expiredAt, signature)
+    API -> PayOS: POST /v2/payment-requests\n(orderCode, amount = finalAmount, items, returnUrl, cancelUrl, expiredAt, signature)
     PayOS --> API: checkoutUrl, paymentLinkId, status PENDING
     API --> Web: 201 paymentUrl = checkoutUrl
     Web -> PayOS: Redirect to checkoutUrl
@@ -86,30 +86,48 @@ else Stock available
             API -> DB: Roll back payment update transaction\n(do not update payment or order)
             API --> PayOS: HTTP 400 Amount mismatch
         else Amount matches canonical payable amount
-            API -> DB: Record webhook event\nDatabase prevents duplicate event
+            API -> DB: Record or identify webhook event\nDatabase prevents duplicate event
 
             alt Duplicate webhook callback
                 API -> DB: No-op because event was processed
                 API -> DB: Finish payment update
                 API --> PayOS: HTTP 200 OK
-            else success=true and data.code=00
-                API -> DB: Update payment PAID
-                API -> DB: Update order CONFIRMED
-                API -> DB: Finalize reserved promo usage once\nRESERVED -> CONFIRMED
-                alt Promo reservation already CONFIRMED or RELEASED
-                    API -> DB: No-op promo finalization
+            else New webhook callback
+                API -> DB: Check order status is PENDING_PAYMENT
+                alt Order already PAID/CONFIRMED, CANCELLED, FAILED or EXPIRED
+                    API -> DB: No-op because order is no longer PENDING_PAYMENT
+                    API -> DB: Finish payment update
+                    API --> PayOS: HTTP 200 OK
+                else Order is PENDING_PAYMENT
+                    alt success=true and data.code=00
+                        API -> DB: Update payment PAID
+                        API -> DB: Update order CONFIRMED
+                        alt Existing promotion reservation
+                            API -> DB: Finalize promotion usage once\nRESERVED -> CONFIRMED
+                            alt Promotion reservation already CONFIRMED or RELEASED
+                                API -> DB: No-op promotion finalization
+                            end
+                        else No promotion reservation
+                            API -> DB: No-op promotion finalization
+                        end
+                        API -> DB: Finish payment update
+                        API --> PayOS: HTTP 200 OK
+                    else Failed, cancelled or expired payment
+                        API -> DB: Update payment FAILED/CANCELLED/EXPIRED
+                        API -> DB: Update order CANCELLED
+                        API -> DB: Release reserved stock once
+                        alt Existing promotion reservation
+                            API -> DB: Release promotion usage once\nRESERVED -> RELEASED
+                            alt Promotion reservation already RELEASED or CONFIRMED\nor cleanup race already handled it
+                                API -> DB: No-op promotion release
+                            end
+                        else No promotion reservation
+                            API -> DB: No-op promotion release
+                        end
+                        API -> DB: Finish payment update
+                        API --> PayOS: HTTP 200 OK
+                    end
                 end
-                API -> DB: Finish payment update
-                API --> PayOS: HTTP 200 OK
-            else Failed, cancelled or expired payment
-                API -> DB: Update payment FAILED/CANCELLED/EXPIRED
-                API -> DB: Release reserved stock once
-                API -> DB: Release reserved promo usage once\nRESERVED -> RELEASED
-                alt Promo reservation already RELEASED or CONFIRMED\nor cleanup race already handled it
-                    API -> DB: No-op promo release
-                end
-                API -> DB: Finish payment update
-                API --> PayOS: HTTP 200 OK
             end
         end
     end
@@ -119,14 +137,22 @@ end
 
 Job -> API: Run every 5 minutes
 API -> DB: Start cleanup transaction
-API -> DB: Load expired pending orders with lock\nProcess batches without overlap
+API -> DB: Load expired PENDING_PAYMENT orders with lock\nProcess batches without overlap
 alt Expired orders found
-    API -> DB: Update payment EXPIRED
-    API -> DB: Update order CANCELLED
-    API -> DB: Release reserved stock once
-    API -> DB: Release reserved promo usage once\nRESERVED -> RELEASED
-    alt Cleanup race or promo reservation already RELEASED/CONFIRMED
-        API -> DB: No-op promo release
+    alt Order is still PENDING_PAYMENT
+        API -> DB: Update payment EXPIRED
+        API -> DB: Update order CANCELLED
+        API -> DB: Release reserved stock once
+        alt Existing promotion reservation
+            API -> DB: Release promotion usage once\nRESERVED -> RELEASED
+            alt Cleanup race or promotion reservation already RELEASED/CONFIRMED
+                API -> DB: No-op promotion release
+            end
+        else No promotion reservation
+            API -> DB: No-op promotion release
+        end
+    else Cleanup race or order already finalized/cancelled
+        API -> DB: No-op cleanup
     end
     API -> DB: Finish cleanup transaction
 else No expired orders
