@@ -1,0 +1,27 @@
+@startuml
+title Use case - Quản lý danh mục và thông tin sản phẩm
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "ADMIN" as Admin
+
+rectangle "Hệ thống CRM" {
+  usecase "Quản lý danh mục và\nthông tin sản phẩm" as ManageProducts
+  usecase "Xem danh sách sản phẩm\nvà tồn kho" as ViewProducts
+  usecase "Thêm sản phẩm" as AddProduct
+  usecase "Sửa thông tin sản phẩm" as EditProduct
+  usecase "Xóa sản phẩm" as DeleteProduct
+  usecase "Cập nhật dữ liệu\nsản phẩm và tồn kho" as UpdateProductData
+}
+
+Admin --> ManageProducts
+ManageProducts .> ViewProducts : <<include>>
+AddProduct .> ManageProducts : <<extend>>
+EditProduct .> ManageProducts : <<extend>>
+DeleteProduct .> ManageProducts : <<extend>>
+AddProduct .> UpdateProductData : <<include>>
+EditProduct .> UpdateProductData : <<include>>
+DeleteProduct .> UpdateProductData : <<include>>
+@enduml

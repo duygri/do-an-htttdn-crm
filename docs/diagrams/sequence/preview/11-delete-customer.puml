@@ -1,0 +1,20 @@
+@startuml
+title Xóa khách hàng
+
+actor ADMIN as Admin
+boundary "Trang quản lý khách hàng" as Boundary
+control "Control xóa khách hàng" as Control
+entity "e_khách hàng" as Entity
+
+Admin -> Boundary: 1 Chọn khách hàng cần xóa và xác nhận
+Boundary -> Control: 1.1 Gửi yêu cầu xóa khách hàng
+Control -> Entity: 1.1.1 Kiểm tra ràng buộc và xóa khách hàng
+Entity --> Control: 1.1.1.1 Trả về kết quả xóa khách hàng
+Control -> Boundary: 1.1.1.1.1 Trả kết quả xử lý
+
+alt Không thể xóa khách hàng
+  Boundary --> Admin: 1.1.1.1.1.1 Hiển thị lý do không thể xóa
+else Xóa khách hàng thành công
+  Boundary --> Admin: 1.1.1.1.1.2 Hiển thị kết quả xóa khách hàng
+end
+@enduml

@@ -1,0 +1,20 @@
+@startuml
+title Thêm khách hàng
+
+actor ADMIN as Admin
+boundary "Form thêm khách hàng" as Boundary
+control "Control thêm khách hàng" as Control
+entity "e_khách hàng" as Entity
+
+Admin -> Boundary: 1 Nhập thông tin khách hàng mới và xác nhận
+Boundary -> Control: 1.1 Gửi yêu cầu thêm khách hàng
+Control -> Entity: 1.1.1 Kiểm tra và lưu thông tin khách hàng
+Entity --> Control: 1.1.1.1 Trả về kết quả thêm khách hàng
+Control -> Boundary: 1.1.1.1.1 Trả kết quả xử lý
+
+alt Thông tin không hợp lệ hoặc bị trùng
+  Boundary --> Admin: 1.1.1.1.1.1 Hiển thị lỗi thêm khách hàng
+else Thêm khách hàng thành công
+  Boundary --> Admin: 1.1.1.1.1.2 Hiển thị kết quả thêm khách hàng
+end
+@enduml
