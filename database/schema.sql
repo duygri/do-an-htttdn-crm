@@ -67,6 +67,18 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address VARCHAR(1000);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_released BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+-- Có thể orders đã có dữ liệu từ phiên bản cũ. Tách bước backfill để PostgreSQL
+-- không cố thêm cột NOT NULL vào các dòng cũ đang có giá trị NULL.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(15,2);
+UPDATE orders SET discount_amount = 0 WHERE discount_amount IS NULL;
+ALTER TABLE orders ALTER COLUMN discount_amount SET DEFAULT 0;
+ALTER TABLE orders ALTER COLUMN discount_amount SET NOT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS voucher_code VARCHAR(40);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_code VARCHAR(120);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_reason VARCHAR(1000);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_reason VARCHAR(1000);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_status VARCHAR(30) NOT NULL DEFAULT 'NONE';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_requested_at TIMESTAMPTZ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_orders_order_code ON orders(order_code) WHERE order_code IS NOT NULL;
 
@@ -92,6 +104,62 @@ CREATE TABLE IF NOT EXISTS cart_items (
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_cart_customer_product_variant
     ON cart_items(customer_id, product_id, COALESCE(size, ''), COALESCE(color, ''));
+
+CREATE TABLE IF NOT EXISTS wishlists (
+    id BIGSERIAL PRIMARY KEY,
+    customer_id BIGINT NOT NULL REFERENCES customers(customer_id) ON DELETE CASCADE,
+    product_id BIGINT NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(customer_id, product_id)
+);
+
+CREATE TABLE IF NOT EXISTS customer_addresses (
+    id BIGSERIAL PRIMARY KEY,
+    customer_id BIGINT NOT NULL REFERENCES customers(customer_id) ON DELETE CASCADE,
+    label VARCHAR(80),
+    recipient_name VARCHAR(150) NOT NULL,
+    phone VARCHAR(40) NOT NULL,
+    address_line VARCHAR(500) NOT NULL,
+    ward VARCHAR(100),
+    district VARCHAR(100),
+    province VARCHAR(100),
+    default_address BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS store_vouchers (
+    id BIGSERIAL PRIMARY KEY,
+    code VARCHAR(40) NOT NULL UNIQUE,
+    discount_type VARCHAR(20) NOT NULL DEFAULT 'PERCENTAGE',
+    discount_value NUMERIC(12,2) NOT NULL CHECK (discount_value > 0),
+    min_order_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    usage_limit INTEGER,
+    used_count INTEGER NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    starts_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS customer_notifications (
+    id BIGSERIAL PRIMARY KEY,
+    customer_id BIGINT NOT NULL REFERENCES customers(customer_id) ON DELETE CASCADE,
+    title VARCHAR(150) NOT NULL,
+    content VARCHAR(2000) NOT NULL,
+    type VARCHAR(30),
+    order_id BIGINT REFERENCES orders(order_id) ON DELETE SET NULL,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    customer_id BIGINT NOT NULL REFERENCES customers(customer_id) ON DELETE CASCADE,
+    token_hash VARCHAR(128) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS feedback (
     feedback_id BIGSERIAL PRIMARY KEY,
@@ -243,3 +311,6 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_customer ON feedback(customer_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_wishlists_customer ON wishlists(customer_id);
+CREATE INDEX IF NOT EXISTS idx_addresses_customer ON customer_addresses(customer_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_customer_created ON customer_notifications(customer_id, created_at DESC);

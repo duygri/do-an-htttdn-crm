@@ -1,6 +1,87 @@
 -- Dữ liệu mẫu cho website thời trang nam ANH LỚN SHOP.
 -- Mật khẩu tài khoản mẫu là: password
 
+-- Tương thích với database cũ còn cột products.stock.
+-- Backend hiện dùng products.quantity_remaining nên chuyển dữ liệu tồn kho
+-- trước khi chạy các câu lệnh seed bên dưới.
+DO $$
+DECLARE
+    constraint_row RECORD;
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'products'
+          AND column_name = 'stock'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'products'
+              AND column_name = 'quantity_remaining'
+        ) THEN
+            EXECUTE 'ALTER TABLE products ADD COLUMN quantity_remaining INTEGER';
+        END IF;
+
+        EXECUTE 'UPDATE products
+                 SET quantity_remaining = COALESCE(quantity_remaining, stock, 0)';
+        EXECUTE 'ALTER TABLE products ALTER COLUMN quantity_remaining SET DEFAULT 0';
+        EXECUTE 'ALTER TABLE products ALTER COLUMN quantity_remaining SET NOT NULL';
+        EXECUTE 'ALTER TABLE products DROP COLUMN stock';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'customers'
+          AND column_name = 'role'
+    ) THEN
+        EXECUTE 'UPDATE customers SET role = ''CUSTOMER'' WHERE role IS NULL';
+        EXECUTE 'ALTER TABLE customers ALTER COLUMN role SET DEFAULT ''CUSTOMER''';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'customers'
+          AND column_name = 'locked'
+    ) THEN
+        EXECUTE 'UPDATE customers SET locked = FALSE WHERE locked IS NULL';
+        EXECUTE 'ALTER TABLE customers ALTER COLUMN locked SET DEFAULT FALSE';
+        EXECUTE 'ALTER TABLE customers ALTER COLUMN locked SET NOT NULL';
+    END IF;
+
+    IF to_regclass('public.survey_questions') IS NOT NULL
+       AND to_regclass('public.surveys') IS NOT NULL THEN
+        FOR constraint_row IN
+            SELECT conname
+            FROM pg_constraint
+            WHERE conrelid = 'public.survey_questions'::regclass
+              AND contype = 'f'
+              AND confrelid = 'public.surveys'::regclass
+        LOOP
+            EXECUTE format('ALTER TABLE survey_questions DROP CONSTRAINT %I', constraint_row.conname);
+        END LOOP;
+    END IF;
+
+    IF to_regclass('public.survey_responses') IS NOT NULL
+       AND to_regclass('public.surveys') IS NOT NULL THEN
+        FOR constraint_row IN
+            SELECT conname
+            FROM pg_constraint
+            WHERE conrelid = 'public.survey_responses'::regclass
+              AND contype = 'f'
+              AND confrelid = 'public.surveys'::regclass
+        LOOP
+            EXECUTE format('ALTER TABLE survey_responses DROP CONSTRAINT %I', constraint_row.conname);
+        END LOOP;
+    END IF;
+END $$;
+
 INSERT INTO categories(name)
 SELECT value
 FROM (VALUES ('Áo khoác'), ('Áo thun'), ('Áo polo'), ('Quần')) AS seed(value)
@@ -42,13 +123,21 @@ SELECT 'khachhang@example.com', 'Nguyễn Minh Khang', '0900000000', 'Phong các
 WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = 'khachhang@example.com');
 
 INSERT INTO admins(role, password_hash)
-SELECT 'ADMIN', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
+SELECT 'ADMIN', '$2a$10$tAL0K4zyrX8mctqJC6ldHeAvlO8OMpEDI6HD.mMkb4IMoWGiCLxyW'
 WHERE NOT EXISTS (SELECT 1 FROM admins WHERE role = 'ADMIN');
 
 -- Admin login uses the same identity table as the application auth service.
+UPDATE customers
+SET email = 'admin@shop.com',
+    password_hash = '$2a$10$tAL0K4zyrX8mctqJC6ldHeAvlO8OMpEDI6HD.mMkb4IMoWGiCLxyW',
+    role = 'ADMIN',
+    locked = FALSE
+WHERE email = 'admin@example.com'
+  AND role = 'ADMIN';
+
 INSERT INTO customers(email, full_name, phone, preferences, password_hash, role)
-SELECT 'admin@example.com', 'Quản trị viên', NULL, NULL, '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN'
-WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = 'admin@example.com');
+SELECT 'admin@shop.com', 'Quản trị viên', NULL, NULL, '$2a$10$tAL0K4zyrX8mctqJC6ldHeAvlO8OMpEDI6HD.mMkb4IMoWGiCLxyW', 'ADMIN'
+WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = 'admin@shop.com');
 
 INSERT INTO survey_definitions(title, description, status, starts_at)
 SELECT 'Gu thời trang của bạn', 'Trả lời nhanh để ANH LỚN SHOP gợi ý những món đồ hợp với bạn hơn.', 'PUBLISHED', now()
@@ -57,6 +146,10 @@ WHERE NOT EXISTS (SELECT 1 FROM survey_definitions WHERE title = 'Gu thời tran
 UPDATE survey_definitions
 SET description = 'Trả lời nhanh để ANH LỚN SHOP gợi ý những món đồ hợp với bạn hơn.'
 WHERE title = 'Gu thời trang của bạn';
+
+INSERT INTO store_vouchers(code, discount_type, discount_value, min_order_amount, usage_limit, active)
+SELECT 'ANHLON10', 'PERCENTAGE', 10, 300000, 500, TRUE
+WHERE NOT EXISTS (SELECT 1 FROM store_vouchers WHERE code = 'ANHLON10');
 
 INSERT INTO survey_questions(survey_id, text, type, display_order, options_json, required)
 SELECT s.id, q.text, q.type, q.display_order, q.options_json, TRUE
