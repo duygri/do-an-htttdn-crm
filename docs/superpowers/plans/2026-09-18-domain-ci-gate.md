@@ -52,7 +52,7 @@
 
 - [ ] **Step 1: Parse and lint YAML**
 
-  Run `npx --yes prettier@3 --check --parser yaml .github/workflows/backend-check.yml .github/workflows/codeql.yml` and `git diff --check`. Run `actionlint` against both workflows; if it is not installed locally, use the equivalent actionlint validation in the CI workflow or document the local-tool limitation explicitly.
+  Run `npx --yes prettier@3 --check --parser yaml .github/workflows/backend-check.yml`, run `npx --yes prettier@3 --parser yaml .github/workflows/codeql.yml > $null` as a parse-only check because the preserved CodeQL file is pre-existing and intentionally not reformatted, and run `git diff --check`. Run `actionlint` against both workflows when available; if it is unavailable locally, document that limitation and rely on GitHub's workflow parser plus the successful CI checks.
 
 - [ ] **Step 2: Assert stable jobs and trigger mapping**
 
