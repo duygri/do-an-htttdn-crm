@@ -107,12 +107,14 @@ jobs:
       - name: Lint frontend
         if: hashFiles('frontend/package.json') != ''
         working-directory: frontend
+        env:
+          NPM_SCRIPT: lint
         run: |
-          node - lint <<'NODE'
+          node <<'NODE'
           const fs = require('node:fs');
           const { spawnSync } = require('node:child_process');
 
-          const script = process.argv[2];
+          const script = process.env.NPM_SCRIPT;
           const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           if (!Object.prototype.hasOwnProperty.call(packageJson.scripts ?? {}, script)) {
             console.log(`${script} not configured; skipped`);
@@ -126,12 +128,14 @@ jobs:
       - name: Type-check frontend
         if: hashFiles('frontend/package.json') != ''
         working-directory: frontend
+        env:
+          NPM_SCRIPT: typecheck
         run: |
-          node - typecheck <<'NODE'
+          node <<'NODE'
           const fs = require('node:fs');
           const { spawnSync } = require('node:child_process');
 
-          const script = process.argv[2];
+          const script = process.env.NPM_SCRIPT;
           const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           if (!Object.prototype.hasOwnProperty.call(packageJson.scripts ?? {}, script)) {
             console.log(`${script} not configured; skipped`);
