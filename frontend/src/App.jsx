@@ -2032,9 +2032,10 @@ function SurveyModal({ user, onClose, onLogin, onNotice }) {
     if (!user) return onLogin();
     setBusy(true);
     try {
-      await api(endpoints.surveyResponses(survey.id), {
+      await api(endpoints.surveySubmit, {
         method: "POST",
         body: {
+          surveyId: survey.id,
           answers: Object.entries(answers).map(([questionId, value]) => ({
             questionId: Number(questionId),
             value,

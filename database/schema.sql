@@ -288,20 +288,40 @@ CREATE TABLE IF NOT EXISTS payments (
     id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL UNIQUE REFERENCES orders(order_id),
     amount NUMERIC(15,2) NOT NULL,
+    payment_method VARCHAR(30),
     payment_link_id VARCHAR(255),
     checkout_url VARCHAR(2000),
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    gateway_txn_ref VARCHAR(255),
+    gateway_transaction_no VARCHAR(255),
+    response_code VARCHAR(80),
+    paid_at TIMESTAMPTZ,
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method VARCHAR(30);
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS gateway_txn_ref VARCHAR(255);
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS gateway_transaction_no VARCHAR(255);
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS response_code VARCHAR(80);
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS payment_webhook_events (
     id BIGSERIAL PRIMARY KEY,
     event_key VARCHAR(255) NOT NULL UNIQUE,
     order_code BIGINT,
+    order_id BIGINT REFERENCES orders(order_id),
+    webhook_type VARCHAR(30) NOT NULL DEFAULT 'UNKNOWN',
+    gateway_reference VARCHAR(255) NOT NULL DEFAULT '',
     received_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE payment_webhook_events ADD COLUMN IF NOT EXISTS order_id BIGINT REFERENCES orders(order_id);
+ALTER TABLE payment_webhook_events ADD COLUMN IF NOT EXISTS webhook_type VARCHAR(30) NOT NULL DEFAULT 'UNKNOWN';
+ALTER TABLE payment_webhook_events ADD COLUMN IF NOT EXISTS gateway_reference VARCHAR(255) NOT NULL DEFAULT '';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_webhook_event_identity
+    ON payment_webhook_events(order_id, webhook_type, gateway_reference);
 
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_catalog ON products(active, gender, category_id);
