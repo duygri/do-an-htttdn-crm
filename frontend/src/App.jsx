@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   api,
   currentApiBase,
@@ -11,6 +11,7 @@ import {
 import {
   ArrowLeft,
   ArrowUpRight,
+  Bell,
   Check,
   ChevronRight,
   CircleAlert,
@@ -19,6 +20,7 @@ import {
   Menu,
   Minus,
   PackageOpen,
+  MapPin,
   Plus,
   RefreshCw,
   Search,
@@ -28,6 +30,7 @@ import {
   Star,
   Trash2,
   Truck,
+  KeyRound,
   UserRound,
   X,
 } from "lucide-react";
@@ -51,6 +54,14 @@ const csv = (value) =>
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+const surveyOptions = (value) => {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
 const discount = (product) =>
   product?.salePrice && product.salePrice < product.price
     ? Math.round((1 - product.salePrice / product.price) * 100)
@@ -62,6 +73,23 @@ const imageSrc = (value) =>
 const protectImage = (event) => {
   event.currentTarget.onerror = null;
   event.currentTarget.src = FALLBACK_IMAGE;
+};
+const GUEST_CART_KEY = "anh-lon-shop-guest-cart";
+const emptyCart = () => ({ items: [], subtotal: 0, itemCount: 0 });
+const readGuestCart = () => {
+  if (typeof window === "undefined") return emptyCart();
+  try {
+    const value = JSON.parse(window.localStorage.getItem(GUEST_CART_KEY) || "null");
+    return value?.items ? value : emptyCart();
+  } catch {
+    return emptyCart();
+  }
+};
+const saveGuestCart = (value) => {
+  if (typeof window !== "undefined") window.localStorage.setItem(GUEST_CART_KEY, JSON.stringify(value));
+};
+const clearGuestCart = () => {
+  if (typeof window !== "undefined") window.localStorage.removeItem(GUEST_CART_KEY);
 };
 
 function App() {
@@ -94,20 +122,35 @@ function App() {
   });
   const [searchInput, setSearchInput] = useState("");
   const [user, setUser] = useState(null);
-  const [cart, setCart] = useState({ items: [], subtotal: 0, itemCount: 0 });
+  const [cart, setCart] = useState(() => readGuestCart());
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  const [authAfterLogin, setAuthAfterLogin] = useState(null);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [surveysOpen, setSurveysOpen] = useState(false);
+  const [wishlistOpen, setWishlistOpen] = useState(false);
+  const [wishlist, setWishlist] = useState([]);
+  const [addressesOpen, setAddressesOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notice, setNotice] = useState(null);
   const [catalogError, setCatalogError] = useState("");
   const [loading, setLoading] = useState(true);
+  const cartUpdateLocks = useRef(new Set());
+  const [updatingCartKeys, setUpdatingCartKeys] = useState([]);
+
+  const openAuth = (afterLogin = null) => {
+    setAuthMode("login");
+    setAuthAfterLogin(afterLogin);
+    setAuthOpen(true);
+  };
 
   const loadProducts = async () => {
     setLoading(true);
@@ -128,7 +171,23 @@ function App() {
   const loadCart = async () => {
     if (!user) return;
     try {
-      setCart(await api(endpoints.cart));
+      const serverCart = await api(endpoints.cart);
+      const guest = readGuestCart();
+      if (guest.items.length) {
+        const merged = [...serverCart.items];
+        guest.items.forEach((guestItem) => {
+          const found = merged.find((item) => item.productId === guestItem.productId && item.size === guestItem.size && item.color === guestItem.color);
+          if (found) found.quantity += guestItem.quantity;
+          else merged.push({ productId: guestItem.productId, quantity: guestItem.quantity, size: guestItem.size, color: guestItem.color });
+        });
+        try {
+          setCart(await api(endpoints.cart, { method: "PUT", body: { items: merged.map(({ productId, quantity, size, color }) => ({ productId, quantity, size, color })) } }));
+          clearGuestCart();
+        } catch {
+          setCart(serverCart);
+          showNotice("Một số sản phẩm trong giỏ tạm không còn đủ hàng.", "error");
+        }
+      } else setCart(serverCart);
     } catch (error) {
       if (error.status !== 401) showNotice(error.message, "error");
     }
@@ -159,7 +218,14 @@ function App() {
   ]);
   useEffect(() => {
     if (user) loadCart();
-    else setCart({ items: [], subtotal: 0, itemCount: 0 });
+    else {
+      setCart(readGuestCart());
+      setWishlist([]);
+    }
+    if (user) {
+      api(endpoints.wishlist).then(setWishlist).catch(() => setWishlist([]));
+      api(endpoints.notifications).then((data) => setNotificationCount(data.unreadCount || 0)).catch(() => null);
+    }
   }, [user]);
 
   const chooseCategory = (category) =>
@@ -275,15 +341,32 @@ function App() {
       (sum, item) => sum + Number(item.lineTotal),
       0,
     );
-    setCart({
+    const nextCart = {
       items,
       subtotal,
       itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
-    });
+    };
+    setCart(nextCart);
+    saveGuestCart(nextCart);
   };
-  const addToCart = async (product, variant = {}) => {
+  const addToCart = async (product, variant = {}, quantity = 1) => {
+    const requestedQuantity = Math.max(1, Number(quantity) || 1);
+    const existing = cart.items.find(
+      (item) =>
+        item.productId === product.id &&
+        item.size === variant.size &&
+        item.color === variant.color,
+    );
+    if (existing && existing.quantity + requestedQuantity > product.stock) {
+      showNotice(`Sản phẩm chỉ còn ${product.stock} sản phẩm trong kho.`, "error");
+      return;
+    }
+    if (!product.stock || requestedQuantity > product.stock) {
+      showNotice("Sản phẩm đã hết hàng hoặc không đủ số lượng.", "error");
+      return;
+    }
     if (!user) {
-      localCart(product, 1, variant);
+      localCart(product, requestedQuantity, variant);
       setCartOpen(true);
       showNotice("Đã thêm sản phẩm vào giỏ tạm. Đăng nhập khi thanh toán nhé.");
       return;
@@ -292,7 +375,7 @@ function App() {
       setCart(
         await api(endpoints.addCart, {
           method: "POST",
-          body: { productId: product.id, quantity: 1, ...variant },
+          body: { productId: product.id, quantity: requestedQuantity, ...variant },
         }),
       );
       setCartOpen(true);
@@ -302,33 +385,30 @@ function App() {
     }
   };
   const updateCart = async (line, quantity) => {
+    const nextQuantity = Math.max(0, Number(quantity) || 0);
     const sameLine = (item) =>
       item.productId === line.productId &&
       item.size === line.size &&
       item.color === line.color;
-    if (quantity < 1) {
+    if (nextQuantity > line.stock) {
+      showNotice(`Sản phẩm chỉ còn ${line.stock} sản phẩm trong kho.`, "error");
+      return;
+    }
+    if (!user) {
       const items = cart.items.filter((item) => !sameLine(item));
-      const subtotal = items.reduce(
-        (sum, item) => sum + Number(item.lineTotal),
-        0,
-      );
-      setCart({
-        items,
-        subtotal,
-        itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
-      });
-    } else if (!user) {
-      const items = cart.items.map((item) =>
-        sameLine(item)
-          ? { ...item, quantity, lineTotal: Number(item.unitPrice) * quantity }
-          : item,
-      );
-      setCart({
-        items,
-        subtotal: items.reduce((sum, item) => sum + Number(item.lineTotal), 0),
-        itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
-      });
+      const nextItems = nextQuantity < 1 ? items : cart.items.map((item) => sameLine(item) ? { ...item, quantity: nextQuantity, lineTotal: Number(item.unitPrice) * nextQuantity } : item);
+      const nextCart = {
+        items: nextItems,
+        subtotal: nextItems.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0),
+        itemCount: nextItems.reduce((sum, item) => sum + item.quantity, 0),
+      };
+      setCart(nextCart);
+      saveGuestCart(nextCart);
     } else {
+      const updateKey = `${line.productId}|${line.size || ""}|${line.color || ""}`;
+      if (cartUpdateLocks.current.has(updateKey)) return;
+      cartUpdateLocks.current.add(updateKey);
+      setUpdatingCartKeys((current) => [...current, updateKey]);
       try {
         setCart(
           await api(endpoints.cart, {
@@ -337,7 +417,7 @@ function App() {
               items: cart.items
                 .map((item) => ({
                   productId: item.productId,
-                  quantity: sameLine(item) ? quantity : item.quantity,
+                  quantity: sameLine(item) ? nextQuantity : item.quantity,
                   size: item.size,
                   color: item.color,
                 }))
@@ -347,29 +427,66 @@ function App() {
         );
       } catch (error) {
         showNotice(error.message, "error");
+      } finally {
+        cartUpdateLocks.current.delete(updateKey);
+        setUpdatingCartKeys((current) => current.filter((key) => key !== updateKey));
       }
     }
+  };
+  const toggleWishlist = async (product) => {
+    if (!user) {
+      openAuth("wishlist");
+      return;
+    }
+    const exists = wishlist.some((item) => item.productId === product.id);
+    try {
+      if (exists) {
+        await api(endpoints.wishlistItem(product.id), { method: "DELETE" });
+        setWishlist((current) => current.filter((item) => item.productId !== product.id));
+        showNotice("Đã bỏ khỏi danh sách yêu thích.");
+      } else {
+        const saved = await api(endpoints.wishlistItem(product.id), { method: "POST" });
+        setWishlist((current) => [saved, ...current]);
+        showNotice("Đã thêm vào danh sách yêu thích.");
+      }
+    } catch (error) {
+      showNotice(error.message, "error");
+    }
+  };
+  const reloadNotifications = async () => {
+    if (!user) return;
+    try {
+      const data = await api(endpoints.notifications);
+      setNotificationCount(data.unreadCount || 0);
+    } catch { /* thông báo không làm gián đoạn việc mua hàng */ }
   };
   const startCheckout = () => {
     if (!cart.items.length) return showNotice("Giỏ hàng đang trống.", "error");
     if (!user) {
       setCartOpen(false);
-      setAuthMode("login");
-      setAuthOpen(true);
+      openAuth("checkout");
       return;
     }
     setCartOpen(false);
     setCheckoutOpen(true);
   };
   const afterAuth = (customer) => {
+    const nextAction = authAfterLogin;
     setUser(customer);
     setAuthOpen(false);
+    setAuthAfterLogin(null);
+    if (nextAction === "orders") setOrdersOpen(true);
+    if (nextAction === "profile") setProfileOpen(true);
+    if (nextAction === "wishlist") setWishlistOpen(true);
+    if (nextAction === "notifications") setNotificationsOpen(true);
+    if (nextAction === "checkout") setCheckoutOpen(true);
     showNotice(`Chào mừng ${customer.fullName}!`);
   };
   const logout = async () => {
     await signOut();
     setUser(null);
-    setCart({ items: [], subtotal: 0, itemCount: 0 });
+    setProfileOpen(false);
+      setCart(readGuestCart());
     showNotice("Bạn đã đăng xuất.");
   };
 
@@ -422,11 +539,30 @@ function App() {
             <Search size={20} strokeWidth={1.8} />
           </button>
           <button
-            className="icon-button"
-            aria-label="Tài khoản"
-            onClick={() => (user ? setProfileOpen(true) : setAuthOpen(true))}
+            className="icon-button notification-button"
+            aria-label="Thông báo"
+            title="Thông báo"
+            onClick={() => user ? setNotificationsOpen(true) : openAuth("notifications")}
           >
-            <UserRound size={20} strokeWidth={1.8} />
+            <Bell size={22} strokeWidth={1.8} />
+            {user && notificationCount > 0 && <span>{notificationCount > 9 ? "9+" : notificationCount}</span>}
+          </button>
+          <button
+            className="icon-button"
+            aria-label="Sản phẩm yêu thích"
+            title="Sản phẩm yêu thích"
+            onClick={() => user ? setWishlistOpen(true) : openAuth("wishlist")}
+          >
+            <Heart size={22} strokeWidth={1.8} />
+          </button>
+          <button
+            className={`icon-button account-button${user ? " signed-in" : ""}`}
+            aria-label="Tài khoản"
+            title={user ? `Tài khoản của ${user.fullName}` : "Đăng nhập tài khoản"}
+            onClick={() => (user ? setProfileOpen(true) : openAuth("profile"))}
+          >
+            <UserRound size={28} strokeWidth={1.8} />
+            {user && <span className="account-status-dot" aria-hidden="true" />}
           </button>
           <button
             className="cart-button icon-button"
@@ -653,7 +789,9 @@ function App() {
                   key={product.id}
                   product={product}
                   onOpen={() => openProduct(product)}
-                  onAdd={() => addToCart(product)}
+                  onAdd={() => addToCart(product, { size: csv(product.sizes)[0], color: csv(product.colors)[0] })}
+                  isWishlisted={wishlist.some((item) => item.productId === product.id)}
+                  onWishlist={() => toggleWishlist(product)}
                 />
               ))}
             </div>
@@ -764,14 +902,16 @@ function App() {
         <div>
           <b>HỖ TRỢ</b>
           <button
-            onClick={() => (user ? setOrdersOpen(true) : setAuthOpen(true))}
+            onClick={() => (user ? setOrdersOpen(true) : openAuth("orders"))}
           >
             Đơn hàng của tôi
           </button>
           <button onClick={() => setSurveysOpen(true)}>
             Khảo sát phong cách
           </button>
-          <button onClick={() => setProfileOpen(true)}>Liên hệ</button>
+          <button onClick={() => (user ? setProfileOpen(true) : openAuth("profile"))}>
+            Tài khoản của tôi
+          </button>
         </div>
         <div>
           <b>THEO DÕI</b>
@@ -793,19 +933,27 @@ function App() {
         </div>
       )}
       {selectedProduct && (
-        <ProductModal
-          data={selectedProduct}
-          user={user}
-          onClose={() => setSelectedProduct(null)}
-          onAdd={(variant) => addToCart(selectedProduct.product, variant)}
-          onNotice={showNotice}
-        />
+          <ProductModal
+            data={selectedProduct}
+            user={user}
+            onClose={() => setSelectedProduct(null)}
+            onAdd={(variant, quantity) =>
+              addToCart(selectedProduct.product, variant, quantity)
+            }
+            onLogin={() => {
+              setSelectedProduct(null);
+              setAuthMode("login");
+              setAuthOpen(true);
+            }}
+            onNotice={showNotice}
+          />
       )}
       {cartOpen && (
         <CartDrawer
           cart={cart}
           onClose={() => setCartOpen(false)}
           onUpdate={updateCart}
+          updatingKeys={updatingCartKeys}
           onCheckout={startCheckout}
         />
       )}
@@ -819,12 +967,14 @@ function App() {
         />
       )}
       {checkoutOpen && (
-        <CheckoutModal
+        <EnhancedCheckoutModal
           cart={cart}
+          user={user}
           onClose={() => setCheckoutOpen(false)}
           onComplete={async () => {
             setCheckoutOpen(false);
-            setCart({ items: [], subtotal: 0, itemCount: 0 });
+            clearGuestCart();
+            setCart(emptyCart());
             showNotice(
               "Đặt hàng thành công! Bạn có thể theo dõi trạng thái trong mục đơn hàng.",
             );
@@ -836,14 +986,39 @@ function App() {
         <OrdersModal
           onClose={() => setOrdersOpen(false)}
           onNotice={showNotice}
+          onChanged={reloadNotifications}
         />
       )}
       {profileOpen && (
         <ProfileModal
           user={user}
-          onClose={() => setProfileOpen(false)}
-          onUser={setUser}
-          onLogout={logout}
+           onClose={() => setProfileOpen(false)}
+           onUser={setUser}
+           onLogout={logout}
+           onOpenOrders={() => {
+             setProfileOpen(false);
+             setOrdersOpen(true);
+           }}
+           onOpenWishlist={() => {
+             setProfileOpen(false);
+             setWishlistOpen(true);
+           }}
+           onOpenNotifications={() => {
+             setProfileOpen(false);
+             setNotificationsOpen(true);
+           }}
+           onOpenSurveys={() => {
+            setProfileOpen(false);
+            setSurveysOpen(true);
+          }}
+          onOpenAddresses={() => {
+            setProfileOpen(false);
+            setAddressesOpen(true);
+          }}
+          onOpenPassword={() => {
+            setProfileOpen(false);
+            setPasswordOpen(true);
+          }}
           onNotice={showNotice}
         />
       )}
@@ -858,11 +1033,15 @@ function App() {
           onNotice={showNotice}
         />
       )}
+      {wishlistOpen && <WishlistModal items={wishlist} onClose={() => setWishlistOpen(false)} onRemove={(item) => toggleWishlist(item)} onOpen={openProduct} onNotice={showNotice} />}
+      {addressesOpen && <AddressModal onClose={() => setAddressesOpen(false)} onNotice={showNotice} />}
+      {notificationsOpen && <NotificationsModal onClose={() => setNotificationsOpen(false)} onNotice={showNotice} onCount={setNotificationCount} />}
+      {passwordOpen && <PasswordModal onClose={() => setPasswordOpen(false)} onNotice={showNotice} />}
     </div>
   );
 }
 
-function ProductCard({ product, onOpen, onAdd }) {
+function ProductCard({ product, onOpen, onAdd, isWishlisted, onWishlist }) {
   const sale = discount(product);
   return (
     <article className="product-card">
@@ -888,11 +1067,14 @@ function ProductCard({ product, onOpen, onAdd }) {
           THÊM VÀO GIỎ <Plus size={15} />
         </button>
         <button
-          className="heart"
-          aria-label="Thêm vào yêu thích"
-          onClick={(event) => event.stopPropagation()}
+          className={isWishlisted ? "heart active" : "heart"}
+          aria-label={isWishlisted ? "Bỏ khỏi yêu thích" : "Thêm vào yêu thích"}
+          onClick={(event) => {
+            event.stopPropagation();
+            onWishlist();
+          }}
         >
-          <Heart size={19} />
+          <Heart size={19} fill={isWishlisted ? "currentColor" : "none"} />
         </button>
       </div>
       <div className="product-info" onClick={onOpen}>
@@ -910,19 +1092,19 @@ function ProductCard({ product, onOpen, onAdd }) {
   );
 }
 
-function ProductModal({ data, user, onClose, onAdd, onNotice }) {
+function ProductModal({ data, user, onClose, onAdd, onLogin, onNotice }) {
   const product = data.product;
   const [size, setSize] = useState(
     csv(product.sizes)[1] || csv(product.sizes)[0] || "M",
   );
   const [color, setColor] = useState(csv(product.colors)[0] || "Đen");
+  const [quantity, setQuantity] = useState(1);
   const [feedback, setFeedback] = useState({ rating: 5, comment: "" });
   const [sending, setSending] = useState(false);
   const sale = discount(product);
   const submitFeedback = async (event) => {
     event.preventDefault();
-    if (!user)
-      return onNotice("Bạn cần đăng nhập để đánh giá sản phẩm.", "error");
+    if (!user) return onLogin();
     setSending(true);
     try {
       await api(endpoints.feedback(product.id), {
@@ -1018,16 +1200,45 @@ function ProductModal({ data, user, onClose, onAdd, onNotice }) {
               <ChevronRight size={14} />
             </small>
           </div>
+          <div className="product-quantity">
+            <label>
+              SỐ LƯỢNG <b>{quantity}</b>
+            </label>
+            <div className="quantity product-quantity-control">
+              <button
+                type="button"
+                aria-label="Giảm số lượng sản phẩm"
+                disabled={quantity <= 1}
+                onClick={() =>
+                  setQuantity((current) => Math.max(1, current - 1))
+                }
+              >
+                <Minus size={17} />
+              </button>
+              <span>{quantity}</span>
+              <button
+                type="button"
+                aria-label="Tăng số lượng sản phẩm"
+                disabled={quantity >= product.stock}
+                onClick={() =>
+                  setQuantity((current) => Math.min(product.stock, current + 1))
+                }
+              >
+                <Plus size={17} />
+              </button>
+            </div>
+            <small>Còn {product.stock} sản phẩm trong kho</small>
+          </div>
           <button
             className="button button-dark add-modal"
             disabled={!product.stock}
             onClick={() => {
-              onAdd({ size, color });
+              onAdd({ size, color }, quantity);
               onClose();
             }}
           >
             {product.stock
-              ? `THÊM VÀO GIỎ — ${money(product.salePrice || product.price)}`
+              ? `THÊM ${quantity} VÀO GIỎ — ${money((product.salePrice || product.price) * quantity)}`
               : "SẢN PHẨM TẠM HẾT HÀNG"}
           </button>
           <div className="product-details">
@@ -1100,9 +1311,13 @@ function ProductModal({ data, user, onClose, onAdd, onNotice }) {
                     : "Đăng nhập để viết đánh giá"
                 }
                 maxLength="4000"
+                disabled={!user}
               />
+              <small className="feedback-help">
+                Chỉ khách hàng đã mua sản phẩm mới có thể gửi đánh giá.
+              </small>
               <button disabled={sending}>
-                {sending ? "ĐANG GỬI..." : "GỬI ĐÁNH GIÁ"}
+                {!user ? "ĐĂNG NHẬP ĐỂ ĐÁNH GIÁ" : sending ? "ĐANG GỬI..." : "GỬI ĐÁNH GIÁ"}
               </button>
             </form>
           </div>
@@ -1112,7 +1327,7 @@ function ProductModal({ data, user, onClose, onAdd, onNotice }) {
   );
 }
 
-function CartDrawer({ cart, onClose, onUpdate, onCheckout }) {
+function CartDrawer({ cart, onClose, onUpdate, updatingKeys = [], onCheckout }) {
   return (
     <div
       className="drawer-backdrop"
@@ -1124,7 +1339,7 @@ function CartDrawer({ cart, onClose, onUpdate, onCheckout }) {
             <p className="kicker">GIỎ HÀNG CỦA BẠN</p>
             <h2>{cart.itemCount || 0} sản phẩm</h2>
           </div>
-          <button className="close-button" aria-label="Đóng giỏ hàng" onClick={onClose}>
+          <button type="button" className="close-button" aria-label="Đóng giỏ hàng" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
@@ -1144,11 +1359,24 @@ function CartDrawer({ cart, onClose, onUpdate, onCheckout }) {
                   <h3>{item.name}</h3>
                   <small>{money(item.unitPrice)}</small>
                   <div className="quantity">
-                    <button aria-label={`Giảm số lượng ${item.name}`} onClick={() => onUpdate(item, item.quantity - 1)}>
+                    <button
+                      type="button"
+                      aria-label={`Giảm số lượng ${item.name}`}
+                      disabled={updatingKeys.includes(`${item.productId}|${item.size || ""}|${item.color || ""}`)}
+                      onClick={() => onUpdate(item, item.quantity - 1)}
+                    >
                       <Minus size={15} />
                     </button>
                     <span>{item.quantity}</span>
-                    <button aria-label={`Tăng số lượng ${item.name}`} onClick={() => onUpdate(item, item.quantity + 1)}>
+                    <button
+                      type="button"
+                      aria-label={`Tăng số lượng ${item.name}`}
+                      disabled={
+                        item.quantity >= item.stock ||
+                        updatingKeys.includes(`${item.productId}|${item.size || ""}|${item.color || ""}`)
+                      }
+                      onClick={() => onUpdate(item, item.quantity + 1)}
+                    >
                       <Plus size={15} />
                     </button>
                   </div>
@@ -1157,6 +1385,8 @@ function CartDrawer({ cart, onClose, onUpdate, onCheckout }) {
                 <button
                   className="remove-line"
                   aria-label={`Xóa ${item.name} khỏi giỏ hàng`}
+                  type="button"
+                  disabled={updatingKeys.includes(`${item.productId}|${item.size || ""}|${item.color || ""}`)}
                   onClick={() => onUpdate(item, 0)}
                 >
                   <Trash2 size={17} />
@@ -1184,7 +1414,7 @@ function CartDrawer({ cart, onClose, onUpdate, onCheckout }) {
           >
             TIẾN HÀNH ĐẶT HÀNG <ArrowUpRight size={16} />
           </button>
-          <button className="continue-shopping" onClick={onClose}>
+          <button type="button" className="continue-shopping" onClick={onClose}>
             Tiếp tục mua sắm
           </button>
         </div>
@@ -1199,6 +1429,7 @@ function AuthModal({ mode, onModeChange, onClose, onAuthenticated, onNotice }) {
     password: "",
     fullName: "",
     phone: "",
+    age: "",
   });
   const [busy, setBusy] = useState(false);
   const submit = async (event) => {
@@ -1206,7 +1437,10 @@ function AuthModal({ mode, onModeChange, onClose, onAuthenticated, onNotice }) {
     setBusy(true);
     try {
       if (mode === "register") {
-        await signUp(form);
+        await signUp({
+          ...form,
+          age: form.age === "" ? null : Number(form.age),
+        });
         onNotice("Tạo tài khoản thành công.");
       }
       const data = await signIn({ email: form.email, password: form.password });
@@ -1262,6 +1496,19 @@ function AuthModal({ mode, onModeChange, onClose, onAuthenticated, onNotice }) {
                   placeholder="09xx xxx xxx"
                 />
               </label>
+              <label>
+                TUỔI <span className="optional-label">(không bắt buộc)</span>
+                <input
+                  type="number"
+                  min="13"
+                  max="120"
+                  value={form.age}
+                  onChange={(event) =>
+                    setForm({ ...form, age: event.target.value })
+                  }
+                  placeholder="Ví dụ: 22"
+                />
+              </label>
             </>
           )}
           <label>
@@ -1310,6 +1557,24 @@ function AuthModal({ mode, onModeChange, onClose, onAuthenticated, onNotice }) {
       </div>
     </div>
   );
+}
+
+function EnhancedCheckoutModal({ cart, onClose, onComplete, onNotice }) {
+  const [addresses, setAddresses] = useState([]);
+  const [form, setForm] = useState({ recipientName: "", phone: "", addressLine: "", ward: "", district: "", province: "", paymentMethod: "COD", voucherCode: "" });
+  const [voucher, setVoucher] = useState(null);
+  const [voucherBusy, setVoucherBusy] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  useEffect(() => { api(endpoints.addresses).then((items) => { setAddresses(items); const selected = items.find((item) => item.defaultAddress) || items[0]; if (selected) setForm((current) => ({ ...current, ...selected, addressLine: selected.addressLine || "" })); }).catch(() => null); }, []);
+  const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const selectAddress = (address) => setForm((current) => ({ ...current, ...address }));
+  const deliveryAddress = [form.recipientName, form.phone, form.addressLine, form.ward, form.district, form.province].filter(Boolean).join(", ");
+  const applyVoucher = async () => { if (!form.voucherCode.trim()) return onNotice("Vui lòng nhập mã giảm giá.", "error"); setVoucherBusy(true); try { setVoucher(await api(endpoints.validateVoucher(form.voucherCode.trim(), cart.subtotal))); onNotice("Đã áp dụng mã giảm giá."); } catch (error) { setVoucher(null); onNotice(error.message, "error"); } finally { setVoucherBusy(false); } };
+  const submit = async (event) => { event.preventDefault(); setBusy(true); try { const data = await api("/api/orders", { method: "POST", body: { deliveryAddress, paymentMethod: form.paymentMethod, voucherCode: voucher?.code || undefined, items: cart.items.map((item) => ({ productId: item.productId, quantity: item.quantity, size: item.size, color: item.color })) } }); setResult(data); } catch (error) { onNotice(error.message, "error"); } finally { setBusy(false); } };
+  if (result) return <div className="modal-backdrop"><div className="success-modal"><div className="success-icon"><Check size={28} aria-hidden="true" /></div><p className="kicker">ĐẶT HÀNG THÀNH CÔNG</p><h2>Đơn hàng #{result.order.orderCode}</h2><p>{form.paymentMethod === "PAYOS" ? "Đơn hàng đang chờ thanh toán. Bạn có thể mở liên kết bên dưới để hoàn tất." : "Đơn hàng COD đã được ghi nhận. Chúng tôi sẽ liên hệ bạn sớm."}</p>{result.paymentUrl && <a className="button button-dark" href={result.paymentUrl} target="_blank" rel="noreferrer">MỞ TRANG THANH TOÁN <ArrowUpRight size={16} /></a>}<button className="continue-shopping" onClick={onComplete}>XONG, TIẾP TỤC MUA SẮM</button></div></div>;
+  const total = Math.max(0, cart.subtotal - Number(voucher?.discountAmount || 0));
+  return <div className="modal-backdrop"><div className="checkout-modal"><button className="close-button" aria-label="Đóng thanh toán" onClick={onClose}><X size={20} /></button><div className="checkout-main"><p className="kicker">BƯỚC 01 / 02</p><h2>Thông tin giao hàng</h2>{addresses.length > 0 && <div className="saved-addresses"><div className="saved-addresses-head"><b>ĐỊA CHỈ ĐÃ LƯU</b><span>{addresses.length} địa chỉ</span></div><div className="saved-address-list">{addresses.map((address) => <button type="button" key={address.id} className={form.id === address.id ? "saved-address active" : "saved-address"} onClick={() => selectAddress(address)}><MapPin size={16} /><span><b>{address.label || "Địa chỉ"} {address.defaultAddress && "· Mặc định"}</b><small>{address.recipientName} · {address.phone}<br />{address.addressLine}, {address.district}, {address.province}</small></span></button>)}</div></div>}<form onSubmit={submit}><div className="form-two-columns"><label>NGƯỜI NHẬN<input required value={form.recipientName} onChange={(event) => setField("recipientName", event.target.value)} placeholder="Nguyễn Minh Khang" /></label><label>SỐ ĐIỆN THOẠI<input required value={form.phone} onChange={(event) => setField("phone", event.target.value)} placeholder="09xx xxx xxx" /></label></div><label>ĐỊA CHỈ NHẬN HÀNG<textarea required value={form.addressLine} onChange={(event) => setField("addressLine", event.target.value)} placeholder="Số nhà, tên đường" /></label><div className="form-three-columns"><input value={form.ward} onChange={(event) => setField("ward", event.target.value)} placeholder="Phường/Xã" /><input value={form.district} onChange={(event) => setField("district", event.target.value)} placeholder="Quận/Huyện" /><input required value={form.province} onChange={(event) => setField("province", event.target.value)} placeholder="Tỉnh/Thành phố" /></div><label>MÃ GIẢM GIÁ<div className="voucher-input"><input value={form.voucherCode} onChange={(event) => { setField("voucherCode", event.target.value.toUpperCase()); setVoucher(null); }} placeholder="Nhập mã voucher" /><button type="button" onClick={applyVoucher} disabled={voucherBusy}>{voucherBusy ? "ĐANG KIỂM TRA" : "ÁP DỤNG"}</button></div></label><label>PHƯƠNG THỨC THANH TOÁN<div className="payment-options"><button type="button" className={form.paymentMethod === "PAYOS" ? "payment-option active" : "payment-option"} onClick={() => setField("paymentMethod", "PAYOS")}><b>payOS / VietQR</b><small>Thanh toán nhanh qua ngân hàng</small></button><button type="button" className={form.paymentMethod === "COD" ? "payment-option active" : "payment-option"} onClick={() => setField("paymentMethod", "COD")}><b>Thanh toán khi nhận hàng</b><small>COD toàn quốc</small></button></div></label><button className="button button-dark" disabled={busy}>{busy ? "ĐANG TẠO ĐƠN..." : <>XÁC NHẬN ĐẶT HÀNG <ArrowUpRight size={16} /></>}</button></form></div><div className="checkout-summary"><p className="kicker">TÓM TẮT ĐƠN HÀNG</p>{cart.items.map((item) => <div className="summary-line" key={`${item.productId}-${item.size || ""}-${item.color || ""}`}><span>{item.name} <small>× {item.quantity}</small></span><b>{money(item.lineTotal)}</b></div>)}<div className="summary-total"><span>TẠM TÍNH</span><strong>{money(cart.subtotal)}</strong></div>{voucher && <div className="summary-line discount-line"><span>Giảm giá ({voucher.code})</span><b>-{money(voucher.discountAmount)}</b></div>}<div className="summary-total final"><span>TỔNG CỘNG</span><strong>{money(total)}</strong></div><p className="secure-note"><ShieldCheck size={15} /> Thông tin của bạn được bảo mật trong suốt quá trình thanh toán.</p></div></div></div>;
 }
 
 function CheckoutModal({ cart, onClose, onComplete, onNotice }) {
@@ -1451,13 +1716,12 @@ function CheckoutModal({ cart, onClose, onComplete, onNotice }) {
   );
 }
 
-function OrdersModal({ onClose, onNotice }) {
+function OrdersModal({ onClose, onNotice, onChanged }) {
   const [orders, setOrders] = useState(null);
   const [selected, setSelected] = useState(null);
+  const load = () => api(endpoints.orders()).then((data) => setOrders(data.content || [])).catch((error) => onNotice(error.message, "error"));
   useEffect(() => {
-    api(endpoints.orders())
-      .then((data) => setOrders(data.content || []))
-      .catch((error) => onNotice(error.message, "error"));
+    load();
   }, []);
   return (
     <div className="modal-backdrop">
@@ -1472,7 +1736,7 @@ function OrdersModal({ onClose, onNotice }) {
             <button className="back-link" onClick={() => setSelected(null)}>
               <ArrowLeft size={15} /> Quay lại danh sách
             </button>
-            <OrderView order={selected} />
+            <OrderView order={selected} onNotice={onNotice} onChanged={async () => { setSelected(null); await load(); onChanged?.(); }} />
           </div>
         ) : orders === null ? (
           <div className="modal-loading">Đang tải đơn hàng...</div>
@@ -1482,9 +1746,7 @@ function OrdersModal({ onClose, onNotice }) {
               <button
                 className="order-row"
                 key={order.id}
-                onClick={async () =>
-                  setSelected(await api(endpoints.order(order.id)))
-                }
+                onClick={async () => { try { setSelected(await api(endpoints.order(order.id))); } catch (error) { onNotice(error.message, "error"); } }}
               >
                 <div>
                   <b>#{order.orderCode}</b>
@@ -1512,7 +1774,11 @@ function OrdersModal({ onClose, onNotice }) {
     </div>
   );
 }
-function OrderView({ order }) {
+function OrderView({ order, onNotice, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const cancellableStatuses = ["PENDING_PAYMENT", "PENDING", "CONFIRMED", "PREPARING"];
+  const cancel = async () => { const reason = window.prompt("Lý do hủy đơn:", "Tôi muốn thay đổi sản phẩm hoặc địa chỉ giao hàng."); if (reason === null) return; setBusy(true); try { await api(endpoints.cancelOrder(order.id), { method: "PATCH", body: { reason: reason.trim() || "Khách hàng yêu cầu hủy đơn." } }); onNotice("Đã hủy đơn hàng thành công."); await onChanged?.(); } catch (error) { onNotice(error.message, "error"); } finally { setBusy(false); } };
+  const requestReturn = async () => { const reason = window.prompt("Lý do đổi/trả hàng:", "Sản phẩm không phù hợp với tôi."); if (!reason) return; setBusy(true); try { await api(endpoints.returnOrder(order.id), { method: "POST", body: { reason } }); onNotice("Đã gửi yêu cầu đổi/trả hàng."); await onChanged?.(); } catch (error) { onNotice(error.message, "error"); } finally { setBusy(false); } };
   return (
     <div className="order-view">
       <div className="order-view-head">
@@ -1556,7 +1822,7 @@ function OrderView({ order }) {
         </span>
       </div>
       {order.items?.map((item) => (
-        <div className="order-item" key={item.productId}>
+        <div className="order-item" key={`${item.productId}-${item.size || ""}-${item.color || ""}`}>
           <img
             src={imageSrc(item.imageUrl)}
             onError={protectImage}
@@ -1564,28 +1830,66 @@ function OrderView({ order }) {
           />
           <div>
             <b>{item.name}</b>
-            <small>Số lượng: {item.quantity}</small>
+            <small>Số lượng: {item.quantity} · {item.size || "Không chọn size"} · {item.color || "Không chọn màu"}</small>
           </div>
           <strong>{money(item.lineTotal)}</strong>
         </div>
       ))}
-      <div className="order-total">
-        <span>TỔNG ĐƠN HÀNG</span>
-        <strong>{money(order.totalAmount)}</strong>
-      </div>
+      {order.discountAmount > 0 && <div className="order-total"><span>GIẢM GIÁ {order.voucherCode ? `(${order.voucherCode})` : ""}</span><strong>-{money(order.discountAmount)}</strong></div>}
+      <div className="order-total"><span>TỔNG ĐƠN HÀNG</span><strong>{money(order.totalAmount)}</strong></div>
+      {order.trackingCode && <p className="order-address"><b>Mã theo dõi</b><br />{order.trackingCode}</p>}
+      {(order.returnStatus || "NONE") !== "NONE" && <p className="order-address"><b>Đổi/trả hàng: {order.returnStatus}</b><br />{order.returnReason}</p>}
       <p className="order-address">
         <b>Địa chỉ giao hàng</b>
         <br />
         {order.deliveryAddress}
       </p>
+      <div className="order-actions">{cancellableStatuses.includes(order.status) && <button type="button" className="button button-light" disabled={busy} onClick={cancel}>{busy ? "ĐANG HỦY..." : "HỦY ĐƠN"}</button>}{["DELIVERED", "COMPLETED"].includes(order.status) && (order.returnStatus || "NONE") === "NONE" && <button type="button" className="button button-light" disabled={busy} onClick={requestReturn}>YÊU CẦU ĐỔI/TRẢ</button>}</div>
     </div>
   );
 }
+function WishlistModal({ items, onClose, onRemove, onOpen, onNotice }) {
+  return <div className="modal-backdrop"><div className="wide-modal wishlist-modal"><button className="close-button" aria-label="Đóng yêu thích" onClick={onClose}><X size={20} /></button><p className="kicker">TÀI KHOẢN / YÊU THÍCH</p><h2>Món đồ bạn thích.</h2>{items.length ? <div className="wishlist-grid">{items.map((item) => <article className="wishlist-card" key={item.productId}><button className="wishlist-image" onClick={() => onOpen({ id: item.productId })}><img src={imageSrc(item.imageUrl)} onError={protectImage} alt={item.name} /></button><div className="wishlist-card-content"><b>{item.name}</b><small>{item.category || "HÀNG NAM"}</small><strong>{money(item.salePrice || item.price)}</strong></div><button className="wishlist-remove" onClick={() => onRemove({ id: item.productId })}>Bỏ thích</button></article>)}</div> : <div className="empty-state compact"><Heart size={34} /><h3>Chưa có món đồ yêu thích</h3><p>Chạm vào biểu tượng trái tim để lưu sản phẩm.</p></div>}</div></div>;
+}
+
+function AddressModal({ onClose, onNotice }) {
+  const blank = { label: "", recipientName: "", phone: "", addressLine: "", ward: "", district: "", province: "", defaultAddress: false };
+  const [items, setItems] = useState(null); const [form, setForm] = useState(blank); const [editing, setEditing] = useState(null); const [busy, setBusy] = useState(false);
+  const load = () => api(endpoints.addresses).then(setItems).catch((error) => onNotice(error.message, "error"));
+  useEffect(() => {
+    load();
+  }, []);
+  const save = async (event) => { event.preventDefault(); setBusy(true); try { const data = await api(editing ? endpoints.address(editing) : endpoints.addresses, { method: editing ? "PUT" : "POST", body: form }); setItems((current) => editing ? current.map((item) => item.id === editing ? data : item) : [data, ...(current || [])]); setForm(blank); setEditing(null); onNotice("Đã lưu địa chỉ giao hàng."); } catch (error) { onNotice(error.message, "error"); } finally { setBusy(false); } };
+  const remove = async (id) => { if (!window.confirm("Xóa địa chỉ này?")) return; try { await api(endpoints.address(id), { method: "DELETE" }); load(); } catch (error) { onNotice(error.message, "error"); } };
+  const makeDefault = async (id) => { try { await api(endpoints.defaultAddress(id), { method: "PATCH" }); load(); } catch (error) { onNotice(error.message, "error"); } };
+  return <div className="modal-backdrop"><div className="wide-modal address-modal"><button className="close-button" aria-label="Đóng địa chỉ" onClick={onClose}><X size={20} /></button><p className="kicker">TÀI KHOẢN / ĐỊA CHỈ</p><h2>Địa chỉ giao hàng</h2><div className="address-layout"><div className="address-list">{items === null ? <div className="modal-loading">Đang tải địa chỉ...</div> : items.length ? items.map((item) => <article className={item.defaultAddress ? "address-card default" : "address-card"} key={item.id}><div><b>{item.label || "Địa chỉ"} {item.defaultAddress && <small>MẶC ĐỊNH</small>}</b><p>{item.recipientName} · {item.phone}<br />{item.addressLine}, {item.ward}, {item.district}, {item.province}</p></div><div className="address-actions"><button onClick={() => { setEditing(item.id); setForm({ ...item }); }}>Sửa</button>{!item.defaultAddress && <button onClick={() => makeDefault(item.id)}>Đặt mặc định</button>}<button onClick={() => remove(item.id)}>Xóa</button></div></article>) : <div className="empty-state compact"><MapPin size={28} /><p>Bạn chưa lưu địa chỉ nào.</p></div>}<button className="button button-light address-add" onClick={() => { setEditing(null); setForm(blank); }}>+ THÊM ĐỊA CHỈ</button></div><form className="address-form" onSubmit={save}><p className="kicker">{editing ? "CHỈNH SỬA" : "ĐỊA CHỈ MỚI"}</p><label>TÊN GỢI NHỚ<input value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="Nhà riêng" /></label><label>NGƯỜI NHẬN<input required value={form.recipientName} onChange={(event) => setForm({ ...form, recipientName: event.target.value })} /></label><label>SỐ ĐIỆN THOẠI<input required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label>ĐỊA CHỈ<input required value={form.addressLine} onChange={(event) => setForm({ ...form, addressLine: event.target.value })} /></label><div className="form-three-columns"><input value={form.ward || ""} onChange={(event) => setForm({ ...form, ward: event.target.value })} placeholder="Phường/Xã" /><input value={form.district || ""} onChange={(event) => setForm({ ...form, district: event.target.value })} placeholder="Quận/Huyện" /><input required value={form.province || ""} onChange={(event) => setForm({ ...form, province: event.target.value })} placeholder="Tỉnh/Thành phố" /></div><label className="checkbox-label"><input type="checkbox" checked={form.defaultAddress} onChange={(event) => setForm({ ...form, defaultAddress: event.target.checked })} /> Đặt làm địa chỉ mặc định</label><button className="button button-dark" disabled={busy}>{busy ? "ĐANG LƯU..." : "LƯU ĐỊA CHỈ"}</button></form></div></div></div>;
+}
+
+function NotificationsModal({ onClose, onNotice, onCount }) {
+  const [data, setData] = useState(null);
+  const load = () => api(endpoints.notifications).then((value) => { setData(value); onCount(value.unreadCount || 0); }).catch((error) => onNotice(error.message, "error"));
+  useEffect(() => {
+    load();
+  }, []);
+  const read = async (item) => { if (item.readAt) return; try { await api(endpoints.notificationRead(item.id), { method: "PATCH" }); load(); } catch (error) { onNotice(error.message, "error"); } };
+  const readAll = async () => { try { await api(endpoints.notificationsReadAll, { method: "PATCH" }); load(); } catch (error) { onNotice(error.message, "error"); } };
+  return <div className="modal-backdrop"><div className="wide-modal notification-modal"><button className="close-button" aria-label="Đóng thông báo" onClick={onClose}><X size={20} /></button><div className="notification-head"><div><p className="kicker">TÀI KHOẢN / CẬP NHẬT</p><h2>Thông báo</h2></div><button className="back-link" onClick={readAll}>ĐÁNH DẤU ĐÃ ĐỌC</button></div>{data === null ? <div className="modal-loading">Đang tải thông báo...</div> : data.items.length ? <div className="notification-list">{data.items.map((item) => <button className={item.readAt ? "notification-item read" : "notification-item"} key={item.id} onClick={() => read(item)}><Bell size={18} /><span><b>{item.title}</b><small>{item.content}</small><em>{date(item.createdAt)}</em></span></button>)}</div> : <div className="empty-state compact"><Bell size={34} /><h3>Chưa có thông báo</h3><p>Các cập nhật về đơn hàng sẽ xuất hiện ở đây.</p></div>}</div></div>;
+}
+
+function PasswordModal({ onClose, onNotice }) {
+  const [mode, setMode] = useState("change"); const [busy, setBusy] = useState(false); const [form, setForm] = useState({ currentPassword: "", newPassword: "", email: "", code: "" });
+  const submit = async (event) => { event.preventDefault(); setBusy(true); try { if (mode === "change") { await api(endpoints.changePassword, { method: "POST", body: { currentPassword: form.currentPassword, newPassword: form.newPassword } }); onNotice("Đã đổi mật khẩu. Vui lòng đăng nhập lại."); onClose(); } else if (mode === "forgot") { const result = await api(endpoints.forgotPassword, { method: "POST", body: { email: form.email } }); if (result.resetCode) { setForm({ ...form, code: result.resetCode }); setMode("reset"); onNotice(`Mã đặt lại mật khẩu: ${result.resetCode}`); } else { onNotice(result.message); } } else { await api(endpoints.resetPassword, { method: "POST", body: { email: form.email, code: form.code, newPassword: form.newPassword } }); onNotice("Đặt lại mật khẩu thành công."); setMode("change"); } } catch (error) { onNotice(error.message, "error"); } finally { setBusy(false); } };
+  return <div className="modal-backdrop"><div className="auth-modal password-modal"><button className="close-button" aria-label="Đóng mật khẩu" onClick={onClose}><X size={20} /></button><div className="auth-mark"><KeyRound size={20} /></div><p className="kicker">BẢO MẬT TÀI KHOẢN</p><h2>{mode === "change" ? "Đổi mật khẩu." : mode === "forgot" ? "Lấy lại quyền truy cập." : "Đặt mật khẩu mới."}</h2><p className="auth-subtitle">Mật khẩu mới cần có ít nhất 8 ký tự, gồm chữ và số.</p><form onSubmit={submit}>{mode === "change" && <label>MẬT KHẨU HIỆN TẠI<input type="password" required value={form.currentPassword} onChange={(event) => setForm({ ...form, currentPassword: event.target.value })} /></label>}{mode !== "change" && <label>EMAIL<input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>}{mode === "reset" && <label>MÃ 6 CHỮ SỐ<input inputMode="numeric" pattern="[0-9]{6}" required value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} /></label>}{mode !== "forgot" && <label>MẬT KHẨU MỚI<input type="password" minLength="8" required value={form.newPassword} onChange={(event) => setForm({ ...form, newPassword: event.target.value })} /></label>}<button className="button button-dark" disabled={busy}>{busy ? "ĐANG XỬ LÝ..." : mode === "change" ? "ĐỔI MẬT KHẨU" : mode === "forgot" ? "NHẬN MÃ ĐẶT LẠI" : "ĐẶT MẬT KHẨU MỚI"}</button></form><div className="auth-switch">{mode === "change" ? <button onClick={() => setMode("forgot")}>Quên mật khẩu?</button> : <button onClick={() => setMode("change")}>Quay lại đổi mật khẩu</button>}</div></div></div>;
+}
+
 function Status({ value }) {
   const labels = {
     PENDING_PAYMENT: "Chờ thanh toán",
+    PENDING: "Chờ xác nhận",
     CONFIRMED: "Đã xác nhận",
+    PREPARING: "Đang chuẩn bị",
     SHIPPED: "Đang giao",
+    DELIVERING: "Đang giao",
     DELIVERED: "Đã giao",
     COMPLETED: "Hoàn tất",
     CANCELLED: "Đã huỷ",
@@ -1597,10 +1901,11 @@ function Status({ value }) {
   );
 }
 
-function ProfileModal({ user, onClose, onUser, onLogout, onNotice }) {
+function ProfileModal({ user, onClose, onUser, onLogout, onOpenOrders, onOpenWishlist, onOpenNotifications, onOpenSurveys, onOpenAddresses, onOpenPassword, onNotice }) {
   const [form, setForm] = useState({
     fullName: user?.fullName || "",
     phone: user?.phone || "",
+    age: user?.age ?? "",
     preferences: user?.preferences || "",
   });
   const [busy, setBusy] = useState(false);
@@ -1610,7 +1915,7 @@ function ProfileModal({ user, onClose, onUser, onLogout, onNotice }) {
     try {
       const updated = await api(endpoints.profile, {
         method: "PUT",
-        body: form,
+        body: { ...form, age: form.age === "" ? null : Number(form.age) },
       });
       onUser(updated);
       onNotice("Đã lưu thông tin cá nhân.");
@@ -1654,6 +1959,19 @@ function ProfileModal({ user, onClose, onUser, onLogout, onNotice }) {
             />
           </label>
           <label>
+            TUỔI <span className="optional-label">(không bắt buộc)</span>
+            <input
+              type="number"
+              min="13"
+              max="120"
+              value={form.age}
+              onChange={(event) =>
+                setForm({ ...form, age: event.target.value })
+              }
+              placeholder="Ví dụ: 22"
+            />
+          </label>
+          <label>
             PHONG CÁCH ƯA THÍCH
             <textarea
               value={form.preferences}
@@ -1667,6 +1985,30 @@ function ProfileModal({ user, onClose, onUser, onLogout, onNotice }) {
             {busy ? "ĐANG LƯU..." : "LƯU THAY ĐỔI"}
           </button>
         </form>
+        <button className="profile-survey-link account-menu-primary" onClick={onOpenOrders}>
+          <span>Đơn hàng của tôi</span>
+          <ArrowUpRight size={16} aria-hidden="true" />
+        </button>
+        <button className="profile-survey-link" onClick={onOpenWishlist}>
+          <span>Sản phẩm yêu thích</span>
+          <Heart size={16} aria-hidden="true" />
+        </button>
+        <button className="profile-survey-link" onClick={onOpenNotifications}>
+          <span>Thông báo</span>
+          <Bell size={16} aria-hidden="true" />
+        </button>
+        <button className="profile-survey-link" onClick={onOpenSurveys}>
+          <span>Khảo sát phong cách</span>
+          <ArrowUpRight size={16} aria-hidden="true" />
+        </button>
+        <button className="profile-survey-link" onClick={onOpenAddresses}>
+          <span>Quản lý địa chỉ giao hàng</span>
+          <MapPin size={16} aria-hidden="true" />
+        </button>
+        <button className="profile-survey-link" onClick={onOpenPassword}>
+          <span>Đổi hoặc quên mật khẩu</span>
+          <KeyRound size={16} aria-hidden="true" />
+        </button>
         <button className="logout-link" onClick={onLogout}>
           Đăng xuất khỏi tài khoản
         </button>
@@ -1681,7 +2023,7 @@ function SurveyModal({ user, onClose, onLogin, onNotice }) {
   const [answers, setAnswers] = useState({});
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    api(endpoints.surveys)
+    api(user ? endpoints.mySurveys : endpoints.surveys)
       .then(setSurveys)
       .catch((error) => onNotice(error.message, "error"));
   }, []);
@@ -1730,13 +2072,18 @@ function SurveyModal({ user, onClose, onLogin, onNotice }) {
             ) : surveys.length ? (
               <div className="survey-list">
                 {surveys.map((item) => (
-                  <button key={item.id} onClick={() => setSurvey(item)}>
+                  <button
+                    key={item.id}
+                    disabled={item.completed}
+                    className={item.completed ? "completed" : ""}
+                    onClick={() => setSurvey(item)}
+                  >
                     <span><ArrowUpRight size={18} aria-hidden="true" /></span>
                     <div>
                       <b>{item.title}</b>
                       <small>{item.description}</small>
                     </div>
-                    <em>BẮT ĐẦU</em>
+                    <em>{item.completed ? "ĐÃ HOÀN THÀNH" : "BẮT ĐẦU"}</em>
                   </button>
                 ))}
               </div>
@@ -1755,6 +2102,11 @@ function SurveyModal({ user, onClose, onLogin, onNotice }) {
             <h2>{survey.title}</h2>
             <p>{survey.description}</p>
             <form className="survey-form" onSubmit={submit}>
+              {survey.completed && (
+                <div className="survey-completed-note">
+                  Bạn đã hoàn thành khảo sát này. Cảm ơn bạn đã chia sẻ cùng Anh Lớn Shop.
+                </div>
+              )}
               {survey.questions?.map((question) => (
                 <label key={question.id}>
                   {question.text} {question.required && <sup>*</sup>}
@@ -1770,7 +2122,7 @@ function SurveyModal({ user, onClose, onLogin, onNotice }) {
                       }
                     >
                       <option value="">Chọn câu trả lời</option>
-                      {JSON.parse(question.optionsJson || "[]").map(
+                      {surveyOptions(question.optionsJson).map(
                         (option) => (
                           <option key={option} value={option}>
                             {option}
@@ -1793,7 +2145,7 @@ function SurveyModal({ user, onClose, onLogin, onNotice }) {
                   )}
                 </label>
               ))}
-              <button className="button button-dark" disabled={busy}>
+              <button className="button button-dark" disabled={busy || survey.completed}>
                 {busy ? "ĐANG GỬI..." : <>GỬI CÂU TRẢ LỜI <ArrowUpRight size={16} /></>}
               </button>
             </form>
