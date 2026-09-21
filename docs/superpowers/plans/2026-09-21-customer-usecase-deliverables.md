@@ -41,7 +41,7 @@ Use the available PlantUML renderer. If the repository/runtime has no renderer, 
 
 - [ ] **Step 2: Inspect the generated image**
 
-Open the PNG at full resolution and check that actors, use-case labels, relationship arrows, system boundary, and the legend remain readable without clipping or overlap.
+Open the PNG at full resolution and check that actors, use-case labels, relationship arrows, system boundary, and the legend remain readable without clipping or overlap. If inspection finds a defect, revise the PlantUML source, rerender the PNG, and inspect it again before committing.
 
 - [ ] **Step 3: Commit the PNG**
 
@@ -54,11 +54,11 @@ git commit -m "docs: render customer use case diagram"
 
 **Files:**
 - Create: `docs/use-cases/customer-use-case-specifications.docx`
-- Optional local builder: `tools/build_customer_usecase_specifications.py` if reproducibility requires a checked-in generator
+- Create: `tools/build_customer_usecase_specifications.py`
 
 - [ ] **Step 1: Prepare the document builder**
 
-Use the bundled workspace Python runtime and `python-docx`. Configure A4 page size, readable margins, black title/heading styles, consistent table borders, wrapped text, and page numbering only if it can be verified safely.
+Use the bundled workspace Python runtime and `python-docx`. Configure A4 page size, readable margins, black title/heading styles, consistent table borders, wrapped text, and page numbering only if it can be verified safely. Keep the builder in the repository so the Word deliverable can be regenerated from the documented content.
 
 - [ ] **Step 2: Add the document introduction and traceability table**
 
