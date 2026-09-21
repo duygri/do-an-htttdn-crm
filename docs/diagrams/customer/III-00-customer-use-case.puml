@@ -24,9 +24,8 @@ rectangle "Customer Portal\nCRM and Sales" {
     usecase "UC-07\nManage cart, place\norder and pay" as UC07
     usecase "UC-08\nView order history\nand status" as UC08
 
-    usecase "Refresh access session\nor logout current session" as Session
     usecase "Verify eligible\npurchase" as Purchase
-    usecase "View published\nsurvey" as PublishedSurvey
+    usecase "View available\npublished survey" as PublishedSurvey
     usecase "Search or filter\nproducts" as SearchFilter
     usecase "Validate stock and\nreserve inventory" as ReserveStock
     usecase "Process payment\nthrough payOS" as Payment
@@ -42,7 +41,6 @@ Customer --> UC06
 Customer --> UC07
 Customer --> UC08
 
-UC02 .> Session : <<include>>
 UC04 .> Purchase : <<include>>
 UC05 .> PublishedSurvey : <<include>>
 SearchFilter .> UC06 : <<extend>>

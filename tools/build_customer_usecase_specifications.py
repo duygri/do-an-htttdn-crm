@@ -252,7 +252,7 @@ USE_CASES = [
             "Portal gửi request kèm Authorization header.",
             "Order API xác minh JWT và truy vấn các order có customerId đúng tài khoản hiện tại.",
             "API trả danh sách có phân trang, trạng thái đơn, trạng thái thanh toán và thời gian tạo.",
-            "Customer chọn một order; API kiểm tra quyền sở hữu rồi trả order items, tổng tiền và lịch sử trạng thái nếu có.",
+            "Customer chọn một order; API kiểm tra quyền sở hữu rồi trả order items, tổng tiền và trạng thái order/payment hiện tại.",
             "Portal hiển thị trạng thái dễ hiểu cho Customer.",
         ],
         "alternative": [
@@ -415,6 +415,8 @@ def add_section_heading(doc, text, level=1):
 
 def configure_styles(doc):
     section = doc.sections[0]
+    section.page_width = Cm(21.0)
+    section.page_height = Cm(29.7)
     section.top_margin = Cm(1.8)
     section.bottom_margin = Cm(1.7)
     section.left_margin = Cm(2.0)
