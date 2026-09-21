@@ -30,7 +30,7 @@ Use `include` for mandatory subflows such as authentication session handling, pu
 Create `docs/use-cases/customer-use-case-specifications.docx` in Vietnamese, matching the language of the existing PRD and project requirements. The document will contain:
 
 - A clear title and short scope introduction.
-- A traceability table mapping each use case to its diagram and sequence file.
+- A traceability table mapping each use case to its FR/Issue identifiers, diagram, and sequence file.
 - One consistent section for each of the eight use cases.
 - Primary and supporting actors, preconditions, postconditions, trigger, main success flow, alternative flows, exception flows, business rules, and validation requirements.
 - Explicit alignment with current MVP rules: purchased-product eligibility for feedback, valid published surveys, server-side order total, promo-code calculation before payOS, and webhook as payment source of truth.
