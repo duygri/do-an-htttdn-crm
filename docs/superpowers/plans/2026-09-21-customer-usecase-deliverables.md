@@ -21,7 +21,7 @@ Add a readable `Customer Portal` boundary with the `Customer` actor, the payOS s
 
 - [ ] **Step 2: Validate the source structure**
 
-Run a source check for one `@startuml` and one `@enduml`, balanced braces, all eight primary use-case labels, and the expected payOS actor. Expected: all checks pass.
+Run a source check for one `@startuml` and one `@enduml`, balanced braces, all eight primary use-case labels, Customer associations to all eight primary use cases, the payOS association to payment, and the required `include`/`extend` relationships. Expected: all checks pass.
 
 - [ ] **Step 3: Commit the diagram source**
 
@@ -62,11 +62,11 @@ Use the bundled workspace Python runtime and `python-docx`. Configure A4 page si
 
 - [ ] **Step 2: Add the document introduction and traceability table**
 
-State the Customer CRM and Sales scope, MVP assumptions, and the relationship between this document, the use case diagram, the PRD, and the eight sequence diagrams.
+Write the document in Vietnamese, state the Customer CRM and Sales scope, and explicitly state that email verification, production payment settlement, and shipping integration are outside this MVP document. Include a traceability table with each use case's identifier/name, FR identifier, Issue number, diagram reference, and sequence file reference.
 
 - [ ] **Step 3: Add one complete section for each use case**
 
-For each of the eight functions, include: identifier/name, primary actor, supporting actors, trigger, preconditions, postconditions, main success flow, alternative flows, exception flows, business rules, and validation requirements. Preserve the current rules for authentication, verified purchase feedback, published surveys, catalog filtering, promo-code/final-amount payment, payOS webhook authority, and owner-only order history.
+For each of the eight functions, include: identifier/name, primary actor, supporting actors, trigger, preconditions, postconditions, main success flow, alternative flows, exception flows, business rules, and validation requirements. Preserve these exact MVP rules: refresh-token rotation and reuse detection, normal logout revoking only the current session; feedback requires an eligible `CONFIRMED`, `SHIPPED`, `DELIVERED`, or `COMPLETED` order and one feedback per customer/product; surveys must be published and valid; ordering locks/reserves inventory in a transaction and derives totals server-side; a supplied promo code is validated and applied before sending the final amount to payOS; Return URL/cancelUrl are display-only; webhook signature, order, amount, and idempotency are validated; and order history is restricted to the authenticated owner.
 
 - [ ] **Step 4: Save the DOCX and inspect its extracted text**
 
@@ -104,9 +104,11 @@ Verify that the diagram, Word document, and any documented generator contain onl
 
 - [ ] **Step 3: Commit the final deliverables**
 
+Tasks 1 and 2 already commit the diagram source and PNG. Commit only the remaining DOCX, builder, or revision files created after those commits:
+
 ```text
-git add docs/diagrams/customer/III-00-customer-use-case.puml docs/diagrams/customer/III-00-customer-use-case.png docs/use-cases/customer-use-case-specifications.docx
-git commit -m "docs: complete customer use case deliverables"
+git add docs/use-cases/customer-use-case-specifications.docx tools/build_customer_usecase_specifications.py
+git commit -m "docs: complete customer use case specifications"
 ```
 
 - [ ] **Step 4: Push and open one PR**
