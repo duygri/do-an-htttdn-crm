@@ -2,7 +2,7 @@ package com.htttdn.crm.controller;
 
 import com.htttdn.crm.entity.User; import com.htttdn.crm.service.AuthService; import jakarta.validation.Valid; import jakarta.validation.constraints.*; import org.springframework.web.bind.annotation.*;
 
-@RestController @RequestMapping("/api/customers/me")
+@RestController @RequestMapping({"/api/customers/me", "/api/profile"})
 public class ProfileController {
     private final AuthService auth; public ProfileController(AuthService auth){this.auth=auth;}
     @GetMapping public User me(@RequestHeader(value="Authorization",required=false) String authorization){return auth.requireCustomer(authorization);}
