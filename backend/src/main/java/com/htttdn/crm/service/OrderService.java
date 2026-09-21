@@ -55,7 +55,7 @@ public class OrderService {
         order.setDiscountAmount(discount); order.setTotalAmount(subtotal.subtract(discount).max(BigDecimal.ZERO)); orders.save(order); carts.deleteByCustomerId(customer.getId());
         notifications.create(customer, "Đặt hàng thành công", "Đơn hàng #" + order.getOrderCode() + " đã được ghi nhận.", "ORDER_CREATED", order.getId());
         Payment payment = new Payment(); payment.setOrder(order); payment.setAmount(order.getTotalAmount()); payment.setExpiresAt(order.getExpiresAt());
-        if ("COD".equals(method)) { payment.setStatus("COD"); payments.save(payment); return new Checkout(view(order), null, null); }
+        if ("COD".equals(method)) { payment.setStatus("PENDING"); payments.save(payment); return new Checkout(view(order), null, null); }
         PayosService.Link link = payos.createPaymentLink(order); payment.setPaymentLinkId(link.paymentLinkId()); payment.setCheckoutUrl(link.checkoutUrl()); payments.save(payment); return new Checkout(view(order), link.checkoutUrl(), link.paymentLinkId());
     }
 

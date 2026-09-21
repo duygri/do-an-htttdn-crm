@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode user --port 5173",
+    "dev:user": "vite --mode user --port 5173",
+    "dev:admin": "vite --mode admin --port 5174",
     "build": "vite build",
     "preview": "vite preview"
   },
