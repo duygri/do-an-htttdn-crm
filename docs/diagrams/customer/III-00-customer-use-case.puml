@@ -1,0 +1,73 @@
+@startuml
+title III-00 - Customer CRM and Sales Use Case Diagram
+
+left to right direction
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+actor Customer
+actor "payOS" as PayOS
+
+rectangle "Customer Portal\nCRM and Sales" {
+    usecase "UC-01\nRegister account" as UC01
+    usecase "UC-02\nLogin, refresh session\nand logout" as UC02
+    usecase "UC-03\nManage profile\nand preferences" as UC03
+    usecase "UC-04\nSubmit product\nfeedback and rating" as UC04
+    usecase "UC-05\nComplete survey\nresponse" as UC05
+    usecase "UC-06\nBrowse, search and\nfilter product catalog" as UC06
+    usecase "UC-07\nManage cart, place\norder and pay" as UC07
+    usecase "UC-08\nView order history\nand status" as UC08
+
+    usecase "Refresh access session\nor logout current session" as Session
+    usecase "Verify eligible\npurchase" as Purchase
+    usecase "View published\nsurvey" as PublishedSurvey
+    usecase "Search or filter\nproducts" as SearchFilter
+    usecase "Validate stock and\nreserve inventory" as ReserveStock
+    usecase "Process payment\nthrough payOS" as Payment
+    usecase "Apply promo code\nwhen provided" as Promo
+}
+
+Customer --> UC01
+Customer --> UC02
+Customer --> UC03
+Customer --> UC04
+Customer --> UC05
+Customer --> UC06
+Customer --> UC07
+Customer --> UC08
+
+UC02 .> Session : <<include>>
+UC04 .> Purchase : <<include>>
+UC05 .> PublishedSurvey : <<include>>
+SearchFilter .> UC06 : <<extend>>
+UC07 .> ReserveStock : <<include>>
+UC07 .> Payment : <<include>>
+Promo .> UC07 : <<extend>>
+
+PayOS --> Payment
+
+note right of UC04
+  Customer must have an eligible order
+  containing the reviewed product.
+end note
+
+note right of UC07
+  The final server-calculated amount,
+  after an optional promo code, is sent
+  to payOS. The webhook confirms payment.
+end note
+
+legend right
+  Eight primary Customer use cases are
+  mapped to FR-01 through FR-08.
+  Supporting use cases show mandatory
+  or optional business behavior only.
+endlegend
+
+@enduml
