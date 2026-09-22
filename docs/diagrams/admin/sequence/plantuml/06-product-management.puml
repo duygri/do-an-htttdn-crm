@@ -1,6 +1,11 @@
 @startuml
 title Quản lý danh mục và thông tin sản phẩm
 
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 actor ADMIN as Admin
 boundary "Trang quản lý sản phẩm" as Boundary
 control "Control quản lý sản phẩm" as Control

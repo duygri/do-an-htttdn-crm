@@ -1,6 +1,11 @@
 @startuml
 title Xóa khách hàng
 
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 actor ADMIN as Admin
 boundary "Trang quản lý khách hàng" as Boundary
 control "Control xóa khách hàng" as Control

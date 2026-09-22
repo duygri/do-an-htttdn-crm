@@ -1,6 +1,11 @@
 @startuml
 title Thống kê và phân tích kết quả khảo sát
 
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 actor ADMIN as Admin
 boundary "Trang thống kê khảo sát" as Boundary
 control "Control phân tích chỉ số CSAT" as Control
