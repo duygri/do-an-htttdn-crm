@@ -1,0 +1,25 @@
+@startuml
+title Use case - Thêm khách hàng
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "ADMIN" as Admin
+
+rectangle "Hệ thống CRM" {
+  usecase "Thêm khách hàng" as AddCustomer
+  usecase "Nhập thông tin\nkhách hàng mới" as EnterCustomerData
+  usecase "Kiểm tra hợp lệ và\ntrùng thông tin" as ValidateCustomerData
+  usecase "Lưu thông tin\nkhách hàng" as SaveCustomer
+  usecase "Thông báo thêm\nthành công" as AddSuccess
+  usecase "Thông báo thêm\nthất bại" as AddFailure
+}
+
+Admin --> AddCustomer
+AddCustomer .> EnterCustomerData : <<include>>
+AddCustomer .> ValidateCustomerData : <<include>>
+AddCustomer .> SaveCustomer : <<include>>
+AddSuccess .> AddCustomer : <<extend>>
+AddFailure .> AddCustomer : <<extend>>
+@enduml
