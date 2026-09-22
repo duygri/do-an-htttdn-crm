@@ -1,0 +1,29 @@
+@startuml
+title III-06 - Customer product catalog use case
+
+left to right direction
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+actor Customer
+
+rectangle "Customer Portal\nCRM and Sales" {
+    usecase "UC-06\nBrowse product\ncatalog" as UC06
+    usecase "View published\nproducts" as Published
+    usecase "Search products" as Search
+    usecase "Filter products" as Filter
+    usecase "Paginate results" as Page
+}
+
+Customer --> UC06
+UC06 .> Published : <<include>>
+Search .> UC06 : <<extend>>
+Filter .> UC06 : <<extend>>
+Page .> UC06 : <<extend>>
+@enduml

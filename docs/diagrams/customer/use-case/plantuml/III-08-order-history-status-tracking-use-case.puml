@@ -1,0 +1,29 @@
+@startuml
+title III-08 - Customer order history and status tracking use case
+
+left to right direction
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+actor Customer
+
+rectangle "Customer Portal\nCRM and Sales" {
+    usecase "UC-08\nView order history\nand status" as UC08
+    usecase "Verify customer\nsession" as Verify
+    usecase "List customer's\norders" as List
+    usecase "View order\ndetails" as Details
+    usecase "Track order\nstatus" as Status
+}
+
+Customer --> UC08
+UC08 .> Verify : <<include>>
+UC08 .> List : <<include>>
+Details .> UC08 : <<extend>>
+Status .> UC08 : <<extend>>
+@enduml
