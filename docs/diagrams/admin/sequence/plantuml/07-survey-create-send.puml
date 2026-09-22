@@ -1,6 +1,11 @@
 @startuml
 title Tạo và gửi bảng khảo sát đến khách hàng
 
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 actor ADMIN as Admin
 boundary "Trang quản lý khảo sát" as Boundary
 control "Control tạo và gửi khảo sát" as Control

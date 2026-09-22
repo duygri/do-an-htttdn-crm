@@ -1,6 +1,11 @@
 @startuml
 title Xem thông tin khách hàng
 
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 actor ADMIN as Admin
 boundary "Trang thông tin khách hàng" as Boundary
 control "Control xem thông tin khách hàng" as Control

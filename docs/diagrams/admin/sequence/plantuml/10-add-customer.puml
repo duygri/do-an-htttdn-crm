@@ -1,6 +1,11 @@
 @startuml
 title Thêm khách hàng
 
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 actor ADMIN as Admin
 boundary "Form thêm khách hàng" as Boundary
 control "Control thêm khách hàng" as Control

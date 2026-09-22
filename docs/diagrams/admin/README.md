@@ -2,6 +2,8 @@
 
 Admin diagrams are organized by diagram type and file format so that source files, editable diagrams, and rendered previews are easy to locate.
 
+Admin diagrams use the same monochrome, white-background, black-border visual style as the Customer diagrams for a consistent presentation.
+
 ```text
 admin/
 ├── sequence/

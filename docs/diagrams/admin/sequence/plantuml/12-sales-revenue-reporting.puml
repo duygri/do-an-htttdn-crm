@@ -1,6 +1,11 @@
 @startuml
 title Thống kê và báo cáo doanh thu
 
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 actor ADMIN as Admin
 boundary "Trang thống kê báo cáo" as Boundary
 control "Control thống kê doanh thu" as Control

@@ -2,9 +2,14 @@
 title Use case - Thống kê và báo cáo doanh thu
 
 left to right direction
+skinparam monochrome true
 skinparam packageStyle rectangle
 skinparam shadowing false
-
+skinparam usecase {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
 actor "ADMIN" as Admin
 
 rectangle "Hệ thống CRM" {

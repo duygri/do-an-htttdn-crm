@@ -1,6 +1,11 @@
 @startuml
 title Tiếp nhận và xử lý phản hồi của khách hàng
 
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 actor ADMIN as Admin
 boundary "Trang quản lý khiếu nại" as Boundary
 control "Control xử lý phản hồi" as Control

@@ -1,6 +1,11 @@
 @startuml
 title Quản lý và duyệt đơn hàng bán
 
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
 actor ADMIN as Admin
 boundary "Trang quản lý đơn hàng" as Boundary
 control "Control xử lý đơn hàng" as Control
