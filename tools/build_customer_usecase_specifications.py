@@ -10,7 +10,7 @@ from docx.shared import Cm, Pt, RGBColor
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "docs" / "use-cases" / "customer-use-case-specifications.docx"
+OUTPUT = ROOT / "docs" / "use-cases" / "customer" / "customer-use-case-specifications.docx"
 
 
 TRACEABILITY = [
