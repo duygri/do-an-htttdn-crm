@@ -4,7 +4,7 @@ import com.htttdn.crm.entity.User; import com.htttdn.crm.service.AuthService;
 import jakarta.servlet.http.*; import jakarta.validation.Valid; import jakarta.validation.constraints.*; import org.springframework.http.*; import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
-@RestController @RequestMapping("/api/auth")
+@RestController @RequestMapping({"/api/auth", "/api"})
 public class AuthController {
     private final AuthService auth; public AuthController(AuthService auth){this.auth=auth;}
     @PostMapping("/register") public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest r){User u=auth.register(r.email(),r.password(),r.fullName(),r.phone(),r.age());return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message","Đăng ký tài khoản thành công.","customer",u));}

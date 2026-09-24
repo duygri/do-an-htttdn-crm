@@ -54,8 +54,8 @@ public class OrderService {
         if (request.voucherCode() != null && !request.voucherCode().isBlank()) { StoreVoucher voucher = findVoucher(request.voucherCode()); validateVoucher(voucher, subtotal); discount = voucherDiscount(voucher, subtotal); voucher.setUsedCount(voucher.getUsedCount() + 1); vouchers.save(voucher); order.setVoucherCode(voucher.getCode()); }
         order.setDiscountAmount(discount); order.setTotalAmount(subtotal.subtract(discount).max(BigDecimal.ZERO)); orders.save(order); carts.deleteByCustomerId(customer.getId());
         notifications.create(customer, "Đặt hàng thành công", "Đơn hàng #" + order.getOrderCode() + " đã được ghi nhận.", "ORDER_CREATED", order.getId());
-        Payment payment = new Payment(); payment.setOrder(order); payment.setAmount(order.getTotalAmount()); payment.setExpiresAt(order.getExpiresAt());
-        if ("COD".equals(method)) { payment.setStatus("COD"); payments.save(payment); return new Checkout(view(order), null, null); }
+        Payment payment = new Payment(); payment.setOrder(order); payment.setAmount(order.getTotalAmount()); payment.setPaymentMethod(method); payment.setExpiresAt(order.getExpiresAt());
+        if ("COD".equals(method)) { payment.setStatus("COD"); payment.setResponseCode("COD"); payments.save(payment); return new Checkout(view(order), null, null); }
         PayosService.Link link = payos.createPaymentLink(order); payment.setPaymentLinkId(link.paymentLinkId()); payment.setCheckoutUrl(link.checkoutUrl()); payments.save(payment); return new Checkout(view(order), link.checkoutUrl(), link.paymentLinkId());
     }
 
@@ -73,13 +73,66 @@ public class OrderService {
     }
 
     @Transactional public boolean webhook(JsonNode payload, String signature) {
-        JsonNode data = payload == null ? null : payload.path("data"); if (data == null || data.isMissingNode()) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Webhook không có dữ liệu thanh toán."); if (!payos.verifyWebhook(data, signature)) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Chữ ký webhook không hợp lệ.");
-        long code = data.path("orderCode").asLong(0); String providerCode = data.path("code").asText(payload.path("code").asText("")); boolean success = payload.path("success").asBoolean(false); Order order = orders.findByOrderCode(code).orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Không tìm thấy đơn hàng tương ứng.")); BigDecimal amount = BigDecimal.valueOf(data.path("amount").asDouble(-1)); if (code == 0 || amount.compareTo(order.getTotalAmount()) != 0) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Thông tin đơn hàng hoặc số tiền không khớp.");
-        String eventKey = data.path("paymentLinkId").asText("") + ":" + code + ":" + data.path("transactionDateTime").asText("") + ":" + providerCode; if (webhookEvents.existsByEventKey(eventKey)) return true; PaymentWebhookEvent event = new PaymentWebhookEvent(); event.setEventKey(eventKey); event.setOrderCode(code); webhookEvents.save(event);
-        Payment payment = payments.findByOrderId(order.getId()).orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Không tìm thấy giao dịch."));
-        if (success && "00".equals(providerCode)) { payment.setStatus("PAID"); order.setPaymentStatus("PAID"); order.setStatus("CONFIRMED"); notifications.create(order.getCustomer(), "Thanh toán thành công", "Đơn hàng #" + order.getOrderCode() + " đã được xác nhận.", "PAYMENT_CONFIRMED", order.getId()); }
-        else { String desc = data.path("desc").asText("").toLowerCase(Locale.ROOT); payment.setStatus(desc.contains("expire") ? "EXPIRED" : "CANCELLED"); order.setPaymentStatus(payment.getStatus()); order.setStatus("CANCELLED"); releaseStock(order); notifications.create(order.getCustomer(), "Thanh toán chưa hoàn tất", "Đơn hàng #" + order.getOrderCode() + " đã được hủy do thanh toán không thành công.", "PAYMENT_FAILED", order.getId()); }
-        payment.setUpdatedAt(Instant.now()); order.setUpdatedAt(Instant.now()); payments.save(payment); orders.save(order); return false;
+        JsonNode data = payload == null ? null : payload.path("data");
+        if (data == null || data.isMissingNode()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Webhook không có dữ liệu thanh toán.");
+        }
+        if (!payos.verifyWebhook(data, signature)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Chữ ký webhook không hợp lệ.");
+        }
+
+        long code = data.path("orderCode").asLong(0);
+        String providerCode = data.path("code").asText(payload.path("code").asText(""));
+        boolean success = payload.path("success").asBoolean(false);
+        Order order = orders.findByOrderCodeForUpdate(code)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Không tìm thấy đơn hàng tương ứng."));
+        BigDecimal amount = BigDecimal.valueOf(data.path("amount").asDouble(-1));
+        if (code == 0 || amount.compareTo(order.getTotalAmount()) != 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Thông tin đơn hàng hoặc số tiền không khớp.");
+        }
+
+        String gatewayReference = firstText(data, "reference", "transactionDateTime", "paymentLinkId");
+        String eventType = success && "00".equals(providerCode) ? "SUCCESS" : "FAILED";
+        String eventKey = data.path("paymentLinkId").asText("") + ":" + code + ":"
+                + data.path("transactionDateTime").asText("") + ":" + providerCode;
+        if (webhookEvents.existsByEventKey(eventKey)
+                || webhookEvents.existsByOrderIdAndWebhookTypeAndGatewayReference(order.getId(), eventType, gatewayReference == null ? eventKey : gatewayReference)) {
+            return true;
+        }
+
+        Payment payment = payments.findByOrderId(order.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Không tìm thấy giao dịch."));
+        payment.setGatewayTxnRef(data.path("transactionDateTime").asText(null));
+        payment.setGatewayTransactionNo(data.path("reference").asText(data.path("transactionId").asText(null)));
+        payment.setResponseCode(providerCode);
+        if (success && "00".equals(providerCode)) {
+            payment.setStatus("PAID");
+            payment.setPaidAt(Instant.now());
+            order.setPaymentStatus("PAID");
+            order.setStatus("CONFIRMED");
+            notifications.create(order.getCustomer(), "Thanh toán thành công", "Đơn hàng #" + order.getOrderCode() + " đã được xác nhận.", "PAYMENT_CONFIRMED", order.getId());
+        } else {
+            String desc = data.path("desc").asText("").toLowerCase(Locale.ROOT);
+            payment.setStatus(desc.contains("expire") ? "EXPIRED" : "CANCELLED");
+            order.setPaymentStatus(payment.getStatus());
+            order.setStatus("CANCELLED");
+            releaseStock(order);
+            notifications.create(order.getCustomer(), "Thanh toán chưa hoàn tất", "Đơn hàng #" + order.getOrderCode() + " đã được hủy do thanh toán không thành công.", "PAYMENT_FAILED", order.getId());
+        }
+
+        PaymentWebhookEvent event = new PaymentWebhookEvent();
+        event.setEventKey(eventKey);
+        event.setOrderCode(code);
+        event.setOrderId(order.getId());
+        event.setWebhookType(eventType);
+        event.setGatewayReference(gatewayReference == null ? eventKey : gatewayReference);
+        webhookEvents.save(event);
+
+        payment.setUpdatedAt(Instant.now());
+        order.setUpdatedAt(Instant.now());
+        payments.save(payment);
+        orders.save(order);
+        return false;
     }
 
     @Scheduled(fixedDelayString = "${app.payment-cleanup-ms:300000}") @Transactional public void cleanupExpired() { for (Order order : orders.findExpiredPending(Instant.now())) { if (!"PENDING_PAYMENT".equals(order.getStatus())) continue; payments.findByOrderId(order.getId()).ifPresent(p -> { p.setStatus("EXPIRED"); p.setUpdatedAt(Instant.now()); payments.save(p); }); order.setPaymentStatus("EXPIRED"); order.setStatus("CANCELLED"); releaseStock(order); order.setUpdatedAt(Instant.now()); orders.save(order); notifications.create(order.getCustomer(), "Đơn hàng hết hạn thanh toán", "Đơn hàng #" + order.getOrderCode() + " đã được hủy.", "ORDER_EXPIRED", order.getId()); } }
@@ -91,6 +144,7 @@ public class OrderService {
     private void validateVariant(Product product, String size, String color) { if (!hasOption(product.getSizes(), size) || !hasOption(product.getColors(), color)) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_VARIANT", "Size hoặc màu sản phẩm không hợp lệ."); }
     private boolean hasOption(String csv, String value) { return value == null || value.isBlank() || Arrays.stream(String.valueOf(csv == null ? "" : csv).split(",")).map(String::trim).anyMatch(value.trim()::equalsIgnoreCase); }
     private String clean(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+    private String firstText(JsonNode data, String... fields) { for (String field : fields) { String value = data.path(field).asText(""); if (!value.isBlank()) return value; } return null; }
     private void releaseStock(Order order) { if (order.isStockReleased()) return; for (OrderItem item : order.getItems()) products.findById(item.getProduct().getId()).ifPresent(p -> { p.setStock(p.getStock() + item.getQuantity()); p.setUpdatedAt(Instant.now()); products.save(p); }); order.setStockReleased(true); }
     private ApiException invalidCart() { return new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CART", "Sản phẩm trong giỏ không còn hợp lệ."); }
     private long nextCode() { long code = 100000000000L + (System.currentTimeMillis() % 89999999999L); while (orders.findByOrderCode(code).isPresent()) code++; return code; }
