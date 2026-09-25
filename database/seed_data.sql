@@ -147,10 +147,6 @@ UPDATE survey_definitions
 SET description = 'Trả lời nhanh để ANH LỚN SHOP gợi ý những món đồ hợp với bạn hơn.'
 WHERE title = 'Gu thời trang của bạn';
 
-INSERT INTO store_vouchers(code, discount_type, discount_value, min_order_amount, usage_limit, active)
-SELECT 'ANHLON10', 'PERCENTAGE', 10, 300000, 500, TRUE
-WHERE NOT EXISTS (SELECT 1 FROM store_vouchers WHERE code = 'ANHLON10');
-
 INSERT INTO survey_questions(survey_id, text, type, display_order, options_json, required)
 SELECT s.id, q.text, q.type, q.display_order, q.options_json, TRUE
 FROM survey_definitions s
