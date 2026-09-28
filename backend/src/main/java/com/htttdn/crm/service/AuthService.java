@@ -24,7 +24,8 @@ public class AuthService {
     @Transactional public Session login(String email,String password){
         User user=users.findByEmailIgnoreCase(email==null?"":email.trim()).orElse(null);
         if(user==null || !"CUSTOMER".equals(user.getRole()) || user.getPasswordHash()==null || !encoder.matches(password==null?"":password,user.getPasswordHash())) throw new ApiException(HttpStatus.UNAUTHORIZED,"INVALID_CREDENTIALS","Email hoặc mật khẩu không đúng.");
-        if(user.isLocked()) throw new ApiException(HttpStatus.LOCKED,"ACCOUNT_LOCKED","Tài khoản đang bị khóa.");
+        if(user.getDeletedAt()!=null) throw new ApiException(HttpStatus.FORBIDDEN,"ACCOUNT_REMOVED","Tài khoản này đã bị vô hiệu hóa.");
+        if(user.isLocked()) throw locked(user);
         return issue(user,UUID.randomUUID().toString());
     }
     @Transactional(noRollbackFor=ApiException.class) public Session refresh(String raw){
@@ -35,7 +36,7 @@ public class AuthService {
         if(!"ACTIVE".equals(token.getStatus())) throw new ApiException(HttpStatus.UNAUTHORIZED,"INVALID_REFRESH_TOKEN","Phiên đăng nhập không còn hiệu lực.");
         if(token.getExpiresAt().isBefore(Instant.now())){token.setStatus("REVOKED");token.setRevokeReason("EXPIRED");token.setRevokedAt(Instant.now());refreshTokens.save(token);throw new ApiException(HttpStatus.UNAUTHORIZED,"REFRESH_TOKEN_EXPIRED","Refresh token đã hết hạn.");}
         token.setStatus("ROTATED"); token.setRevokeReason("ROTATED"); token.setRevokedAt(Instant.now()); refreshTokens.save(token);
-        User user=token.getUser(); if(!"CUSTOMER".equals(user.getRole())) throw new ApiException(HttpStatus.UNAUTHORIZED,"INVALID_REFRESH_TOKEN","Phiên customer không hợp lệ."); if(user.isLocked()) throw new ApiException(HttpStatus.LOCKED,"ACCOUNT_LOCKED","Tài khoản đang bị khóa.");
+        User user=token.getUser(); if(!"CUSTOMER".equals(user.getRole()) || user.getDeletedAt()!=null) throw new ApiException(HttpStatus.UNAUTHORIZED,"INVALID_REFRESH_TOKEN","Phiên customer không hợp lệ."); if(user.isLocked()) throw locked(user);
         return issue(user,token.getFamilyId());
     }
     @Transactional public void logout(String raw){if(raw==null||raw.isBlank())return;refreshTokens.findForUpdate(hash(raw)).filter(t->!"ADMIN".equals(t.getAudience())).ifPresent(t->{if("ACTIVE".equals(t.getStatus())){t.setStatus("REVOKED");t.setRevokeReason("LOGOUT");t.setRevokedAt(Instant.now());refreshTokens.save(t);}});}
@@ -48,8 +49,9 @@ public class AuthService {
     public User requireCustomer(String authorization){
         JwtTokenService.Claims claims=jwt.parse(authorization); if(!"CUSTOMER".equals(claims.role())) throw new ApiException(HttpStatus.FORBIDDEN,"CUSTOMER_REQUIRED","Customer token required.");
         User user=users.findById(claims.userId()).orElseThrow(()->new ApiException(HttpStatus.UNAUTHORIZED,"UNAUTHORIZED","Vui lòng đăng nhập."));
-        if(!"CUSTOMER".equals(user.getRole()) || user.isLocked()) throw new ApiException(HttpStatus.UNAUTHORIZED,"UNAUTHORIZED","Phiên đăng nhập không hợp lệ."); return user;
+        if(!"CUSTOMER".equals(user.getRole()) || user.getDeletedAt()!=null) throw new ApiException(HttpStatus.UNAUTHORIZED,"UNAUTHORIZED","Phiên đăng nhập không hợp lệ."); if(user.isLocked()) throw locked(user); return user;
     }
+    private ApiException locked(User user){String reason=user.getLockReason();return new ApiException(HttpStatus.LOCKED,"ACCOUNT_LOCKED",reason==null||reason.isBlank()?"Tài khoản đang bị khóa.":"Tài khoản đang bị khóa. Lý do: "+reason);}
     private Session issue(User user,String family){String raw=UUID.randomUUID()+"."+UUID.randomUUID();RefreshToken token=new RefreshToken();token.setUser(user);token.setAudience("CUSTOMER");token.setFamilyId(family);token.setTokenHash(hash(raw));token.setExpiresAt(Instant.now().plus(Duration.ofDays(refreshDays)));refreshTokens.save(token);return new Session(jwt.issue(user.getId(),"CUSTOMER"),raw,accessMinutes*60,user);}
     public static String hash(String value){try{byte[] b=MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));StringBuilder s=new StringBuilder();for(byte x:b)s.append(String.format("%02x",x));return s.toString();}catch(Exception e){throw new IllegalStateException(e);}}
     public record Session(String accessToken,String refreshToken,long expiresIn,User user){}

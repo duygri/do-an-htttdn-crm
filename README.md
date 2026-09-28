@@ -49,7 +49,7 @@ cd backend
 $env:DB_URL='jdbc:postgresql://localhost:5432/htttdn'
 $env:DB_USERNAME='postgres'
 $env:DB_PASSWORD='mat-khau-postgres-cua-ban'
-$env:SERVER_PORT='8082'
+$env:SERVER_PORT='8080'
 mvn spring-boot:run
 ```
 
@@ -58,8 +58,8 @@ Start the customer storefront in another terminal:
 ```powershell
 cd frontend
 npm install
-$env:VITE_API_BASE_URL='http://localhost:8082'
+$env:VITE_API_BASE_URL='http://localhost:8080'
 npm run dev
 ```
 
-The default payOS mode is a local checkout link. Add `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`, `PAYOS_RETURN_URL`, and `PAYOS_CANCEL_URL` to enable the real provider.
+PayOS QR checkout requires `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, and `PAYOS_CHECKSUM_KEY`; optionally set `PAYOS_RETURN_URL` and `PAYOS_CANCEL_URL`. Without the keys, PayOS checkout returns a configuration error while COD remains available. The PayOS webhook must be publicly reachable for payment status to change to paid. On an existing PostgreSQL database, run `database/migration_payos_qr.sql` before starting the updated backend with `ddl-auto=none`.

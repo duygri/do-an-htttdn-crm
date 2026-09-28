@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/admin/surveys")
+@RequestMapping("/api/manager/surveys")
 public class AdminSurveyStatsController {
     private final AdminReportService reportService;
 

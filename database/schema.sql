@@ -43,6 +43,8 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone VARCHAR(40);
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'CUSTOMER';
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS locked BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS lock_reason VARCHAR(2000);
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_customers_email ON customers(email) WHERE email IS NOT NULL;
 
@@ -141,6 +143,17 @@ CREATE TABLE IF NOT EXISTS store_vouchers (
     expires_at TIMESTAMPTZ
 );
 
+ALTER TABLE store_vouchers ADD COLUMN IF NOT EXISTS description VARCHAR(1000);
+ALTER TABLE store_vouchers ADD COLUMN IF NOT EXISTS max_discount_amount NUMERIC(12,2);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_store_vouchers_code_ci ON store_vouchers (upper(code));
+CREATE TABLE IF NOT EXISTS voucher_usages (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL UNIQUE REFERENCES orders(order_id),
+    voucher_id BIGINT NOT NULL REFERENCES store_vouchers(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    released_at TIMESTAMPTZ
+);
+
 CREATE TABLE IF NOT EXISTS customer_notifications (
     id BIGSERIAL PRIMARY KEY,
     customer_id BIGINT NOT NULL REFERENCES customers(customer_id) ON DELETE CASCADE,
@@ -174,9 +187,11 @@ ALTER TABLE feedback ADD COLUMN IF NOT EXISTS rating INTEGER NOT NULL DEFAULT 5 
 ALTER TABLE feedback ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'NEW';
 ALTER TABLE feedback ADD COLUMN IF NOT EXISTS admin_response VARCHAR(4000);
 ALTER TABLE feedback ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
+ALTER TABLE feedback ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE feedback ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_feedback_customer_product
-    ON feedback(customer_id, product_id) WHERE product_id IS NOT NULL;
+ALTER TABLE feedback ADD COLUMN IF NOT EXISTS order_id BIGINT REFERENCES orders(order_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_feedback_order_product ON feedback(order_id, product_id);
 
 -- survey_definitions là mẫu khảo sát mà frontend hiển thị cho khách hàng.
 CREATE TABLE IF NOT EXISTS survey_definitions (
@@ -198,6 +213,8 @@ CREATE TABLE IF NOT EXISTS survey_questions (
     options_json VARCHAR(4000),
     required BOOLEAN NOT NULL DEFAULT TRUE
 );
+
+ALTER TABLE survey_definitions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS survey_responses (
     id BIGSERIAL PRIMARY KEY,
@@ -290,11 +307,28 @@ CREATE TABLE IF NOT EXISTS payments (
     amount NUMERIC(15,2) NOT NULL,
     payment_link_id VARCHAR(255),
     checkout_url VARCHAR(2000),
+    qr_code TEXT,
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS qr_code TEXT;
+
+CREATE TABLE IF NOT EXISTS payment_attempts (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES orders(order_id),
+    provider_order_code BIGINT NOT NULL UNIQUE,
+    payment_link_id VARCHAR(255),
+    checkout_url VARCHAR(2000),
+    qr_code TEXT,
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_payment_attempts_order ON payment_attempts(order_id, id DESC);
 
 CREATE TABLE IF NOT EXISTS payment_webhook_events (
     id BIGSERIAL PRIMARY KEY,
@@ -314,3 +348,59 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)
 CREATE INDEX IF NOT EXISTS idx_wishlists_customer ON wishlists(customer_id);
 CREATE INDEX IF NOT EXISTS idx_addresses_customer ON customer_addresses(customer_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_customer_created ON customer_notifications(customer_id, created_at DESC);
+-- Run before starting the updated backend. No historical feedback is reassigned.
+BEGIN;
+ALTER TABLE feedback ADD COLUMN IF NOT EXISTS order_id BIGINT REFERENCES orders(order_id);
+DO $$
+DECLARE old_constraint RECORD;
+BEGIN
+ FOR old_constraint IN
+  SELECT c.conname FROM pg_constraint c
+  WHERE c.conrelid='feedback'::regclass AND c.contype='u'
+  AND (SELECT array_agg(a.attname::text ORDER BY a.attname)
+       FROM unnest(c.conkey) k JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k)
+      = ARRAY['customer_id','product_id']::text[]
+ LOOP
+  EXECUTE format('ALTER TABLE feedback DROP CONSTRAINT %I',old_constraint.conname);
+ END LOOP;
+END $$;
+DROP INDEX IF EXISTS uq_feedback_customer_product;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_feedback_order_product ON feedback(order_id,product_id);
+ALTER TABLE store_vouchers ADD COLUMN IF NOT EXISTS owner_customer_id BIGINT REFERENCES customers(customer_id);
+ALTER TABLE store_vouchers ADD COLUMN IF NOT EXISTS reward_survey_id BIGINT REFERENCES survey_definitions(id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_survey_reward_customer ON store_vouchers(reward_survey_id,owner_customer_id);
+ALTER TABLE survey_definitions ADD COLUMN IF NOT EXISTS reward_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE survey_definitions ADD COLUMN IF NOT EXISTS reward_type VARCHAR(255);
+ALTER TABLE survey_definitions ADD COLUMN IF NOT EXISTS reward_value NUMERIC(12,2);
+ALTER TABLE survey_definitions ADD COLUMN IF NOT EXISTS reward_minimum NUMERIC(12,2);
+ALTER TABLE survey_definitions ADD COLUMN IF NOT EXISTS reward_maximum NUMERIC(12,2);
+ALTER TABLE survey_definitions ADD COLUMN IF NOT EXISTS reward_days INTEGER;
+COMMIT;
+
+BEGIN;
+CREATE TABLE IF NOT EXISTS suppliers (
+ id BIGSERIAL PRIMARY KEY, code VARCHAR(40) NOT NULL UNIQUE, name VARCHAR(150) NOT NULL,
+ email VARCHAR(255), phone VARCHAR(30), address VARCHAR(1000), notes VARCHAR(4000),
+ active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_supplier_code_ci ON suppliers(upper(code));
+ALTER TABLE products ADD COLUMN IF NOT EXISTS supplier_id BIGINT REFERENCES suppliers(id);
+ALTER TABLE survey_definitions ADD COLUMN IF NOT EXISTS audience VARCHAR(255) NOT NULL DEFAULT 'ALL';
+CREATE TABLE IF NOT EXISTS survey_recipients (
+ survey_id BIGINT NOT NULL REFERENCES survey_definitions(id), customer_id BIGINT NOT NULL REFERENCES customers(customer_id), PRIMARY KEY(survey_id,customer_id)
+);
+CREATE TABLE IF NOT EXISTS survey_notified_customers (
+ survey_id BIGINT NOT NULL REFERENCES survey_definitions(id), customer_id BIGINT NOT NULL REFERENCES customers(customer_id), PRIMARY KEY(survey_id,customer_id)
+);
+-- Expand legacy role/audience-only checks, without dropping unrelated constraints.
+DO $$ DECLARE item RECORD; BEGIN
+ FOR item IN SELECT conname FROM pg_constraint WHERE conrelid='customers'::regclass AND contype='c'
+ AND conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid='customers'::regclass AND attname='role')]::smallint[]
+ LOOP EXECUTE format('ALTER TABLE customers DROP CONSTRAINT %I',item.conname); END LOOP;
+ ALTER TABLE customers ADD CONSTRAINT customers_portal_role_check CHECK (role IN ('CUSTOMER','ADMIN','MANAGER'));
+ FOR item IN SELECT conname FROM pg_constraint WHERE conrelid='refresh_tokens'::regclass AND contype='c'
+ AND conkey=ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid='refresh_tokens'::regclass AND attname='audience')]::smallint[]
+ LOOP EXECUTE format('ALTER TABLE refresh_tokens DROP CONSTRAINT %I',item.conname); END LOOP;
+ ALTER TABLE refresh_tokens ADD CONSTRAINT refresh_portal_audience_check CHECK (audience IN ('CUSTOMER','ADMIN','MANAGER'));
+END $$;
+COMMIT;

@@ -28,7 +28,7 @@ public class AdminAuthService {
     @Transactional public Session login(String email, String password) {
         User user = users.findByEmailIgnoreCase(email == null ? "" : email.trim().toLowerCase(Locale.ROOT)).orElse(null);
         if (user == null || !"ADMIN".equals(user.getRole()) || user.getPasswordHash() == null || !encoder.matches(password == null ? "" : password, user.getPasswordHash())) throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Thông tin đăng nhập admin không đúng.");
-        if (user.isLocked()) throw new ApiException(HttpStatus.LOCKED, "ACCOUNT_LOCKED", "Tài khoản admin đang bị khóa.");
+        if ((user.isLocked() || user.getDeletedAt()!=null)) throw new ApiException(HttpStatus.LOCKED, "ACCOUNT_LOCKED", "Tài khoản admin đang bị khóa.");
         return issue(user, UUID.randomUUID().toString());
     }
 
@@ -38,7 +38,7 @@ public class AdminAuthService {
         if ("ROTATED".equals(token.getStatus())) { refreshTokens.revokeFamily(token.getFamilyId(), "REUSE_DETECTED"); throw invalidRefresh(); }
         if (!"ACTIVE".equals(token.getStatus()) || token.getExpiresAt().isBefore(Instant.now())) throw invalidRefresh();
         token.setStatus("ROTATED"); token.setRevokeReason("ROTATED"); token.setRevokedAt(Instant.now()); refreshTokens.save(token);
-        User user = token.getUser(); if (!"ADMIN".equals(user.getRole()) || user.isLocked()) throw invalidRefresh();
+        User user = token.getUser(); if (!"ADMIN".equals(user.getRole()) || (user.isLocked() || user.getDeletedAt()!=null)) throw invalidRefresh();
         return issue(user, token.getFamilyId());
     }
 
