@@ -1,14 +1,24 @@
 package com.htttdn.crm.controller;
-
-import com.htttdn.crm.entity.StoreVoucher; import com.htttdn.crm.exception.ApiException; import com.htttdn.crm.repository.StoreVoucherRepository; import org.springframework.http.*; import org.springframework.web.bind.annotation.*; import java.math.*; import java.time.*; import java.util.*;
-
-@RestController @RequestMapping("/api/vouchers")
+import com.htttdn.crm.service.*;
+import com.htttdn.crm.repository.StoreVoucherRepository;
+import com.htttdn.crm.entity.StoreVoucher;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.*;
+import java.math.BigDecimal;
+import java.time.Instant;
+@RestController
 public class VoucherController {
-    private final StoreVoucherRepository vouchers; public VoucherController(StoreVoucherRepository vouchers){this.vouchers=vouchers;}
-    @GetMapping("/validate") public VoucherView validate(@RequestParam String code,@RequestParam BigDecimal amount){StoreVoucher voucher=find(code);check(voucher,amount);return view(voucher,amount);}
-    public static void check(StoreVoucher v,BigDecimal amount){Instant now=Instant.now();if(!v.isActive()||(v.getStartsAt()!=null&&now.isBefore(v.getStartsAt()))||(v.getExpiresAt()!=null&&!now.isBefore(v.getExpiresAt()))||(v.getUsageLimit()!=null&&v.getUsedCount()>=v.getUsageLimit()))throw new ApiException(HttpStatus.BAD_REQUEST,"VOUCHER_INVALID","Mã giảm giá không còn hiệu lực.");if(amount.compareTo(v.getMinOrderAmount())<0)throw new ApiException(HttpStatus.BAD_REQUEST,"VOUCHER_MINIMUM_NOT_MET","Đơn hàng chưa đạt giá trị tối thiểu để dùng mã này.");}
-    public static BigDecimal discount(StoreVoucher v,BigDecimal amount){return "FIXED_AMOUNT".equalsIgnoreCase(v.getDiscountType())?v.getDiscountValue().min(amount):amount.multiply(v.getDiscountValue()).divide(BigDecimal.valueOf(100),2,RoundingMode.HALF_UP).min(amount);}
-    private StoreVoucher find(String code){return vouchers.findByCodeIgnoreCase(code==null?"":code.trim()).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"VOUCHER_NOT_FOUND","Không tìm thấy mã giảm giá."));}
-    private VoucherView view(StoreVoucher v,BigDecimal amount){return new VoucherView(v.getCode(),v.getDiscountType(),v.getDiscountValue(),discount(v,amount),v.getMinOrderAmount(),v.getExpiresAt());}
-    public record VoucherView(String code,String discountType,BigDecimal discountValue,BigDecimal discountAmount,BigDecimal minOrderAmount,Instant expiresAt){}
+    private final VoucherService service; private final AuthService auth; private final StoreVoucherRepository vouchers;
+    public VoucherController(VoucherService service,AuthService auth,StoreVoucherRepository vouchers){this.service=service;this.auth=auth;this.vouchers=vouchers;}
+    @GetMapping("/api/vouchers/validate") public VoucherService.Preview validate(@RequestHeader(value="Authorization",required=false) String authorization,@RequestParam String code,@RequestParam BigDecimal amount){return service.preview(code,amount,authorization==null?null:auth.requireCustomer(authorization).getId());}
+    @GetMapping("/api/customers/me/vouchers") public Page<WalletView> mine(@RequestHeader(value="Authorization",required=false) String authorization,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){
+        Long id=auth.requireCustomer(authorization).getId();
+        if(page<0||size<1||size>100)throw VoucherService.bad("INVALID_PAGE","Phân trang không hợp lệ.");
+        return vouchers.findWallet(id,Instant.now(),PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"id"))).map(VoucherController::view);
+    }
+    public static WalletView view(StoreVoucher v){
+        boolean personal=v.getOwnerCustomerId()!=null;
+        return new WalletView(v.getCode(),v.getDescription(),v.getDiscountType(),v.getDiscountValue(),v.getMinOrderAmount(),v.getMaxDiscountAmount(),v.getExpiresAt(),personal&&v.getUsedCount()>0?"USED":VoucherService.state(v,Instant.now()),personal?"SURVEY":"GENERAL");
+    }
+    public record WalletView(String code,String description,String discountType,BigDecimal discountValue,BigDecimal minOrderAmount,BigDecimal maxDiscountAmount,Instant expiresAt,String state,String source){}
 }

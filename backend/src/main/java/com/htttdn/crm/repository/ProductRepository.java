@@ -2,7 +2,7 @@ package com.htttdn.crm.repository;
 
 import com.htttdn.crm.entity.Product; import org.springframework.data.jpa.repository.*; import org.springframework.data.domain.*; import org.springframework.data.repository.query.Param; import jakarta.persistence.LockModeType; import java.util.*; import java.math.*;
 
-public interface ProductRepository extends JpaRepository<Product,Long> {
+public interface ProductRepository extends JpaRepository<Product,Long>, JpaSpecificationExecutor<Product> {
     Page<Product> findByNameContainingIgnoreCaseAndActiveTrue(String n,Pageable p);
     Optional<Product> findByIdAndActiveTrue(Long id); long countByActiveTrue();
     @Query("select p from Product p where p.active=true and (:keyword='' or lower(p.name) like lower(concat('%',:keyword,'%')) or lower(coalesce(p.description,'')) like lower(concat('%',:keyword,'%'))) and (:category='' or p.categoryEntity.name=:category) and (:gender='' or p.gender=:gender) and (:minPrice is null or coalesce(p.salePrice,p.price)>=:minPrice) and (:maxPrice is null or coalesce(p.salePrice,p.price)<=:maxPrice)")
