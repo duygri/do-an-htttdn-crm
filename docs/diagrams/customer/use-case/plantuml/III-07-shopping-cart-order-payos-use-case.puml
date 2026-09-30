@@ -1,0 +1,36 @@
+@startuml
+title III-07 - Customer shopping cart order and payOS use case
+
+left to right direction
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+actor Customer
+actor "payOS" as PayOS
+
+rectangle "Customer Portal\nCRM and Sales" {
+    usecase "UC-07\nManage cart, place\norder and pay" as UC07
+    usecase "Persist cart" as Cart
+    usecase "Validate stock and\nreserve inventory" as Stock
+    usecase "Calculate final\namount" as Amount
+    usecase "Process payment\nthrough payOS" as Payment
+    usecase "Apply promo code\nwhen provided" as Promo
+    usecase "Confirm payment\nby webhook" as Webhook
+}
+
+Customer --> UC07
+PayOS --> Payment
+PayOS --> Webhook
+UC07 .> Cart : <<include>>
+UC07 .> Stock : <<include>>
+UC07 .> Amount : <<include>>
+UC07 .> Payment : <<include>>
+UC07 .> Webhook : <<include>>
+Promo .> UC07 : <<extend>>
+@enduml

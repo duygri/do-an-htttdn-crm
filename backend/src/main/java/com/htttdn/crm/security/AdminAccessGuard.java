@@ -13,11 +13,14 @@ public class AdminAccessGuard extends OncePerRequestFilter {
     public AdminAccessGuard(JwtTokenService jwt, UserRepository users) { this.jwt = jwt; this.users = users; }
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         String path = request.getRequestURI();
-        if (!path.startsWith("/api/admin") || "OPTIONS".equalsIgnoreCase(request.getMethod()) || path.startsWith("/api/admin/auth/")) { chain.doFilter(request, response); return; }
+        boolean manager=path.equals("/api/manager")||path.startsWith("/api/manager/");
+        boolean admin=path.equals("/api/admin")||path.startsWith("/api/admin/");
+        if ((!admin&&!manager) || "OPTIONS".equalsIgnoreCase(request.getMethod()) || path.startsWith(manager?"/api/manager/auth/":"/api/admin/auth/")) { chain.doFilter(request, response); return; }
         try {
             JwtTokenService.Claims claims = jwt.parse(request.getHeader("Authorization"));
             User user = users.findById(claims.userId()).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Admin token không hợp lệ."));
-            if (!"ADMIN".equals(claims.role()) || !"ADMIN".equals(user.getRole()) || user.isLocked()) throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_REQUIRED", "Admin role required.");
+            String role=manager?"MANAGER":"ADMIN";
+            if (!role.equals(claims.role()) || !role.equals(user.getRole()) || user.isLocked() || user.getDeletedAt()!=null) throw new ApiException(HttpStatus.FORBIDDEN, role+"_REQUIRED", "Không có quyền truy cập portal này.");
             chain.doFilter(request, response);
         } catch (ApiException e) { response.setStatus(e.status().value()); response.setContentType("application/json"); response.getWriter().print("{\"code\":\"" + e.code() + "\",\"message\":\"" + e.getMessage() + "\"}"); }
     }

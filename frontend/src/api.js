@@ -1,4 +1,19 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8082';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+async function request(url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  const cancel = () => controller.abort();
+  options?.signal?.addEventListener('abort', cancel, { once: true });
+  if (options?.signal?.aborted) controller.abort();
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  catch (cause) {
+    if (options?.signal?.aborted) throw cause;
+    const error = new Error(controller.signal.aborted ? 'Máy chủ phản hồi quá lâu. Vui lòng thử lại.' : 'Không kết nối được máy chủ. Kiểm tra kết nối và thử lại.');
+    error.code = controller.signal.aborted ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR';
+    throw error;
+  }
+  finally { clearTimeout(timer); options?.signal?.removeEventListener('abort', cancel); }
+}
 let accessToken = null;
 let refreshing = null;
 let adminAccessToken = null;
@@ -18,7 +33,7 @@ export async function api(path, options = {}, canRefresh = true) {
   const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   const body = options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body;
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers, body, credentials: 'include' });
+  const response = await request(`${API_BASE}${path}`, { ...options, headers, body, credentials: 'include' });
   if (response.status === 401 && canRefresh && !path.startsWith('/api/auth/')) {
     const session = await refreshSession();
     if (session) return api(path, options, false);
@@ -28,10 +43,10 @@ export async function api(path, options = {}, canRefresh = true) {
 
 export async function refreshSession() {
   if (!refreshing) {
-    refreshing = fetch(`${API_BASE}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
+    refreshing = request(`${API_BASE}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
       .then(parseResponse)
       .then(data => { accessToken = data.accessToken; return data; })
-      .catch(() => null)
+      .catch(error => { if (error.status === 401 || error.status === 403 || error.status === 423) { const hadSession = Boolean(accessToken); accessToken = null; if (hadSession && typeof window !== 'undefined') window.dispatchEvent(new Event('shop-session-expired')); return null; } throw error; })
       .finally(() => { refreshing = null; });
   }
   return refreshing;
@@ -46,16 +61,16 @@ export async function signIn(payload) {
 export async function signUp(payload) { return api('/api/auth/register', { method: 'POST', body: payload }, false); }
 
 export async function signOut() {
-  await api('/api/auth/logout', { method: 'POST' }, false).catch(() => null);
+  await api('/api/auth/logout', { method: 'POST' }, false);
   accessToken = null;
 }
 
 export async function adminRefreshSession() {
   if (!adminRefreshing) {
-    adminRefreshing = fetch(`${API_BASE}/api/admin/auth/refresh`, { method: 'POST', credentials: 'include' })
+    adminRefreshing = request(`${API_BASE}/api/admin/auth/refresh`, { method: 'POST', credentials: 'include' })
       .then(parseResponse)
       .then(data => { adminAccessToken = data.accessToken; return data; })
-      .catch(() => null)
+      .catch(error => { if ([401,403,423].includes(error.status)) { adminAccessToken=null; return null; } throw error; })
       .finally(() => { adminRefreshing = null; });
   }
   return adminRefreshing;
@@ -65,7 +80,7 @@ export async function adminApi(path, options = {}, canRefresh = true) {
   const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
   if (adminAccessToken) headers.Authorization = `Bearer ${adminAccessToken}`;
   const body = options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body;
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers, body, credentials: 'include' });
+  const response = await request(`${API_BASE}${path}`, { ...options, headers, body, credentials: 'include' });
   if (response.status === 401 && canRefresh && !path.startsWith('/api/admin/auth/')) {
     const session = await adminRefreshSession();
     if (session) return adminApi(path, options, false);
@@ -102,8 +117,15 @@ export const endpoints = {
   address: id => `/api/customers/me/addresses/${id}`,
   defaultAddress: id => `/api/customers/me/addresses/${id}/default`,
   validateVoucher: (code, amount) => `/api/vouchers/validate?code=${encodeURIComponent(code)}&amount=${encodeURIComponent(amount)}`,
-  orders: ({ page = 0, size = 10 } = {}) => `/api/orders?page=${page}&size=${size}`,
+  orders: ({ page = 0, size = 10, tab = 'ALL', keyword = '' } = {}) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size), tab });
+    if (keyword) params.set('keyword', keyword);
+    return `/api/orders?${params}`;
+  },
   order: id => `/api/orders/${id}`,
+  orderPayment: id => `/api/orders/${id}/payment`,
+  syncOrderPayment: id => `/api/orders/${id}/payment/sync`,
+  retryOrderPayment: id => `/api/orders/${id}/payment/retry`,
   cancelOrder: id => `/api/orders/${id}/cancel`,
   returnOrder: id => `/api/orders/${id}/return`,
   notifications: '/api/notifications',
@@ -117,26 +139,6 @@ export const endpoints = {
   changePassword: '/api/auth/change-password',
   forgotPassword: '/api/auth/forgot-password',
   resetPassword: '/api/auth/reset-password',
-};
-
-export const adminEndpoints = {
-  revenue: '/api/admin/reports/revenue',
-  userReport: '/api/admin/reports/users',
-  surveyStats: '/api/admin/surveys/stats',
-  users: ({ q = '', page = 0, size = 10 } = {}) => `/api/admin/users?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
-  user: id => `/api/admin/users/${id}`,
-  lockUser: id => `/api/admin/users/${id}/lock`,
-  products: ({ q = '', page = 0, size = 10 } = {}) => `/api/admin/products?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
-  product: id => `/api/admin/products/${id}`,
-  productStock: id => `/api/admin/products/${id}/stock`,
-  orders: ({ status = '', page = 0, size = 10 } = {}) => `/api/admin/orders${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,
-  order: id => `/api/admin/orders/${id}`,
-  orderStatus: id => `/api/admin/orders/${id}/status`,
-  feedback: ({ status = '', page = 0, size = 10 } = {}) => `/api/admin/feedback${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,
-  feedbackItem: id => `/api/admin/feedback/${id}`,
-  surveys: ({ status = '', page = 0, size = 10 } = {}) => `/api/admin/surveys${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,
-  survey: id => `/api/admin/surveys/${id}`,
-  surveyPublish: id => `/api/admin/surveys/${id}/publish`,
 };
 
 export const currentApiBase = API_BASE;

@@ -1,0 +1,29 @@
+@startuml
+title III-02 - Customer login refresh and logout use case
+
+left to right direction
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+actor Customer
+
+rectangle "Customer Portal\nCRM and Sales" {
+    usecase "UC-02\nLogin, refresh session\nand logout" as UC02
+    usecase "Authenticate\ncredentials" as Authenticate
+    usecase "Rotate refresh\ntoken" as Rotate
+    usecase "Revoke current\nsession" as Revoke
+    usecase "Detect refresh\ntoken reuse" as Reuse
+}
+
+Customer --> UC02
+UC02 .> Authenticate : <<include>>
+UC02 .> Rotate : <<include>>
+UC02 .> Revoke : <<include>>
+Reuse .> UC02 : <<extend>>
+@enduml

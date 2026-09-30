@@ -10,6 +10,9 @@ import java.time.Instant;
 @Entity
 @Table(name = "products")
 public class Product {
+    private Long supplierId;
+    public Long getSupplierId(){return supplierId;}
+    public void setSupplierId(Long value){supplierId=value;}
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "product_id")

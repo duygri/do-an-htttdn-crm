@@ -1,0 +1,4 @@
+BEGIN;
+ALTER TABLE survey_definitions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE survey_questions ALTER COLUMN options_json TYPE VARCHAR(4000);
+COMMIT;

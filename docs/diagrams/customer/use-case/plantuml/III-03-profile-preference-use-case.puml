@@ -1,0 +1,29 @@
+@startuml
+title III-03 - Customer profile and preference management use case
+
+left to right direction
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+actor Customer
+
+rectangle "Customer Portal\nCRM and Sales" {
+    usecase "UC-03\nManage profile\nand preferences" as UC03
+    usecase "Verify customer\nsession" as Verify
+    usecase "View profile" as View
+    usecase "Update profile" as Update
+    usecase "Manage preferences" as Preferences
+}
+
+Customer --> UC03
+UC03 .> Verify : <<include>>
+UC03 .> View : <<include>>
+UC03 .> Update : <<include>>
+Preferences .> UC03 : <<extend>>
+@enduml

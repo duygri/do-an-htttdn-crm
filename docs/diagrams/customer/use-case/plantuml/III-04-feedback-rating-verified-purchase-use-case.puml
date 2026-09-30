@@ -1,0 +1,29 @@
+@startuml
+title III-04 - Customer feedback and rating after purchase use case
+
+left to right direction
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+actor Customer
+
+rectangle "Customer Portal\nCRM and Sales" {
+    usecase "UC-04\nSubmit product\nfeedback and rating" as UC04
+    usecase "Verify customer\nsession" as Verify
+    usecase "Verify eligible\npurchase" as Purchase
+    usecase "Validate rating\nand content" as Validate
+    usecase "Prevent duplicate\nfeedback" as Duplicate
+}
+
+Customer --> UC04
+UC04 .> Verify : <<include>>
+UC04 .> Purchase : <<include>>
+UC04 .> Validate : <<include>>
+UC04 .> Duplicate : <<include>>
+@enduml

@@ -7,11 +7,38 @@ import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
+import com.htttdn.crm.exception.ApiException;
+import org.springframework.http.HttpStatus;
+import java.util.Set;
 
 @Service
 public class AdminFeedbackService extends AdminServiceSupport {
     private final FeedbackRepository feedback;
     public AdminFeedbackService(FeedbackRepository feedback) { this.feedback = feedback; }
-    public Page<Feedback> list(String status, int page, int size) { return status == null ? feedback.findAll(page(page, size)) : feedback.findByStatus(status, page(page, size)); }
-    @Transactional public Feedback update(Long id, FeedbackRequest request) { Feedback item = feedback.findById(id).orElseThrow(); if (request.status() != null) item.setStatus(request.status()); if (request.adminResponse() != null) item.setAdminResponse(request.adminResponse()); item.setProcessedAt(Instant.now()); return feedback.save(item); }
+    public Page<Feedback> list(String status, int page, int size) { return status == null || status.isBlank() ? feedback.findByDeletedAtIsNull(page(page, size)) : feedback.findByStatusAndDeletedAtIsNull(status, page(page, size)); }
+    private Feedback getForModeration(Long id) {
+        return feedback.findForModeration(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "FEEDBACK_NOT_FOUND", "Không tìm thấy phản hồi."));
+    }
+    @Transactional public Feedback update(Long id, FeedbackRequest request) {
+        Feedback item = getForModeration(id);
+        if (item.getDeletedAt() != null) throw new ApiException(HttpStatus.NOT_FOUND, "FEEDBACK_NOT_FOUND", "Không tìm thấy phản hồi.");
+        if (request.status() != null) {
+            if (!Set.of("NEW", "IN_PROGRESS", "RESOLVED").contains(request.status())) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_STATUS", "Trạng thái phản hồi không hợp lệ.");
+            item.setStatus(request.status());
+        }
+        if (request.adminResponse() != null) {
+            String response = request.adminResponse().trim();
+            if (response.isEmpty() || response.length() > 4000) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_RESPONSE", "Nội dung trả lời phải từ 1 đến 4.000 ký tự.");
+            item.setAdminResponse(response);
+        }
+        if (request.hidden() != null) item.setHidden(request.hidden());
+        if (request.status() != null || request.adminResponse() != null) item.setProcessedAt(Instant.now());
+        return feedback.save(item);
+    }
+    @Transactional public void delete(Long id) {
+        Feedback item = getForModeration(id);
+        if (item.getDeletedAt() != null) return;
+        item.setDeletedAt(Instant.now());
+        feedback.save(item);
+    }
 }

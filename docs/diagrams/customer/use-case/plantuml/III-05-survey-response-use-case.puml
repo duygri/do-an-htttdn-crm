@@ -1,0 +1,29 @@
+@startuml
+title III-05 - Customer survey response use case
+
+left to right direction
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam usecase {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+actor Customer
+
+rectangle "Customer Portal\nCRM and Sales" {
+    usecase "UC-05\nComplete survey\nresponse" as UC05
+    usecase "Verify customer\nsession" as Verify
+    usecase "View published\nsurvey" as Published
+    usecase "Validate required\nanswers" as Validate
+    usecase "Prevent duplicate\nresponse" as Duplicate
+}
+
+Customer --> UC05
+UC05 .> Verify : <<include>>
+UC05 .> Published : <<include>>
+UC05 .> Validate : <<include>>
+UC05 .> Duplicate : <<include>>
+@enduml
