@@ -13,8 +13,27 @@ beforeEach(() => {
   api.mockImplementation(async path => path.includes('categories') ? ['Áo thun'] : {content:[product],totalPages:1,totalElements:1});
 });
 afterEach(cleanup);
+it('keeps the size-exchange announcement without a free-shipping promotion in both themes', () => {
+  const view = render(<App/>);
+  const banner = view.container.querySelector('.announcement');
+  expect(banner.textContent).toBe('ĐỔI SIZE TRONG 30 NGÀY');
+  expect(banner.textContent).not.toMatch(/699|miễn phí|freeship/i);
+  fireEvent.click(screen.getByLabelText('Chuyển sang chế độ sáng'));
+  expect(banner.textContent).toBe('ĐỔI SIZE TRONG 30 NGÀY');
+});
+it('defaults to the Figma dark theme and keeps one shared product search', async () => {
+  const view = render(<App/>);
+  expect(view.container.querySelector('.site-shell').dataset.shopTheme).toBe('dark');
+  expect(screen.getAllByLabelText('Tìm kiếm sản phẩm')).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText('Tìm kiếm sản phẩm'), { target: { value: 'polo' } });
+  fireEvent.click(screen.getByText('TÌM'));
+  await waitFor(() => expect(window.location.pathname).toBe('/san-pham'));
+  expect(screen.getAllByLabelText('Tìm kiếm sản phẩm')).toHaveLength(1);
+  expect(window.location.search).toContain('keyword=polo');
+});
 it('persists customer dark mode separately from admin', async () => {
   localStorage.setItem('admin-theme','light');
+  localStorage.setItem('anh-lon-shop-theme','light');
   const view=render(<App/>);
   fireEvent.click(screen.getByLabelText('Chuyển sang chế độ tối'));
   expect(view.container.querySelector('.site-shell').dataset.shopTheme).toBe('dark');

@@ -1,3 +1,4 @@
+import { beginManagerMutation } from './manager-sync';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
 async function request(url, options) {
   const controller = new AbortController();
@@ -41,15 +42,19 @@ export async function adminRefreshSession() {
 }
 
 export async function adminApi(path, options = {}, canRefresh = true) {
+  const mutating = !['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase()) && !path.startsWith('/api/manager/auth/');
+  const finish = mutating ? beginManagerMutation() : null;
+  try {
   const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
   if (adminAccessToken) headers.Authorization = `Bearer ${adminAccessToken}`;
   const body = options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body;
   const response = await request(`${API_BASE}${path}`, { ...options, headers, body, credentials: 'include' });
   if (response.status === 401 && canRefresh && !path.startsWith('/api/manager/auth/')) {
     const session = await adminRefreshSession();
-    if (session) return adminApi(path, options, false);
+    if (session) return await adminApi(path, options, false);
   }
-  return parseResponse(response);
+  return await parseResponse(response);
+  } finally { finish?.(); }
 }
 
 export async function adminSignIn(payload) {

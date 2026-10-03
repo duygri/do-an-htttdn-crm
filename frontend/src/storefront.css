@@ -174,7 +174,7 @@
 .site-shell .main-nav {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
 }
 
 .site-shell .main-nav button {
@@ -182,9 +182,9 @@
   border: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   padding: 10px 4px;
   cursor: pointer;
   transition: color 0.15s ease;
@@ -196,7 +196,7 @@
   bottom: 4px;
   left: 50%;
   width: 0;
-  height: 2px;
+  height: 2.5px;
   background: var(--accent);
   transition: width 0.2s ease, left 0.2s ease;
   border-radius: 2px;
@@ -212,6 +212,19 @@
 }
 
 .site-shell .main-nav button.sale-link {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.site-shell[data-shop-theme="dark"] .main-nav button {
+  color: #b8c7bc;
+}
+
+.site-shell[data-shop-theme="dark"] .main-nav button:hover {
+  color: #ffffff;
+}
+
+.site-shell[data-shop-theme="dark"] .main-nav button.sale-link {
   color: var(--accent);
 }
 
@@ -964,12 +977,12 @@
 }
 
 .site-shell .filter-pills button {
-  padding: 9px 18px;
+  padding: 9px 20px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--white);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -2429,12 +2442,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 11px 14px;
+  padding: 12px 14px;
   border-radius: var(--border-radius-sm);
   background: transparent;
   border: none;
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--ink);
   cursor: pointer;
@@ -2838,9 +2851,23 @@
 /* Product Modal Actions: Add to Cart + Buy Now */
 .site-shell .product-modal-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 14px;
+  align-items: stretch;
+}
+/* Reset the legacy standalone .add-modal margins inside the shared action row. */
+.site-shell .product-modal-actions > button {
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 .site-shell .buy-now-btn {
   display: inline-flex;
@@ -2963,42 +2990,6 @@
   line-height: 1.5;
 }
 
-/* Free Shipping Progress Bar in Cart Drawer */
-.site-shell .cart-free-shipping {
-  background: var(--soft);
-  border: 1px solid var(--line);
-  border-radius: var(--border-radius-sm);
-  padding: 12px 14px;
-  margin: 12px 18px 0;
-}
-.site-shell .cart-free-shipping-text {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--ink);
-}
-.site-shell .cart-free-shipping-text.achieved {
-  color: var(--success);
-}
-.site-shell .cart-free-shipping-bar-bg {
-  width: 100%;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--line);
-  overflow: hidden;
-}
-.site-shell .cart-free-shipping-bar-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 999px;
-  transition: width 0.35s ease;
-}
-.site-shell .cart-free-shipping-bar-fill.complete {
-  background: var(--success);
-}
 .site-shell .cart-line-variant {
   display: inline-flex;
   gap: 8px;
@@ -3969,4 +3960,160 @@
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+/* ==========================================================================
+   STOREFRONT REFINEMENTS & ENHANCEMENTS
+   ========================================================================== */
+
+
+
+
+
+
+
+
+
+
+/* Product Card Colors Pill */
+.site-shell .product-colors-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--soft);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  margin-right: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Modern Footer Enhancements */
+.site-shell .footer-contact-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 14px 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.site-shell .footer-contact-details b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.site-shell .socials-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.site-shell .social-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.site-shell .social-tag:hover {
+  background: var(--ink);
+  color: var(--white);
+  border-color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.site-shell .footer-payment-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.site-shell .footer-payment-tags span {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-family: var(--mono);
+  font-weight: 600;
+  border-radius: 4px;
+  background: var(--soft);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+/* Floating Back to Top Button */
+.site-shell .back-to-top-button {
+  position: fixed;
+  bottom: 84px;
+  right: 28px;
+  z-index: 40;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, color 0.2s ease;
+  animation: fade-in-up 0.25s ease;
+}
+
+.site-shell .back-to-top-button:hover {
+  transform: translateY(-3px);
+  background: var(--ink);
+  color: var(--white);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-lg);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .site-shell .back-to-top-button {
+    bottom: 80px;
+    right: 18px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Dark mode overrides */
+
+
+
+
+.site-shell[data-shop-theme="dark"] .back-to-top-button {
+  background: var(--white);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.site-shell[data-shop-theme="dark"] .back-to-top-button:hover {
+  background: var(--ink);
+  color: #0c1310;
 }

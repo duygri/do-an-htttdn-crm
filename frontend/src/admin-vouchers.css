@@ -27,12 +27,14 @@
 .admin-shell .admin-voucher-toolbar form,.admin-shell .admin-voucher-toolbar label { display:flex; align-items:center; gap:8px; }
 .admin-shell .admin-voucher-table { overflow-x:auto; }
 .admin-shell .admin-voucher-table table { width:100%; border-collapse:collapse; }
-.admin-shell .admin-voucher-table :is(th,td) { padding:16px 12px; text-align:left; border-bottom:1px solid var(--admin-border); }
+.admin-shell .admin-voucher-table :is(th,td) { padding:15px 16px; text-align:left; border-bottom:1px solid var(--admin-border); font-size: 13px; }
+.admin-shell .admin-voucher-table tbody tr { transition: background-color 0.15s ease; }
+.admin-shell .admin-voucher-table tbody tr:hover { background: var(--admin-primary-soft); }
 .admin-shell .admin-voucher-table td > :is(strong,span,small) { display:block; margin:4px 0; overflow-wrap:anywhere; }
-.admin-shell .admin-voucher-badge { border-radius:20px; background:var(--admin-input); padding:4px 10px; width:fit-content; }
+.admin-shell .admin-voucher-badge { border-radius:20px; background:var(--admin-input); padding:4px 10px; width:fit-content; font-size: 12px; font-family: var(--admin-mono); font-weight: 600; }
 .admin-shell .admin-voucher-badge.is-active { color:#059669; background:#10b98120; }
 .admin-shell .admin-voucher-error { color:#ef4444; padding:12px; border:1px solid #ef444470; border-radius:8px; margin-bottom:12px; }
-.admin-shell .admin-voucher-note { font-size:12px; }
+.admin-shell .admin-voucher-note { font-size:12.5px; }
 @media(max-width:800px) {
  .admin-shell .admin-voucher-fields { grid-template-columns:1fr; }
  .admin-shell .admin-voucher-table thead { display:none; }

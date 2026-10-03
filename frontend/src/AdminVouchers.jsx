@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, TicketPercent, Pencil, Power, Search, X } from "lucide-react";
 import { adminApi } from "./manager-api";
+import { useManagerList } from "./useManagerResource";
 import "./admin-vouchers.css";
 
 const labels = { ACTIVE: "Đang áp dụng", SCHEDULED: "Sắp bắt đầu", EXPIRED: "Đã hết hạn", EXHAUSTED: "Hết lượt", DISABLED: "Đã tắt" };
@@ -15,17 +16,13 @@ const displayDate = value => value ? new Date(value).toLocaleString("vi-VN") : "
 
 export default function AdminVouchers() {
   const [page, setPage] = useState(0), [search, setSearch] = useState(""), [query, setQuery] = useState(""), [state, setState] = useState("");
-  const [data, setData] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState(""), [revision, setRevision] = useState(0);
+  const [actionError, setError] = useState(""), [revision, setRevision] = useState(0);
   const [form, setForm] = useState(null), [editing, setEditing] = useState(null), [busy, setBusy] = useState(false), [formError, setFormError] = useState(""), [notice, setNotice] = useState("");
   const lock = useRef(false);
-  useEffect(() => {
-    let alive = true;
-    setLoading(true); setError("");
-    const params = new URLSearchParams({ page, size: 10, search: query, state });
-    adminApi("/api/manager/vouchers?" + params).then(result => { if (alive) setData(result); })
-      .catch(err => { if (alive) setError(err.message); }).finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [page, query, state, revision]);
+  const endpoint = useCallback(() => "/api/manager/vouchers?" +
+    new URLSearchParams({ page, size: 10, search: query, state }), [page, query, state, revision]);
+  const { data, loading, error: loadError } = useManagerList(endpoint);
+  const error = actionError || loadError;
   useEffect(() => {
     if (!form) return;
     const handleKeyDown = e => {

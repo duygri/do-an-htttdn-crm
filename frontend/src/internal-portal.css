@@ -396,7 +396,7 @@
 /* KPI Cards Grid */
 .internal-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -530,6 +530,8 @@
 }
 
 .internal-action-item {
+  color: inherit;
+  text-decoration: none;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -539,6 +541,11 @@
   background: var(--admin-input);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.internal-action-item:focus-visible {
+  outline: 2px solid var(--admin-primary);
+  outline-offset: 3px;
 }
 
 .internal-action-item:hover {

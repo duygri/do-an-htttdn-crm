@@ -155,7 +155,7 @@ function App() {
   const accountPage = isAccountPath(pathname);
   const extraPage = cartOpen || authOpen || accountPage || passwordOpen || !!productId || !isKnownPath(pathname) || pathname === '/thanh-toan';
   const [shopTheme, setShopTheme] = useState(() => {
-    try { return localStorage.getItem('anh-lon-shop-theme') === 'dark' ? 'dark' : 'light'; } catch { return 'light'; }
+    try { return localStorage.getItem('anh-lon-shop-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
   });
   const searchRef = useRef(null);
   useEffect(() => { try { localStorage.setItem('anh-lon-shop-theme', shopTheme); } catch { /* Theme still works when storage is unavailable. */ } }, [shopTheme]);
@@ -699,9 +699,9 @@ function App() {
   }, [mobileMenuOpen]);
 
   return (
-    <div className={catalogPage ? "site-shell catalog-page" : "site-shell"} data-shop-theme={shopTheme}>
+    <div className={catalogPage ? "site-shell catalog-page" : `site-shell ${!checkoutPage && !ordersRoute && !extraPage ? 'shop-home-page' : ''}`} data-shop-theme={shopTheme}>
       <div className="announcement">
-        <span>MIỄN PHÍ VẬN CHUYỂN ĐƠN TỪ 699.000₫</span><span className="announcement-separator">•</span><span className="announcement-secondary">ĐỔI SIZE TRONG 30 NGÀY</span>
+        <span>ĐỔI SIZE TRONG 30 NGÀY</span>
       </div>
       <header className="site-header">
         <button
@@ -717,7 +717,7 @@ function App() {
           )}
         </button>
         <a className="wordmark" href="/" onClick={goHome}>
-          ANH LỚN <em>SHOP</em>
+          ANH LỚN <em>SHOP · MENSWEAR</em>
         </a>
         <nav
           className={`main-nav ${mobileMenuOpen ? "is-open" : ""}`}
@@ -737,6 +737,20 @@ function App() {
             ƯU ĐÃI
           </button>
         </nav>
+            <form className="catalog-search-wrap" role="search" onSubmit={search}>
+              <Search size={19} aria-hidden="true" />
+              <input
+                className="catalog-search"
+                ref={searchRef}
+                type="search"
+                aria-label="Tìm kiếm sản phẩm"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Tìm kiếm sản phẩm..."
+              />
+              {searchInput && <button className="shop-search-clear" type="button" aria-label="Xóa từ khóa tìm kiếm" onClick={() => { setSearchInput(''); setFilters(current => ({ ...current, keyword: '', page: 0 })); searchRef.current?.focus(); }}><X size={16}/></button>}
+              <button className="shop-search-submit" type="submit">TÌM</button>
+            </form>
         <div className="header-actions">
           <button className="shop-theme-toggle" type="button" aria-label={shopTheme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'} title={shopTheme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'} onClick={() => setShopTheme(value => value === 'dark' ? 'light' : 'dark')}>
             {shopTheme === 'dark' ? <Sun size={20}/> : <Moon size={20}/>}
@@ -1111,7 +1125,7 @@ function App() {
         <section className="catalog-section" id="catalog">
           <div className="catalog-head">
             <div>
-              <p className="kicker">TỦ ĐỒ NAM</p>
+              <p className="kicker">{catalogPage ? 'TỦ ĐỒ NAM' : 'ĐƯỢC CHỌN CHO BẠN'}</p>
               <h2>
                 Những món đồ <i>đáng có.</i>
               </h2>
@@ -1119,20 +1133,7 @@ function App() {
                 {products.totalElements || 0} sản phẩm được tuyển chọn
               </p>
             </div>
-            <form className="catalog-search-wrap" role="search" onSubmit={search}>
-              <Search size={19} aria-hidden="true" />
-              <input
-                className="catalog-search"
-                ref={searchRef}
-                type="search"
-                aria-label="Tìm kiếm sản phẩm"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Tìm kiếm sản phẩm..."
-              />
-              {searchInput && <button className="shop-search-clear" type="button" aria-label="Xóa từ khóa tìm kiếm" onClick={() => { setSearchInput(''); setFilters(current => ({ ...current, keyword: '', page: 0 })); searchRef.current?.focus(); }}><X size={16}/></button>}
-              <button className="shop-search-submit" type="submit">TÌM</button>
-            </form>
+            {!catalogPage && <button className="button button-light" onClick={() => openCatalog('')}>Xem tất cả <ArrowUpRight size={16}/></button>}
           </div>
           <div className="filter-bar">
             <div className="filter-pills">
@@ -1289,7 +1290,7 @@ function App() {
             </div>
           ) : !catalogError ? (
             <div className="product-grid">
-              {products.content?.map((product) => (
+              {(catalogPage ? products.content : products.content?.slice(0, 4))?.map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
@@ -1516,14 +1517,21 @@ function App() {
           <a className="wordmark" href="/" onClick={goHome}>
             ANH LỚN <em>SHOP</em>
           </a>
-          <p>Quần áo nam hiện đại cho những người luôn chuyển động.</p>
+          <p>Thời trang nam tinh giản & hiện đại. Tỉ mỉ từ chất liệu, chuẩn phom dáng cho tủ đồ phái mạnh mỗi ngày.</p>
+          <div className="footer-contact-details">
+            <span>Hotline: <b>1900 6868</b> (8:30 – 22:00)</span>
+            <span>Email: <b>cskh@anhlonshop.vn</b></span>
+          </div>
           <small>© 2026 ANH LỚN SHOP. BẢO LƯU MỌI QUYỀN.</small>
         </div>
         <div>
           <b>KHÁM PHÁ</b>
           <button onClick={() => openCatalog("")}>Hàng mới</button>
+          <button onClick={() => openCatalog("Áo polo")}>Áo polo</button>
           <button onClick={() => openCatalog("Áo khoác")}>Áo khoác</button>
           <button onClick={() => openCatalog("Áo thun")}>Áo thun</button>
+          <button onClick={() => openCatalog("Quần")}>Quần nam</button>
+          <button onClick={() => openCatalog("", { minPrice: "", maxPrice: "500000" })}>Ưu đãi đặc biệt</button>
         </div>
         <div>
           <b>HỖ TRỢ</b>
@@ -1532,17 +1540,32 @@ function App() {
           >
             Đơn hàng của tôi
           </button>
+          <button onClick={() => (user ? navigate('/tai-khoan/voucher') : openAuth("profile"))}>
+            Kho voucher & ưu đãi
+          </button>
           <button onClick={() => setSurveysOpen(true)}>
             Khảo sát phong cách
           </button>
           <button onClick={() => (user ? setProfileOpen(true) : openAuth("profile"))}>
             Tài khoản của tôi
           </button>
+          <button onClick={() => openCatalog("")}>
+            Chính sách đổi trả 30 ngày
+          </button>
         </div>
         <div>
           <b>THEO DÕI</b>
-          <p className="socials">IG &nbsp; FB &nbsp; TT</p>
-          <small>Nhận tin mới và ưu đãi riêng.</small>
+          <div className="socials-wrap">
+            <span className="social-tag">Instagram</span>
+            <span className="social-tag">Facebook</span>
+            <span className="social-tag">TikTok</span>
+          </div>
+          <div className="footer-payment-tags">
+            <span>VietQR</span>
+            <span>PayOS</span>
+            <span>COD</span>
+          </div>
+          <small>Giao hàng toàn quốc · Kiểm tra khi nhận hàng</small>
         </div>
       </footer>
       <nav className="mobile-bottom-nav" aria-label="Điều hướng di động">
@@ -1598,6 +1621,17 @@ function App() {
           <span>{user ? "Cá nhân" : "Tài khoản"}</span>
         </button>
       </nav>
+      {showBackToTop && (
+        <button
+          type="button"
+          className="back-to-top-button"
+          aria-label="Lên đầu trang"
+          title="Lên đầu trang"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        >
+          <ArrowUp size={20} />
+        </button>
+      )}
     </div>
   );
 }
@@ -1635,6 +1669,11 @@ function ProductCard({ product, onOpen, onAdd, isWishlisted, onWishlist }) {
       <div className="product-info">
         <div className="product-meta">
           <span>{product.category || "HÀNG NAM"}</span>
+          {csv(product.colors).length > 1 && (
+            <span className="product-colors-pill">
+              {csv(product.colors).length} màu sắc
+            </span>
+          )}
           <span className={product.stock > 0 ? "" : "is-out-of-stock"}>{product.stock > 0 ? "CÒN HÀNG" : "HẾT HÀNG"}</span>
         </div>
         <h3><button type="button" onClick={onOpen}>{product.name}</button></h3>
@@ -2028,6 +2067,7 @@ export function CartDrawer({ page = false, cart, onClose, onUpdate, updatingKeys
   const allSelected = eligible.length > 0 && eligible.every(item => selection?.selected.has(cartLineKey(item)));
   const selectAll = useRef(null);
   useEffect(() => { if (selectAll.current) selectAll.current.indeterminate = !allSelected && !!selection?.selected.size; }, [allSelected, selection?.selected.size]);
+
   return (
     <div
       className={page ? "customer-page-body customer-cart" : "drawer-backdrop"}
@@ -2110,7 +2150,7 @@ export function CartDrawer({ page = false, cart, onClose, onUpdate, updatingKeys
             <span>TẠM TÍNH</span>
             <strong>{money(selection ? selection.cart.subtotal : cart.subtotal)}</strong>
           </div>
-          <p>Phí vận chuyển sẽ được tính ở bước thanh toán.</p>
+          <p>Kiểm tra sản phẩm và áp dụng mã giảm giá ở bước đặt hàng.</p>
           {selection && <p>Đã chọn {selection.cart.itemCount} sản phẩm ({selection.cart.items.length} phân loại).</p>}
           <button
             className="button button-dark"
@@ -2282,8 +2322,12 @@ const ORDER_TABS = [
 ];
 
 export function OrdersPage({ route, onNavigate, onNotice, onChanged }) {
+  const [reviewIntent, setReviewIntent] = useState(null);
   const [localRoute, setLocalRoute] = useState(route || DEFAULT_ORDERS_ROUTE);
   const activeRoute = route || localRoute;
+  useEffect(() => {
+    if (reviewIntent !== null && activeRoute.orderId !== reviewIntent) setReviewIntent(null);
+  }, [activeRoute.orderId, reviewIntent]);
   const [searchInput, setSearchInput] = useState(activeRoute.keyword || "");
   const [orders, setOrders] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -2291,7 +2335,7 @@ export function OrdersPage({ route, onNavigate, onNotice, onChanged }) {
   const [totalPages, setTotalPages] = useState(0);
   const [error, setError] = useState("");
   const generation = useRef(0);
-  const move = next => onNavigate ? onNavigate(next) : setLocalRoute(next);
+  const move = next => { setReviewIntent(null); return onNavigate ? onNavigate(next) : setLocalRoute(next); };
   const load = useCallback(async (silent = false) => {
     const current = ++generation.current;
     if (!silent) { setError(""); if (activeRoute.orderId) setDetail(null); else { setOrders(null); setTotalElements(0); setTotalPages(0); } }
@@ -2331,6 +2375,15 @@ export function OrdersPage({ route, onNavigate, onNotice, onChanged }) {
     await load(true);
     onChanged?.();
   };
+  const receiptConfirmed = updated => {
+    if (updated?.status !== 'COMPLETED') return;
+    ++generation.current;
+    setError('');
+    setDetail(updated);
+    if (activeRoute.orderId !== updated.id) move({ ...activeRoute, orderId: updated.id });
+    setReviewIntent(updated.id);
+    Promise.resolve().then(() => onChanged?.()).catch(() => {});
+  };
 
   return <section className="shop-orders-page" aria-labelledby="shop-orders-title">
     <div className="shop-orders-heading">
@@ -2352,11 +2405,11 @@ export function OrdersPage({ route, onNavigate, onNotice, onChanged }) {
         {orders.map(order => <article className="shop-order-card" key={order.id}>
           <header><div><b>Mã đơn #{order.orderCode}</b><time dateTime={order.createdAt}>{date(order.createdAt)}</time></div><div className="shop-order-badges"><Status value={order.status}/>{order.paymentMethod === "PAYOS" ? <span className={order.paymentStatus === "PAID" ? "shop-payment-label is-paid" : "shop-payment-label"}>{order.paymentStatus === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}</span> : <span className="shop-payment-label">Thanh toán khi nhận hàng</span>}</div></header>
           <div className="shop-order-products">{(order.items || []).slice(0, 3).map((item, index) => <div className="shop-order-product" key={`${item.productId}-${item.size || ""}-${item.color || ""}-${index}`}><img src={imageSrc(item.imageUrl)} onError={protectImage} alt=""/><div><b>{item.name}</b><small>{[item.size, item.color].filter(Boolean).join(" · ") || "Phân loại tiêu chuẩn"} · SL: {item.quantity}</small></div><strong>{money(item.lineTotal)}</strong></div>)}{(order.items?.length || 0) > 3 && <p className="shop-order-more">Còn {order.items.length - 3} sản phẩm khác</p>}</div>
-          <footer><span>{order.items?.length || 0} sản phẩm</span><div><span>Thành tiền</span><strong>{money(order.totalAmount)}</strong><ReceiptAction order={order} onChanged={orderUpdated} onNotice={onNotice}/>{order.status === 'COMPLETED' && <button type="button" className="button button-light review-card-btn" onClick={() => openOrder(order.id)}><Star size={14}/> Đánh giá</button>}<button type="button" className="button button-dark" onClick={() => openOrder(order.id)}>Chi tiết đơn <ChevronRight size={16}/></button></div></footer>
+          <footer><span>{order.items?.length || 0} sản phẩm</span><div><span>Thành tiền</span><strong>{money(order.totalAmount)}</strong><ReceiptAction order={order} onChanged={receiptConfirmed} onNotice={onNotice}/>{order.status === 'COMPLETED' && <button type="button" className="button button-light review-card-btn" onClick={() => openOrder(order.id)}><Star size={14}/> Đánh giá</button>}<button type="button" className="button button-dark" onClick={() => openOrder(order.id)}>Chi tiết đơn <ChevronRight size={16}/></button></div></footer>
         </article>)}
       </div> : <div className="shop-orders-empty"><PackageOpen size={38}/><h2>{activeRoute.keyword ? "Không tìm thấy đơn phù hợp" : activeRoute.tab === "ALL" ? "Bạn chưa có đơn hàng" : "Chưa có đơn trong mục này"}</h2><p>{activeRoute.keyword ? "Thử mã đơn hoặc tên sản phẩm khác." : "Đơn hàng của bạn sẽ xuất hiện tại đây sau khi đặt hàng."}</p>{(activeRoute.keyword || activeRoute.tab !== "ALL") && <button className="button button-light" onClick={() => move({ ...DEFAULT_ORDERS_ROUTE })}>Xem tất cả đơn hàng</button>}</div>}
       {!error && totalPages > 1 && <nav className="shop-orders-pagination" aria-label="Phân trang đơn hàng"><button type="button" className="button button-light" disabled={activeRoute.page === 0 || orders === null} onClick={() => move({ ...activeRoute, page: activeRoute.page - 1 })}>Trang trước</button><span>Trang {activeRoute.page + 1} / {totalPages}</span><button type="button" className="button button-light" disabled={activeRoute.page + 1 >= totalPages || orders === null} onClick={() => move({ ...activeRoute, page: activeRoute.page + 1 })}>Trang sau</button></nav>}
-    </> : error ? <div className="shop-inline-error" role="alert"><p>{error}</p><button className="button button-light" onClick={() => load()}>Thử lại</button></div> : detail ? <div className="shop-order-detail-page"><OrderView order={detail} onNotice={onNotice} onPaymentChanged={() => load(true)} onChanged={orderUpdated}/></div> : <div className="shop-orders-loading" role="status">Đang tải chi tiết đơn hàng...</div>}
+    </> : error ? <div className="shop-inline-error" role="alert"><p>{error}</p><button className="button button-light" onClick={() => load()}>Thử lại</button></div> : detail ? <div className="shop-order-detail-page"><OrderView order={detail} onNotice={onNotice} onPaymentChanged={() => load(true)} onChanged={orderUpdated} onReceiptConfirmed={receiptConfirmed} autoReview={reviewIntent === detail.id} onReviewOpened={() => setReviewIntent(null)}/></div> : <div className="shop-orders-loading" role="status">Đang tải chi tiết đơn hàng...</div>}
   </section>;
 }
 
@@ -2372,7 +2425,8 @@ export function ReceiptAction({ order, onChanged, onNotice }) {
     lock.current = true; setBusy(true); setError('');
     try {
       const updated = await api(`/api/orders/${order.id}/confirm-receipt`, { method: 'PATCH' });
-      setOpen(false); onNotice?.('Đã nhận hàng! Mở chi tiết đơn để đánh giá sản phẩm.'); await onChanged?.(updated);
+      if (updated?.status !== 'COMPLETED') throw new Error('Đơn chưa được xác nhận hoàn thành. Vui lòng thử lại.');
+      setOpen(false); onNotice?.('Đã xác nhận nhận hàng thành công. Bạn có thể đánh giá sản phẩm ngay.'); await onChanged?.(updated);
     } catch (failure) { setError(failure.message || 'Không xác nhận được. Vui lòng thử lại.'); }
     finally { lock.current = false; setBusy(false); }
   };
@@ -2386,7 +2440,7 @@ export function ReceiptAction({ order, onChanged, onNotice }) {
     </section></div>}
   </>;
 }
-export function OrderView({ order, onNotice, onChanged, onPaymentChanged }) {
+export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onReceiptConfirmed, autoReview, onReviewOpened }) {
   const [busy, setBusy] = useState(false);
   const [paid, setPaid] = useState(order.paymentStatus === "PAID");
   const [action, setAction] = useState(null);
@@ -2411,7 +2465,7 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged }) {
   };
   return (
     <div className="order-view">
-      {order.status === 'COMPLETED' && <OrderReviews key={order.id} order={order}/>}
+      {order.status === 'COMPLETED' && <OrderReviews key={order.id} order={order} autoOpen={autoReview} onAutoOpened={onReviewOpened}/>}
       {action && <form className="shop-reason-form" onSubmit={submitAction}><h3>{action === 'cancel' ? 'Hủy đơn hàng' : 'Yêu cầu đổi/trả'}</h3><label>Lý do<textarea autoFocus required maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>{actionError && <p role="alert" className="shop-inline-error">{actionError}</p>}<div className="order-actions"><button type="button" className="button button-light" disabled={busy} onClick={() => setAction(null)}>Quay lại</button><button className="button button-dark" disabled={busy}>{busy ? 'Đang gửi...' : 'Xác nhận'}</button></div></form>}
       <div className="order-view-head">
         <div>
@@ -2480,7 +2534,7 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged }) {
         <br />
         {order.deliveryAddress}
       </p>
-      <div className="order-actions">{!busy && !action && <ReceiptAction order={order} onChanged={onChanged} onNotice={onNotice}/>} {cancellableStatuses.includes(order.status) && <button type="button" className="button button-light" disabled={busy} onClick={cancel}>{busy ? "ĐANG HỦY..." : "HỦY ĐƠN"}</button>}{["DELIVERED", "COMPLETED"].includes(order.status) && (order.returnStatus || "NONE") === "NONE" && <button type="button" className="button button-light" disabled={busy} onClick={requestReturn}>YÊU CẦU ĐỔI/TRẢ</button>}</div>
+      <div className="order-actions">{!busy && !action && <ReceiptAction order={order} onChanged={onReceiptConfirmed || onChanged} onNotice={onNotice}/>} {cancellableStatuses.includes(order.status) && <button type="button" className="button button-light" disabled={busy} onClick={cancel}>{busy ? "ĐANG HỦY..." : "HỦY ĐƠN"}</button>}{["DELIVERED", "COMPLETED"].includes(order.status) && (order.returnStatus || "NONE") === "NONE" && <button type="button" className="button button-light" disabled={busy} onClick={requestReturn}>YÊU CẦU ĐỔI/TRẢ</button>}</div>
     </div>
   );
 }

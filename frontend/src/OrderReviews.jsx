@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Star, X } from 'lucide-react';
 import { api } from './api';
 import { useShopResource } from './storefront-hooks';
@@ -28,7 +28,7 @@ function StarRating({ value, hover, disabled, onChange, onHover, onLeave }) {
   );
 }
 
-export default function OrderReviews({ order }) {
+export default function OrderReviews({ order, autoOpen = false, onAutoOpened }) {
   const { data, error, load } = useShopResource(`/api/orders/${order.id}/reviews`);
   const [product, setProduct] = useState(null);
   const [rating, setRating] = useState(5);
@@ -37,6 +37,10 @@ export default function OrderReviews({ order }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState('');
   const lock = useRef(false);
+  const autoConsumed = useRef(false);
+  const dialogRef = useRef(null);
+  const sectionRef = useRef(null);
+  const [submitted, setSubmitted] = useState([]);
 
   const open = item => { setProduct(item); setRating(5); setHoverRating(0); setComment(''); setFailure(''); };
   const close = () => { if (!busy) setProduct(null); };
@@ -53,6 +57,7 @@ export default function OrderReviews({ order }) {
         body: { orderId: order.id, rating, comment },
       });
       setProduct(null);
+      setSubmitted(previous => [...previous, product.productId]);
       await load();
     } catch (err) {
       setFailure(err.message);
@@ -63,11 +68,42 @@ export default function OrderReviews({ order }) {
   };
 
   const items = [...new Map((order.items || []).map(i => [i.productId, i])).values()];
-  const reviewedCount = Array.isArray(data) ? data.filter(v => v.reviewed).length : 0;
+  const reviewedCount = new Set([...(Array.isArray(data) ? data.filter(v => v.reviewed).map(v => v.productId) : []), ...submitted]).size;
   const totalCount = items.length;
+  const nextItem = items.find(item => !submitted.includes(item.productId) && data?.find?.(state => state.productId === item.productId && state.canReview && !state.reviewed));
+  useEffect(() => {
+    if (!autoOpen || autoConsumed.current || error || !Array.isArray(data)) return;
+    autoConsumed.current = true;
+    if (order.status === 'COMPLETED' && nextItem) open(nextItem);
+    onAutoOpened?.();
+  }, [autoOpen, data, error, nextItem, order.status, onAutoOpened]);
+  useEffect(() => {
+    if (!product) return;
+    const previous = document.activeElement;
+    const dialog = dialogRef.current;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialog.focus();
+    const keydown = event => {
+      if (event.key === 'Escape' && !lock.current) { event.preventDefault(); setProduct(null); }
+      if (event.key !== 'Tab') return;
+      const nodes = [...dialog.querySelectorAll('button:not(:disabled),textarea:not(:disabled),input:not(:disabled),[tabindex="0"]')];
+      const first = nodes[0], last = nodes.at(-1);
+      if (!first) { event.preventDefault(); dialog.focus(); }
+      else if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) { event.preventDefault(); first.focus(); }
+    };
+    dialog.addEventListener('keydown', keydown);
+    return () => {
+      document.body.style.overflow = overflow;
+      dialog.removeEventListener('keydown', keydown);
+      if (previous?.isConnected && previous !== document.body) previous.focus();
+      else sectionRef.current?.focus();
+    };
+  }, [product]);
 
   return (
-    <section className="review-section">
+    <section className="review-section" ref={sectionRef} tabIndex={-1} aria-label="Đánh giá sản phẩm trong đơn">
       <div className="review-section-header">
         <div>
           <h3><Star size={18} /> Đánh giá sản phẩm</h3>
@@ -78,7 +114,7 @@ export default function OrderReviews({ order }) {
 
       {error ? (
         <div className="review-error" role="alert">
-          <p>{error}</p>
+          <p>{autoOpen ? 'Đơn đã xác nhận thành công. Chưa tải được phần đánh giá. ' : ''}{error}</p>
           <button type="button" className="button button-light" onClick={load}>Thử lại</button>
         </div>
       ) : !Array.isArray(data) ? (
@@ -99,7 +135,7 @@ export default function OrderReviews({ order }) {
                   <small>{[item.size, item.color].filter(Boolean).join(' · ') || 'Phân loại tiêu chuẩn'}</small>
                 </div>
                 <div className="review-product-action">
-                  {state?.reviewed ? (
+                  {state?.reviewed || submitted.includes(item.productId) ? (
                     <span className="review-badge-done"><span aria-hidden="true">✓</span> Đã đánh giá</span>
                   ) : (
                     <button
@@ -118,9 +154,11 @@ export default function OrderReviews({ order }) {
         </div>
       )}
 
+      {submitted.length > 0 && <div role="status"><p>Đã gửi đánh giá thành công.</p>{!error && nextItem && <button type="button" className="button button-dark" onClick={() => open(nextItem)}>Đánh giá sản phẩm tiếp theo</button>}</div>}
+
       {product && (
         <div className="review-dialog-backdrop" onMouseDown={e => e.target === e.currentTarget && close()}>
-          <div className="review-dialog" role="dialog" aria-modal="true" aria-label={`Đánh giá ${product.name}`}>
+          <div className="review-dialog" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Đánh giá ${product.name}`}>
             <button type="button" className="review-dialog-close" aria-label="Đóng" disabled={busy} onClick={close}>
               <X size={20} />
             </button>

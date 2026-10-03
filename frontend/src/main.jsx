@@ -6,6 +6,7 @@ import ManagerApp from './ManagerApp';
 import './styles.css';
 import './admin-design.css';
 import './storefront.css';
+import './storefront-figma.css';
 
 const mode = import.meta.env.MODE;
 const isAdmin = mode === 'admin' || (mode !== 'user' && (window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/')));

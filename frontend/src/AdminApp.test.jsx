@@ -26,6 +26,14 @@ beforeEach(() => {
   adminApi.mockResolvedValue({ content: [] });
 });
 afterEach(cleanup);
+it('removes manager supplier tools and redirects the retired route', async () => {
+  window.history.replaceState({}, '', '/manager/suppliers');
+  render(<AdminApp/>);
+  await waitFor(() => expect(window.location.pathname).toBe('/manager'));
+  expect(screen.queryByText(/nhà cung cấp/i)).toBeNull();
+  expect(screen.queryByText('Đối tác cung cấp')).toBeNull();
+  expect(adminApi.mock.calls.some(([url]) => url.includes('/suppliers'))).toBe(false);
+});
 
 describe("admin list lifecycle", () => {
   it("mounts and cleans up under StrictMode without returning a Promise cleanup", async () => {
@@ -111,7 +119,7 @@ describe("admin navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Chi tiết" }));
     await screen.findByRole("dialog");
     expect(screen.getByRole("dialog").textContent).toContain("Thanh toán khi nhận hàng");
-    expect(adminApi).toHaveBeenCalledWith("/api/manager/orders/9");
+    expect(adminApi).toHaveBeenCalledWith("/api/manager/orders/9", expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it("shows PayOS payment state separately from order processing and can refresh it", async () => {

@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Package,
-  Truck,
   LogOut,
   Sun,
   Moon,
@@ -27,17 +26,17 @@ const menu = {
   dashboard: 'Tổng quan',
   accounts: 'Tài khoản nội bộ',
   products: 'Sản phẩm',
-  suppliers: 'Nhà cung cấp',
 };
 
 const menuIcons = {
   dashboard: LayoutDashboard,
   accounts: ShieldCheck,
   products: Package,
-  suppliers: Truck,
 };
 
 export default function SystemAdminApp() {
+  const managerUrl = `${(import.meta.env.VITE_MANAGER_ORIGIN || 'http://localhost:5175').replace(/\/+$/, '')}/manager`;
+  const storefrontUrl = `${(import.meta.env.VITE_USER_ORIGIN || 'http://localhost:5173').replace(/\/+$/, '')}/`;
   const [path, setPath] = useState(window.location.pathname);
   const [session, setSession] = useState(null);
   const [checking, setChecking] = useState(true);
@@ -51,6 +50,11 @@ export default function SystemAdminApp() {
   const go = (url, replace = false) => {
     window.history[replace ? 'replaceState' : 'pushState']({}, '', url);
     setPath(url);
+  };
+  const followInternalLink = (event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    go(event.currentTarget.getAttribute('href'));
   };
 
   useEffect(() => {
@@ -141,7 +145,7 @@ export default function SystemAdminApp() {
             <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', color: 'var(--admin-primary)' }}>SYSTEM ADMIN</span>
           </div>
           <h1>Admin hệ thống</h1>
-          <p>Quản trị tài khoản, nhà cung cấp và danh mục dữ liệu.</p>
+          <p>Quản trị tài khoản nội bộ và tra cứu sản phẩm.</p>
           <form onSubmit={login}>
             <label>
               Email
@@ -204,11 +208,7 @@ export default function SystemAdminApp() {
 
               <a
                 className="internal-nav-link external"
-                href="/manager"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = '/manager';
-                }}
+                href={managerUrl}
                 title="Mở cổng quản lý đơn hàng & khách hàng"
               >
                 <Layers size={17} aria-hidden="true" />
@@ -218,11 +218,7 @@ export default function SystemAdminApp() {
 
               <a
                 className="internal-nav-link external"
-                href="/"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = '/';
-                }}
+                href={storefrontUrl}
                 title="Xem website bán hàng khách hàng"
               >
                 <ExternalLink size={17} aria-hidden="true" />
@@ -340,26 +336,6 @@ export default function SystemAdminApp() {
                     </div>
                   </div>
 
-                  <div
-                    className="internal-kpi-card violet"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => go('/admin/suppliers')}
-                    title="Xem danh sách nhà cung cấp"
-                  >
-                    <div className="internal-kpi-header">
-                      <span className="internal-kpi-title">Nhà cung cấp</span>
-                      <div className="internal-kpi-icon violet">
-                        <Truck size={20} />
-                      </div>
-                    </div>
-                    <div className="internal-kpi-value">{overview ? overview.suppliers ?? 0 : '—'}</div>
-                    <div className="internal-kpi-footer">
-                      <span>Đối tác nguồn hàng liên kết</span>
-                      <ArrowRight size={14} className="internal-kpi-arrow" />
-                    </div>
-                  </div>
-
                   <div className="internal-kpi-card emerald">
                     <div className="internal-kpi-header">
                       <span className="internal-kpi-title">Hạ tầng hệ thống</span>
@@ -385,11 +361,10 @@ export default function SystemAdminApp() {
                     </div>
                   </div>
                   <div className="internal-actions-grid">
-                    <div
+                    <a
                       className="internal-action-item"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => go('/admin/accounts')}
+                      href="/admin/accounts"
+                      onClick={followInternalLink}
                       title="Mở quản lý tài khoản nội bộ"
                     >
                       <div className="internal-action-icon blue">
@@ -400,13 +375,12 @@ export default function SystemAdminApp() {
                         <small>Cấp tài khoản Admin & Manager, phân quyền và khóa tài khoản</small>
                       </div>
                       <ChevronRight size={16} className="internal-action-arrow" />
-                    </div>
+                    </a>
 
-                    <div
+                    <a
                       className="internal-action-item"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => go('/admin/products')}
+                      href="/admin/products"
+                      onClick={followInternalLink}
                       title="Mở tra cứu sản phẩm"
                     >
                       <div className="internal-action-icon green">
@@ -414,35 +388,14 @@ export default function SystemAdminApp() {
                       </div>
                       <div className="internal-action-text">
                         <b>Tra cứu sản phẩm</b>
-                        <small>Xem danh mục, giá bán, tồn kho và mã nhà cung cấp</small>
+                        <small>Xem danh mục, giá bán và tồn kho</small>
                       </div>
                       <ChevronRight size={16} className="internal-action-arrow" />
-                    </div>
+                    </a>
 
-                    <div
+                    <a
                       className="internal-action-item"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => go('/admin/suppliers')}
-                      title="Mở danh sách nhà cung cấp"
-                    >
-                      <div className="internal-action-icon violet">
-                        <Truck size={20} />
-                      </div>
-                      <div className="internal-action-text">
-                        <b>Đối tác nhà cung cấp</b>
-                        <small>Quản lý danh bạ đối tác, số điện thoại, địa chỉ và mã NCC</small>
-                      </div>
-                      <ChevronRight size={16} className="internal-action-arrow" />
-                    </div>
-
-                    <div
-                      className="internal-action-item"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        window.location.href = '/manager';
-                      }}
+                      href={managerUrl}
                       title="Chuyển sang Cổng quản lý cửa hàng (Manager Portal)"
                     >
                       <div className="internal-action-icon amber">
@@ -453,7 +406,7 @@ export default function SystemAdminApp() {
                         <small>Chuyển sang Manager Portal để xử lý đơn hàng, khách hàng, voucher</small>
                       </div>
                       <ChevronRight size={16} className="internal-action-arrow" />
-                    </div>
+                    </a>
                   </div>
                 </div>
 

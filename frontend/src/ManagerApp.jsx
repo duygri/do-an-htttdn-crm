@@ -1,6 +1,6 @@
 import AdminVouchers from "./AdminVouchers";
-import InternalDirectory from './InternalDirectory';
-import {CustomerCreate,SurveyAudience,SupplierAssignment} from './ManagerTools';
+import { useManagerResource, useManagerList, ManagerSyncStatus } from "./useManagerResource";
+import {CustomerCreate,SurveyAudience} from './ManagerTools';
 import './internal-portal.css';
 import { TicketPercent } from "lucide-react";
 import { canAdvanceOrder, isFinalOrder } from './order-transitions';
@@ -55,7 +55,6 @@ const navItems = [
   ["dashboard", "Tổng quan"],
   ["users", "Khách hàng"],
   ["products", "Sản phẩm"],
-  ["suppliers", "Nhà cung cấp"],
   ["orders", "Đơn hàng"],
   ["feedback", "Phản hồi"],
   ["surveys", "Khảo sát"],
@@ -67,7 +66,6 @@ const navIcons = {
   dashboard: LayoutDashboard,
   users: UsersIcon,
   products: Package,
-  suppliers: Package,
   orders: ShoppingCart,
   feedback: MessageSquare,
   surveys: ClipboardList,
@@ -184,6 +182,16 @@ export default function ManagerApp() {
       .finally(() => setChecking(false));
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+  useEffect(() => {
+    const expired = () => {
+      setAdmin(null);
+      window.history.replaceState({}, '', '/manager/login');
+      setPath('/manager/login');
+      setNotice({ message: 'Phiên quản lý đã hết hạn. Vui lòng đăng nhập lại.', type: 'error' });
+    };
+    window.addEventListener('manager:session-expired', expired);
+    return () => window.removeEventListener('manager:session-expired', expired);
+  }, []);
   if (checking)
     return <div className="admin-loading">Đang kiểm tra phiên quản trị...</div>;
   if(sessionError)return <div role="alert">{sessionError}<button onClick={()=>window.location.reload()}>Thử lại</button></div>;
@@ -251,9 +259,9 @@ export default function ManagerApp() {
         <button
           className="admin-logout"
           onClick={async () => {
-            await adminSignOut();
             setAdmin(null);
             go("login");
+            await adminSignOut();
           }}
         >
           <LogOut size={16} aria-hidden="true" />
@@ -311,10 +319,10 @@ export default function ManagerApp() {
               : "Quản lý và cập nhật dữ liệu cửa hàng."}
           </p>
         </div>
+        <ManagerSyncStatus />
         {section === "dashboard" && <Dashboard go={go} />}
         {section === "users" && <Users notify={notify} />}{" "}
         {section === "products" && <Products notify={notify} />}{" "}
-        {section === "suppliers" && <><InternalDirectory kind="suppliers" manager/><SupplierAssignment/></>}
         {section === "orders" && <Orders notify={notify} />}{" "}
         {section === "feedback" && <Feedback notify={notify} />}{" "}
         {section === "surveys" && <Surveys notify={notify} />}
@@ -395,36 +403,15 @@ function AdminLogin({ theme, onAuthenticated, onNotice, error }) {
 
 const recentOrdersEndpoint = () => adminEndpoints.orders({ size: 100 });
 function Dashboard({ go }) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
-  const version = useRef(0);
-  const load = (silent = false) => {
-    const current = ++version.current;
-    if (!silent) setError("");
-    setRefreshing(true);
-    Promise.all([
-      adminApi(adminEndpoints.revenue),
-      adminApi(adminEndpoints.userReport),
-      adminApi(adminEndpoints.surveyStats),
-    ])
-      .then(([revenue, users, surveys]) => {
-        if (current === version.current) setData({ revenue, users, surveys });
-      })
-      .catch((error) => {
-        if (current === version.current)
-          setError(error.message || "Không tải được dữ liệu dashboard.");
-      })
-      .finally(() => {
-        if (current === version.current) setRefreshing(false);
-      });
-  };
-  useEffect(() => {
-    load();
-    return () => {
-      version.current += 1;
-    };
+  const fetchDashboard = useCallback(async signal => {
+    const [revenue, users, surveys] = await Promise.all([
+      adminApi(adminEndpoints.revenue, { signal }),
+      adminApi(adminEndpoints.userReport, { signal }),
+      adminApi(adminEndpoints.surveyStats, { signal }),
+    ]);
+    return { revenue, users, surveys };
   }, []);
+  const { data, error, refreshing, load } = useManagerResource(fetchDashboard);
   if (error)
     return (
       <div className="admin-panel admin-error-state">
@@ -588,16 +575,6 @@ function Dashboard({ go }) {
             <div className="admin-quick-text">
               <b>Báo cáo doanh thu</b>
               <small>Biểu đồ & phân tích chỉ số</small>
-            </div>
-            <ChevronRight size={16} className="admin-quick-arrow" />
-          </div>
-          <div className="admin-quick-card" role="button" tabIndex={0} onClick={() => go("suppliers")} title="Đến trang đối tác cung cấp">
-            <div className="admin-quick-icon teal">
-              <Package size={18} />
-            </div>
-            <div className="admin-quick-text">
-              <b>Đối tác cung cấp</b>
-              <small>Danh bạ & phân bổ nguồn hàng</small>
             </div>
             <ChevronRight size={16} className="admin-quick-arrow" />
           </div>
@@ -790,41 +767,8 @@ function PanelLoading() {
     </div>
   );
 }
-export function useAdminList(endpoint) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const mounted = useRef(false);
-  const requestVersion = useRef(0);
-  const load = useCallback(async () => {
-    if (!mounted.current) return;
-    const version = ++requestVersion.current;
-    const isCurrent = () => mounted.current && version === requestVersion.current;
-    setLoading(true);
-    setError("");
-    try {
-      const result = await adminApi(endpoint());
-      if (isCurrent()) setData(result);
-    } catch (error) {
-      if (isCurrent()) {
-        setError(error.message || "Không tải được dữ liệu.");
-        setData({ content: [] });
-      }
-    } finally {
-      if (isCurrent()) setLoading(false);
-    }
-  }, [endpoint]);
-  useEffect(() => {
-    mounted.current = true;
-    void load();
-    return () => {
-      mounted.current = false;
-      // Invalidate pending requests, including StrictMode's first mount.
-      requestVersion.current += 1;
-    };
-  }, [load]);
-  return { data, load, loading, error };
-}
+export const useAdminList = useManagerList;
+
 function Table({ headers, children }) {
   const hasRows = React.Children.count(children) > 0;
   return (
@@ -1511,9 +1455,11 @@ function Orders({ notify }) {
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
-  const [detail, setDetail] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState("");
+  const [detailId, setDetailId] = useState(null);
+  const detailEndpoint = useCallback(() => adminEndpoints.order(detailId), [detailId]);
+  const { data: detailData, loading: detailLoading, error: detailError, load: reloadDetail } =
+    useManagerList(detailEndpoint, { enabled: detailId !== null });
+  const detail = detailId === null ? null : (detailData?.id === detailId ? detailData : { id: detailId });
   const [updatingId, setUpdatingId] = useState(null);
   const [cancelOrder, setCancelOrder] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -1548,7 +1494,7 @@ function Orders({ notify }) {
         },
       });
       notify("Đã cập nhật đơn hàng.");
-      if (detail?.id === id) setDetail(updated);
+      if (detailId === id) await reloadDetail(true);
       setCancelOrder(null);
       await load();
     } catch (error) {
@@ -1558,17 +1504,9 @@ function Orders({ notify }) {
       setUpdatingId(null);
     }
   };
-  const showDetail = async (id) => {
-    setDetailLoading(true);
-    setDetailError("");
-    setDetail({ id });
-    try {
-      setDetail(await adminApi(adminEndpoints.order(id)));
-    } catch (error) {
-      setDetailError(error.message || "Không tải được đơn hàng.");
-    } finally {
-      setDetailLoading(false);
-    }
+  const showDetail = (id) => {
+    if (detailId === id) void reloadDetail();
+    else setDetailId(id);
   };
   const orders = pageData(data);
   const filteredOrders = useMemo(() => {
@@ -1825,7 +1763,7 @@ function Orders({ notify }) {
         <div
           className="admin-dialog-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setDetail(null);
+            if (event.target === event.currentTarget) setDetailId(null);
           }}
         >
           <div
@@ -1841,7 +1779,7 @@ function Orders({ notify }) {
               <button
                 aria-label="Đóng chi tiết"
                 className="admin-action"
-                onClick={() => setDetail(null)}
+                onClick={() => setDetailId(null)}
               >
                 <X size={18} />
               </button>

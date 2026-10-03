@@ -4,20 +4,17 @@ import { render, fireEvent, screen, cleanup } from '@testing-library/react';
 import { afterEach, it, expect, vi } from 'vitest';
 import StorefrontHome from './StorefrontHome';
 afterEach(cleanup);
-it('uses a real product for the hero and opens its detail', () => {
-  const product={id:12,name:'Áo thun thật',imageUrl:'/product.png'};
-  const onProduct=vi.fn(); const onCatalog=vi.fn();
-  render(<StorefrontHome products={[product]} onProduct={onProduct} onCatalog={onCatalog}/>);
-  expect(screen.getByAltText(product.name).getAttribute('src')).toBe(product.imageUrl);
-  fireEvent.click(screen.getByRole('button',{name:/KHÁM PHÁ THIẾT KẾ/}));
-  expect(onProduct).toHaveBeenCalledWith(product);
-  fireEvent.click(screen.getByRole('button',{name:'Bắt đầu với áo thun'}));
-  expect(onCatalog).toHaveBeenCalledWith('Áo thun');
+it('uses permanent local Figma collection artwork rather than a random product', () => {
+  render(<StorefrontHome onCatalog={vi.fn()}/>);
+  expect(screen.getByRole('img').getAttribute('src')).toBe('/images/figma/daily-uniform.png');
 });
-it('keeps category navigation usable while products are unavailable', () => {
+it('keeps collection actions and catalog navigation functional', () => {
   const onCatalog=vi.fn();
-  render(<StorefrontHome products={[]} onCatalog={onCatalog} onProduct={vi.fn()}/>);
-  expect(screen.queryByRole('img')).toBeNull();
-  fireEvent.click(screen.getByRole('button',{name:/02 Áo khoác/}));
-  expect(onCatalog).toHaveBeenCalledWith('Áo khoác');
+  render(<StorefrontHome onCatalog={onCatalog}/>);
+  fireEvent.click(screen.getByRole('button',{name:/Khám phá hàng mới/}));
+  expect(onCatalog).toHaveBeenLastCalledWith('');
+  fireEvent.click(screen.getByRole('button',{name:'Xem Daily Uniform'}));
+  expect(onCatalog).toHaveBeenLastCalledWith('Áo polo');
+  fireEvent.click(screen.getByRole('button',{name:'Khám phá bộ sưu tập Daily Uniform'}));
+  expect(onCatalog).toHaveBeenLastCalledWith('Áo polo');
 });

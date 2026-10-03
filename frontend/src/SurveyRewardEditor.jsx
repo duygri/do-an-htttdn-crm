@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { adminApi } from './manager-api';
+import { useManagerReadPause } from './useManagerResource';
 export const emptyReward=()=>({enabled:false,discountType:'PERCENTAGE',discountValue:10,minOrderAmount:0,maxDiscountAmount:null,validDays:30});
 export function RewardFields({ value, onChange, disabled }) {
   const change=(key,v)=>onChange({...value,[key]:v});
@@ -13,6 +14,7 @@ export function RewardFields({ value, onChange, disabled }) {
 }
 export default function SurveyRewardEditor({ survey, onSaved }) {
   const [open,setOpen]=useState(false),[value,setValue]=useState(()=>({...emptyReward(),...survey.reward})),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  useManagerReadPause(open);
   const save=async e=>{e.preventDefault();if(busy)return;setBusy(true);setError('');try{await adminApi(`/api/manager/surveys/${survey.id}/reward`,{method:'PATCH',body:value});setOpen(false);onSaved?.();}catch(e){setError(e.message);}finally{setBusy(false);}};
   return <><button type="button" className="admin-action" onClick={()=>setOpen(true)}>Voucher thưởng</button>{open&&<div className="admin-dialog-backdrop"><form className="admin-dialog" role="dialog" aria-modal="true" aria-label="Cấu hình voucher thưởng" onSubmit={save}><h2>Voucher thưởng: {survey.title}</h2><RewardFields value={value} onChange={setValue} disabled={busy}/>{error&&<p role="alert">{error}</p>}<button type="button" disabled={busy} onClick={()=>setOpen(false)}>Quay lại</button><button className="admin-primary" disabled={busy}>{busy?'Đang lưu...':'Lưu ưu đãi'}</button></form></div>}</>;
 }
