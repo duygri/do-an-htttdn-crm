@@ -47,7 +47,10 @@ it("checks out only selected lines and leaves other lines in the cart",async()=>
     return base(path,options);
   });
   render(<App/>);
-  fireEvent.click(await screen.findByLabelText('Chọn Áo còn lại Đen M'));
+  const remainingCheckbox=await screen.findByLabelText('Chọn Áo còn lại Đen M');
+  await waitFor(()=>expect(remainingCheckbox.checked).toBe(true));
+  fireEvent.click(remainingCheckbox);
+  expect(remainingCheckbox.checked).toBe(false);
   fireEvent.click(screen.getByRole('button',{name:/TIẾN HÀNH ĐẶT HÀNG/}));
   await screen.findByText(home.recipientName);
   expect(screen.queryByText('Áo còn lại')).toBeNull();

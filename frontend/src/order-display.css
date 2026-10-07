@@ -1,0 +1,28 @@
+.admin-shell[data-theme="dark"] { --order-return-color: #fdba74; }
+.site-shell .status-pill.return-requested {
+  color: #9a3412;
+  background: #ffedd5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.site-shell[data-shop-theme="dark"] .status-pill.return-requested {
+  color: #fdba74;
+  background: #431407;
+}
+.admin-shell .admin-order-detail .admin-status-return-requested {
+  color: #9a3412;
+  background: #ffedd5;
+  white-space: normal;
+}
+.admin-shell[data-theme="dark"] .admin-order-detail .admin-status-return-requested {
+  color: #fdba74;
+  background: #431407;
+}
+.admin-return-management { margin-block:20px; padding:16px; border:1px solid var(--admin-border,#cbd5e1); border-radius:12px; }
+.admin-return-form textarea { width:100%; min-height:100px; margin-top:8px; }
+.return-history { padding-left:20px; }
+.return-history li { margin-block:12px; overflow-wrap:anywhere; }
+.return-history small { display:block; }
+.return-history p { white-space:pre-wrap; }
+.admin-return-management .admin-dialog-actions { flex-wrap:wrap; gap:8px; }

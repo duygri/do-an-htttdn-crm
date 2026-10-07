@@ -30,7 +30,7 @@ export function useCheckoutVoucher(cart) {
   }, [fingerprint]);
   const change = value => { ++version.current; setBusy(false); setCode(value.toUpperCase()); setResult(null); setError(""); };
   const voucher = result?.fingerprint === fingerprint ? result.data : null;
-  return { code, voucher, busy, error, apply, change, remove: () => change("") };
+  return { code, voucher, busy, error, apply, change, subtotal:cart.subtotal, remove: () => change("") };
 }
 
 export default function VoucherField({ model, disabled }) {
@@ -43,6 +43,6 @@ export default function VoucherField({ model, disabled }) {
   {model.voucher && <div className="shop-voucher-applied"><span role="status">Đã áp dụng {model.voucher.code}</span><button type="button" disabled={disabled} onClick={model.remove}>Bỏ mã</button></div>}
   <small>Mỗi đơn dùng một mã. Ưu đãi được kiểm tra lại khi đặt hàng.</small>
   <button type="button" className="button button-light" disabled={disabled} onClick={()=>setWallet(v=>!v)}>{wallet?'Đóng danh sách mã':'Chọn voucher của tôi'}</button>
-  {wallet&&<CustomerVouchers onSelect={code=>{model.change(code);setWallet(false);}}/>}
+  {wallet&&<CustomerVouchers subtotal={model.subtotal} onSelect={code=>{model.change(code);setWallet(false);}}/>}
   </div>;
 }

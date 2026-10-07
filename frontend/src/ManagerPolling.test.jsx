@@ -15,6 +15,20 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 const flush = async () => { await act(async () => {}); };
 const tick = async () => { await act(async () => vi.advanceTimersByTimeAsync(5000)); };
+it('polls return status into desktop/mobile badges and disables the delivery selectors', async () => {
+  window.history.replaceState({}, '', '/manager/orders');
+  let requested=false;
+  adminApi.mockImplementation(async url=>{
+    const order={id:9,orderCode:9009,status:'DELIVERED',returnStatus:requested?'REQUESTED':'NONE',paymentMethod:'COD',items:[]};
+    return url==='/api/manager/orders/9'?order:{content:[order],totalPages:1};
+  });
+  render(<ManagerApp/>);await flush();requested=true;await tick();
+  expect(screen.getAllByText('Đã yêu cầu đổi trả — chờ xử lý')).toHaveLength(2);
+  for(const select of screen.getAllByLabelText('Cập nhật trạng thái đơn 9009')) {
+    expect(select.disabled).toBe(true);expect(select.value).toBe('DELIVERED');expect(select.textContent).toBe('Đang đổi trả');
+  }
+  expect(document.querySelector('.admin-badge').textContent).not.toContain('chờ khách xác nhận');
+});
 it('automatically displays a new order and refreshes an open payment detail', async () => {
   window.history.replaceState({}, '', '/manager/orders');
   let exists = false, paid = false;

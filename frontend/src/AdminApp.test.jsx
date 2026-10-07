@@ -302,12 +302,12 @@ describe("admin navigation", () => {
     expect(window.location.pathname).toBe("/manager/orders");
   });
 
-  it("defaults to dark theme, persists a toggle and closes the mobile menu on navigation", async () => {
+  it("defaults to light theme, persists a toggle and closes the mobile menu on navigation", async () => {
     const { container } = render(<AdminApp />, { wrapper });
     await screen.findByRole("heading", { name: "Tổng quan", level: 1 });
-    expect(container.querySelector(".admin-shell").dataset.theme).toBe("dark");
-    fireEvent.click(screen.getByRole("button", { name: "Chuyển sang giao diện sáng" }));
-    expect(window.localStorage.getItem("manager-theme")).toBe("light");
+    expect(container.querySelector(".admin-shell").dataset.theme).toBe("light");
+    fireEvent.click(screen.getByRole("button", { name: "Chuyển sang giao diện tối" }));
+    expect(window.localStorage.getItem("manager-theme")).toBe("dark");
     fireEvent.click(screen.getByRole("button", { name: "Mở menu quản trị" }));
     expect(screen.getByRole("button", { name: "Mở menu quản trị" }).getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Khách hàng", exact: true }));

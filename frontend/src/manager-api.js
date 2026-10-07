@@ -1,4 +1,5 @@
 import { beginManagerMutation } from './manager-sync';
+import {managerQuery} from './useManagerFilters';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
 async function request(url, options) {
   const controller = new AbortController();
@@ -72,14 +73,14 @@ export const adminEndpoints = {
   revenue: '/api/manager/reports/revenue',
   userReport: '/api/manager/reports/users',
   surveyStats: '/api/manager/surveys/stats',
-  users: ({ q = '', page = 0, size = 10 } = {}) => `/api/manager/users?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
+  users: ({ q = '', page = 0, size = 10, ...filters } = {}) => `/api/manager/users?q=${encodeURIComponent(q)}&page=${page}&size=${size}${Object.entries(filters).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>`&${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('')}`,
   user: id => `/api/manager/users/${id}`,
   lockUser: id => `/api/manager/users/${id}/lock`,
   deleteUser: id => `/api/manager/users/${id}`,
-  products: ({ q = '', page = 0, size = 10 } = {}) => `/api/manager/products?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
+  products: ({ q = '', page = 0, size = 10,...filters } = {}) => `/api/manager/products?${managerQuery({q,page,size,...filters})}`,
   product: id => `/api/manager/products/${id}`,
   productStock: id => `/api/manager/products/${id}/stock`,
-  orders: ({ status = '', page = 0, size = 10 } = {}) => `/api/manager/orders${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,
+  orders: ({ status = '', page = 0, size = 10,...filters } = {}) => `/api/manager/orders?${managerQuery({status,page,size,...filters})}`,
   order: id => `/api/manager/orders/${id}`,
   orderStatus: id => `/api/manager/orders/${id}/status`,
   feedback: ({ status = '', page = 0, size = 10 } = {}) => `/api/manager/feedback${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,

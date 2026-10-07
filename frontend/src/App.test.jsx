@@ -18,12 +18,12 @@ it('keeps the size-exchange announcement without a free-shipping promotion in bo
   const banner = view.container.querySelector('.announcement');
   expect(banner.textContent).toBe('ĐỔI SIZE TRONG 30 NGÀY');
   expect(banner.textContent).not.toMatch(/699|miễn phí|freeship/i);
-  fireEvent.click(screen.getByLabelText('Chuyển sang chế độ sáng'));
+  fireEvent.click(screen.getByLabelText('Chuyển sang chế độ tối'));
   expect(banner.textContent).toBe('ĐỔI SIZE TRONG 30 NGÀY');
 });
-it('defaults to the Figma dark theme and keeps one shared product search', async () => {
+it('defaults to light theme and keeps one shared product search', async () => {
   const view = render(<App/>);
-  expect(view.container.querySelector('.site-shell').dataset.shopTheme).toBe('dark');
+  expect(view.container.querySelector('.site-shell').dataset.shopTheme).toBe('light');
   expect(screen.getAllByLabelText('Tìm kiếm sản phẩm')).toHaveLength(1);
   fireEvent.change(screen.getByLabelText('Tìm kiếm sản phẩm'), { target: { value: 'polo' } });
   fireEvent.click(screen.getByText('TÌM'));

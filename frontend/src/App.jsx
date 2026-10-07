@@ -1,3 +1,5 @@
+import { showReturn, returnLabel, displayOrderLabel, deliveryLabel } from './order-display';
+import './order-display.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStorefrontDialogs, useShopResource } from './storefront-hooks';
 import AccountDropdown from './AccountDropdown';
@@ -155,7 +157,7 @@ function App() {
   const accountPage = isAccountPath(pathname);
   const extraPage = cartOpen || authOpen || accountPage || passwordOpen || !!productId || !isKnownPath(pathname) || pathname === '/thanh-toan';
   const [shopTheme, setShopTheme] = useState(() => {
-    try { return localStorage.getItem('anh-lon-shop-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
+    try { return localStorage.getItem('anh-lon-shop-theme') === 'dark' ? 'dark' : 'light'; } catch { return 'light'; }
   });
   const searchRef = useRef(null);
   useEffect(() => { try { localStorage.setItem('anh-lon-shop-theme', shopTheme); } catch { /* Theme still works when storage is unavailable. */ } }, [shopTheme]);
@@ -1410,8 +1412,8 @@ function App() {
         </div>
       )}
       {extraPage && !ordersRoute && <CustomerPageFrame account={accountPage} pathname={pathname} user={user} navigate={navigate}>
-      {pathname === '/tai-khoan/voucher' && <CustomerVouchers/>}
       {needsCustomer(pathname) && (sessionChecking || sessionError || !user) ? <CheckoutState title={sessionChecking ? 'Đang khôi phục tài khoản' : 'Đăng nhập để tiếp tục'} message={sessionError || 'Đang kiểm tra phiên đăng nhập...'} loading={sessionChecking} action={sessionError ? 'Thử lại' : undefined} onAction={retrySession}/> : <>
+      {pathname === '/tai-khoan/voucher' && <CustomerVouchers/>}
       {!isKnownPath(pathname) && <CheckoutState title="Không tìm thấy trang" message="Đường dẫn không tồn tại." action="Về trang chủ" onAction={() => navigate('/')}/>}
       {pathname === '/thanh-toan' && <CheckoutState title="Kiểm tra thanh toán" message="Mở đơn hàng để kiểm tra trạng thái thanh toán được xác nhận từ cửa hàng." action="Xem đơn hàng" onAction={() => navigate('/don-hang')}/>}
       {productId && productError && <CheckoutState title="Chưa tải được sản phẩm" message={productError} action="Thử lại" onAction={() => setProductReload(value => value + 1)}/>}
@@ -2403,7 +2405,7 @@ export function OrdersPage({ route, onNavigate, onNotice, onChanged }) {
       <div className="shop-orders-result-count" role="status" aria-live="polite">{orders !== null && !error ? `${totalElements} đơn hàng` : ''}</div>
       {error ? <div className="shop-inline-error" role="alert"><p>{error}</p><button className="button button-light" onClick={() => load()}>Thử lại</button></div> : orders === null ? <div className="shop-orders-loading" role="status">Đang tải đơn hàng...</div> : orders.length ? <div className="shop-order-cards">
         {orders.map(order => <article className="shop-order-card" key={order.id}>
-          <header><div><b>Mã đơn #{order.orderCode}</b><time dateTime={order.createdAt}>{date(order.createdAt)}</time></div><div className="shop-order-badges"><Status value={order.status}/>{order.paymentMethod === "PAYOS" ? <span className={order.paymentStatus === "PAID" ? "shop-payment-label is-paid" : "shop-payment-label"}>{order.paymentStatus === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}</span> : <span className="shop-payment-label">Thanh toán khi nhận hàng</span>}</div></header>
+          <header><div><b>Mã đơn #{order.orderCode}</b><time dateTime={order.createdAt}>{date(order.createdAt)}</time></div><div className="shop-order-badges"><Status value={order.status} order={order}/>{order.paymentMethod === "PAYOS" ? <span className={order.paymentStatus === "PAID" ? "shop-payment-label is-paid" : "shop-payment-label"}>{order.paymentStatus === "PAID" ? "Đã thanh toán" : "Chưa thanh toán"}</span> : <span className="shop-payment-label">Thanh toán khi nhận hàng</span>}</div></header>
           <div className="shop-order-products">{(order.items || []).slice(0, 3).map((item, index) => <div className="shop-order-product" key={`${item.productId}-${item.size || ""}-${item.color || ""}-${index}`}><img src={imageSrc(item.imageUrl)} onError={protectImage} alt=""/><div><b>{item.name}</b><small>{[item.size, item.color].filter(Boolean).join(" · ") || "Phân loại tiêu chuẩn"} · SL: {item.quantity}</small></div><strong>{money(item.lineTotal)}</strong></div>)}{(order.items?.length || 0) > 3 && <p className="shop-order-more">Còn {order.items.length - 3} sản phẩm khác</p>}</div>
           <footer><span>{order.items?.length || 0} sản phẩm</span><div><span>Thành tiền</span><strong>{money(order.totalAmount)}</strong><ReceiptAction order={order} onChanged={receiptConfirmed} onNotice={onNotice}/>{order.status === 'COMPLETED' && <button type="button" className="button button-light review-card-btn" onClick={() => openOrder(order.id)}><Star size={14}/> Đánh giá</button>}<button type="button" className="button button-dark" onClick={() => openOrder(order.id)}>Chi tiết đơn <ChevronRight size={16}/></button></div></footer>
         </article>)}
@@ -2459,7 +2461,7 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
     try {
       const updated = await api(action === 'cancel' ? endpoints.cancelOrder(order.id) : endpoints.returnOrder(order.id), { method: action === 'cancel' ? 'PATCH' : 'POST', body: { reason: reason.trim() } });
       if (action === 'cancel' && updated.status !== 'CANCELLED') { setPaid(updated.paymentStatus === 'PAID'); setActionError('Đơn đã được thanh toán nên chưa thể hủy. Vui lòng tải lại trạng thái đơn.'); onPaymentChanged?.(); return; }
-      setAction(null); onNotice(action === 'cancel' ? 'Đã hủy đơn hàng.' : 'Đã gửi yêu cầu đổi/trả.'); await onChanged?.(updated);
+      setAction(null); onNotice?.(action === 'cancel' ? 'Đã hủy đơn hàng.' : 'Đã gửi yêu cầu đổi/trả.'); await onChanged?.(updated);
     } catch (error) { setActionError(error.message); }
     finally { actionLock.current = false; setBusy(false); }
   };
@@ -2472,8 +2474,9 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
           <p className="kicker">MÃ ĐƠN #{order.orderCode}</p>
           <h3>{date(order.createdAt)}</h3>
         </div>
-        <Status value={order.status} />
+        <Status value={order.status} order={order} />
       </div>
+      {showReturn(order) && <p className="order-address"><b>Trạng thái giao hàng:</b> {deliveryLabel(order, { DELIVERED: 'Đã giao', COMPLETED: 'Đã nhận hàng' })}</p>}
       <div className="order-progress">
         <span className="done">ĐẶT HÀNG</span>
         <i
@@ -2528,7 +2531,8 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
       {order.paymentMethod === "PAYOS" && <PaymentQr orderId={order.id} onPaid={order.paymentStatus === "PAID" ? undefined : () => { setPaid(true); onNotice?.("Thanh toán thành công!"); onPaymentChanged?.(); }} />}
       {order.trackingCode && <p className="order-address"><b>Mã theo dõi</b><br />{order.trackingCode}</p>}
       {order.status === "CANCELLED" && <p className="order-address order-cancel-reason"><b>Lý do hủy đơn</b><br />{order.cancelReason?.trim() || "Chưa có lý do hủy"}</p>}
-      {(order.returnStatus || "NONE") !== "NONE" && <p className="order-address"><b>Đổi/trả hàng: {order.returnStatus}</b><br />{order.returnReason}</p>}
+      {(order.returnStatus || "NONE") !== "NONE" && <p className="order-address"><b>Đổi/trả hàng: {returnLabel(order.returnStatus)}</b><br />{order.returnReason}</p>}
+      {!!order.returnHistory?.length && <section className="order-address" aria-label="Lịch sử đổi trả"><b>Lịch sử xử lý đổi trả</b><ol className="return-history">{order.returnHistory.map((entry,index)=><li key={index}><b>{returnLabel(entry.status)}</b><small>{date(entry.createdAt)}</small><p>{entry.note || 'Không có ghi chú'}</p></li>)}</ol></section>}
       <p className="order-address">
         <b>Địa chỉ giao hàng</b>
         <br />
@@ -2565,7 +2569,7 @@ function NotificationsModal({ page = false, onClose, onNotice, onCount }) {
 }
 
 
-function Status({ value }) {
+function Status({ value, order }) {
   const labels = {
     PENDING_PAYMENT: "Chờ thanh toán",
     PENDING: "Chờ xác nhận",
@@ -2578,8 +2582,8 @@ function Status({ value }) {
     CANCELLED: "Đã huỷ",
   };
   return (
-    <span className={`status-pill ${String(value).toLowerCase()}`}>
-      {labels[value] || value}
+    <span className={`status-pill ${showReturn(order) ? "return-requested" : String(value).toLowerCase()}`}>
+      {order ? displayOrderLabel(order, labels) : labels[value] || value}
     </span>
   );
 }

@@ -7,6 +7,7 @@ import java.util.*;
 @RestController @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService auth; public AuthController(AuthService auth){this.auth=auth;}
+    @GetMapping("/password-recovery") public Map<String,Object> recovery(){return Map.of("enabled",auth.passwordRecoveryEnabled(),"message","Chưa có kênh gửi mã an toàn. Vui lòng liên hệ cửa hàng để được hỗ trợ.");}
     @PostMapping("/register") public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest r){User u=auth.register(r.email(),r.password(),r.fullName(),r.phone(),r.age());return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message","Đăng ký tài khoản thành công.","customer",u));}
     @PostMapping("/login") public ResponseEntity<?> login(@Valid @RequestBody LoginRequest r,HttpServletResponse response){AuthService.Session s=auth.login(r.email(),r.password());response.addHeader(HttpHeaders.SET_COOKIE,auth.cookie(s.refreshToken()).toString());return ResponseEntity.ok(Map.of("accessToken",s.accessToken(),"expiresIn",s.expiresIn(),"customer",s.user()));}
     @PostMapping("/refresh") public ResponseEntity<?> refresh(HttpServletRequest request,HttpServletResponse response){AuthService.Session s=auth.refresh(cookie(request));response.addHeader(HttpHeaders.SET_COOKIE,auth.cookie(s.refreshToken()).toString());return ResponseEntity.ok(Map.of("accessToken",s.accessToken(),"expiresIn",s.expiresIn(),"customer",s.user()));}

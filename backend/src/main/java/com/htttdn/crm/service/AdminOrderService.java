@@ -33,7 +33,15 @@ public class AdminOrderService extends AdminServiceSupport {
     private final NotificationService notifications;
     private final VoucherService vouchers;
     public AdminOrderService(OrderRepository orders, NotificationService notifications, VoucherService vouchers, PaymentRepository payments) { this.orders = orders; this.notifications = notifications; this.vouchers=vouchers; this.payments=payments; }
-    public Page<Order> list(String status, int page, int size) { return status == null ? orders.findAll(page(page, size)) : orders.findByStatus(status, page(page, size)); }
+    public Page<Order> list(String status, int page, int size) {
+        if (status != null && (status.equals("RETURN") || status.startsWith("RETURN_"))) {
+            String returnStatus=status.equals("RETURN")?null:status.substring(7);
+            if (returnStatus!=null && !Set.of("REQUESTED","APPROVED","REJECTED","COMPLETED").contains(returnStatus))
+                throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_FILTER","Bộ lọc đổi trả không hợp lệ.");
+            return orders.findAll((root,query,cb)->cb.and(cb.notEqual(root.get("status"),"CANCELLED"),returnStatus==null?cb.notEqual(cb.coalesce(root.<String>get("returnStatus"),"NONE"),"NONE"):cb.equal(root.get("returnStatus"),returnStatus)),page(page,size));
+        }
+        return status == null || status.isBlank() ? orders.findAll(page(page, size)) : orders.findByStatus(status, page(page, size));
+    }
     public Order get(Long id) { return orders.findById(id).orElseThrow(); }
     @Transactional public Order updateStatus(Long id, StatusRequest request) {
         if (!STATUSES.contains(request.status())) throw new IllegalArgumentException("Invalid order status");
@@ -42,6 +50,8 @@ public class AdminOrderService extends AdminServiceSupport {
             throw new ApiException(HttpStatus.BAD_REQUEST, "CANCEL_REASON_REQUIRED", "Vui lòng nhập lý do hủy đơn từ 1 đến 1.000 ký tự.");
         }
         Order order = orders.findForStatusUpdate(id).orElseThrow();
+        if (order.getReturnStatus()!=null && !"NONE".equals(order.getReturnStatus()))
+            throw new ApiException(HttpStatus.CONFLICT,"RETURN_IN_PROGRESS","Đơn có yêu cầu đổi trả; hãy dùng chức năng xử lý đổi trả.");
         if (!canAdvance(order.getStatus(), request.status())) {
             throw new ApiException(HttpStatus.CONFLICT, "INVALID_ORDER_TRANSITION", "Không thể chuyển ngược trạng thái hoặc cập nhật đơn đã hủy/hoàn thành. Vui lòng tải lại đơn hàng.");
         }

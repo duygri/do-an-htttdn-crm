@@ -83,6 +83,18 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_status VARCHAR(30) NOT NULL D
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_requested_at TIMESTAMPTZ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_orders_order_code ON orders(order_code) WHERE order_code IS NOT NULL;
+CREATE TABLE IF NOT EXISTS order_return_events (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES orders(order_id),
+    manager_id BIGINT REFERENCES customers(customer_id),
+    manager_name VARCHAR(255) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    note VARCHAR(1000) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_return_event_order_status UNIQUE(order_id,status),
+    CONSTRAINT chk_return_event_status CHECK(status IN ('APPROVED','REJECTED','COMPLETED'))
+);
+CREATE INDEX IF NOT EXISTS idx_return_events_order ON order_return_events(order_id,id);
 
 CREATE TABLE IF NOT EXISTS order_items (
     order_item_id BIGSERIAL PRIMARY KEY,
@@ -403,4 +415,24 @@ DO $$ DECLARE item RECORD; BEGIN
  LOOP EXECUTE format('ALTER TABLE refresh_tokens DROP CONSTRAINT %I',item.conname); END LOOP;
  ALTER TABLE refresh_tokens ADD CONSTRAINT refresh_portal_audience_check CHECK (audience IN ('CUSTOMER','ADMIN','MANAGER'));
 END $$;
+COMMIT;
+
+-- Basic customer care; existing order/payment/voucher data is unchanged.
+BEGIN;
+CREATE TABLE IF NOT EXISTS customer_care_notes (
+ id BIGSERIAL PRIMARY KEY,customer_id BIGINT NOT NULL REFERENCES customers(customer_id),
+ author_id BIGINT NOT NULL REFERENCES customers(customer_id),author_name VARCHAR(255) NOT NULL,
+ content VARCHAR(4000) NOT NULL CHECK(length(trim(content))>0),created_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_care_notes_customer ON customer_care_notes(customer_id,created_at DESC,id DESC);
+CREATE TABLE IF NOT EXISTS customer_care_tasks (
+ id BIGSERIAL PRIMARY KEY,customer_id BIGINT NOT NULL REFERENCES customers(customer_id),
+ assignee_id BIGINT NOT NULL REFERENCES customers(customer_id),title VARCHAR(255) NOT NULL CHECK(length(trim(title))>0),
+ description VARCHAR(4000) NOT NULL DEFAULT '',status VARCHAR(30) NOT NULL DEFAULT 'TODO' CHECK(status IN ('TODO','IN_PROGRESS','COMPLETED')),
+ due_at TIMESTAMPTZ NOT NULL,created_by BIGINT NOT NULL REFERENCES customers(customer_id),updated_by BIGINT NOT NULL REFERENCES customers(customer_id),
+ created_at TIMESTAMPTZ NOT NULL,updated_at TIMESTAMPTZ NOT NULL,completed_at TIMESTAMPTZ,version BIGINT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_care_tasks_customer ON customer_care_tasks(customer_id,due_at,id);
+CREATE INDEX IF NOT EXISTS idx_care_tasks_assignee ON customer_care_tasks(assignee_id,status,due_at);
+CREATE INDEX IF NOT EXISTS idx_care_tasks_due ON customer_care_tasks(status,due_at);
 COMMIT;

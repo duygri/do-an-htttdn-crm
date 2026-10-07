@@ -19,7 +19,7 @@ it("shows a scannable QR immediately and removes it when payment is confirmed", 
   confirm({ ...pending, paymentStatus: "PAID", qrCode: null, paymentUrl: null });
   await screen.findByText("Thanh toán thành công");
   expect(screen.queryByTitle("Mã QR thanh toán đơn 1001")).toBeNull();
-  expect(api).toHaveBeenCalledWith("/api/orders/5/payment", {});
+  expect(api).toHaveBeenCalledWith("/api/orders/5/payment", expect.objectContaining({ signal: expect.any(AbortSignal) }));
 });
 
 it("lets a legacy order use its saved PayOS link without claiming a QR exists", async () => {
@@ -43,7 +43,7 @@ it("creates a new QR for an expired payment on the same order", async () => {
   render(<PaymentQr orderId={5}/>);
   fireEvent.click(await screen.findByRole("button", { name: "Tạo mã QR mới" }));
   await screen.findByTitle("Mã QR thanh toán đơn 1001");
-  expect(api).toHaveBeenCalledWith("/api/orders/5/payment/retry", { method: "POST" });
+  expect(api).toHaveBeenCalledWith("/api/orders/5/payment/retry", expect.objectContaining({ method: "POST", signal: expect.any(AbortSignal) }));
 });
 
 it("notifies payment success once after checking the provider", async () => {
@@ -51,9 +51,9 @@ it("notifies payment success once after checking the provider", async () => {
   const onPaid = vi.fn();
   api.mockResolvedValueOnce(pending).mockResolvedValueOnce({ ...pending, paymentStatus: "PAID", qrCode: null, paymentUrl: null });
   render(<PaymentQr orderId={5} initial={pending} onPaid={onPaid}/>);
-  await waitFor(() => expect(api).toHaveBeenCalledWith("/api/orders/5/payment", {}));
+  await waitFor(() => expect(api).toHaveBeenCalledWith("/api/orders/5/payment", expect.objectContaining({ signal: expect.any(AbortSignal) })));
   fireEvent.click(screen.getByLabelText("Cập nhật trạng thái thanh toán"));
   await screen.findByText("Thanh toán thành công");
   expect(onPaid).toHaveBeenCalledTimes(1);
-  expect(api).toHaveBeenCalledWith("/api/orders/5/payment/sync", { method: "POST" });
+  expect(api).toHaveBeenCalledWith("/api/orders/5/payment/sync", expect.objectContaining({ method: "POST", signal: expect.any(AbortSignal) }));
 });

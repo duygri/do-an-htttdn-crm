@@ -6,7 +6,8 @@ export const MANAGER_POLL_MS = 5000;
 let nextId = 0;
 const visible = () => document.visibilityState !== 'hidden';
 
-export function useManagerResource(fetcher, { enabled = true } = {}) {
+export function useManagerResource(fetcher, { enabled = true, keepPreviousData = false } = {}) {
+  const dataRef=useRef(null),loadedFetcher=useRef(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(enabled);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +35,7 @@ export function useManagerResource(fetcher, { enabled = true } = {}) {
       const result = await fetcher(controller.signal);
       if (!current()) return;
       s.hasData = true;
+      loadedFetcher.current=fetcher;dataRef.current=result;
       setData(result);
       setError('');
       setBackgroundError('');
@@ -60,9 +62,9 @@ export function useManagerResource(fetcher, { enabled = true } = {}) {
   useEffect(() => {
     const s = state.current;
     s.mounted = true;
-    s.hasData = false;
+    s.hasData = keepPreviousData && dataRef.current!==null;
     s.halted = false;
-    setData(null);
+    if(!keepPreviousData){setData(null);dataRef.current=null;}
     setError('');
     setBackgroundError('');
     setLoading(enabled);
@@ -91,8 +93,8 @@ export function useManagerResource(fetcher, { enabled = true } = {}) {
       unsubscribe();
       warn('');
     };
-  }, [load, enabled, warn]);
-  return { data, loading, refreshing, error, backgroundError, load };
+  }, [load, enabled, warn,keepPreviousData]);
+  return { data, loading, refreshing, error, backgroundError, load, stale:loadedFetcher.current!==fetcher };
 }
 
 export function useManagerList(endpoint, options) {
