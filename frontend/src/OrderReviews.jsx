@@ -28,7 +28,7 @@ function StarRating({ value, hover, disabled, onChange, onHover, onLeave }) {
   );
 }
 
-export default function OrderReviews({ order, autoOpen = false, onAutoOpened }) {
+export default function OrderReviews({ order, autoOpen = false, onAutoOpened, onReviewStatus }) {
   const { data, error, load } = useShopResource(`/api/orders/${order.id}/reviews`);
   const [product, setProduct] = useState(null);
   const [rating, setRating] = useState(5);
@@ -70,6 +70,9 @@ export default function OrderReviews({ order, autoOpen = false, onAutoOpened }) 
   const items = [...new Map((order.items || []).map(i => [i.productId, i])).values()];
   const reviewedCount = new Set([...(Array.isArray(data) ? data.filter(v => v.reviewed).map(v => v.productId) : []), ...submitted]).size;
   const totalCount = items.length;
+  useEffect(() => {
+    if (Array.isArray(data) || submitted.length) onReviewStatus?.(reviewedCount > 0);
+  }, [data, submitted.length, reviewedCount, onReviewStatus]);
   const nextItem = items.find(item => !submitted.includes(item.productId) && data?.find?.(state => state.productId === item.productId && state.canReview && !state.reviewed));
   useEffect(() => {
     if (!autoOpen || autoConsumed.current || error || !Array.isArray(data)) return;

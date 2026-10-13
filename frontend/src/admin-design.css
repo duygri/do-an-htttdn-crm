@@ -1,6 +1,5 @@
 /* Figma Make AdminPanel layout, adapted to the existing API-backed modules.
    Theme is isolated from the storefront. */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   --admin-radius-sm: 6px;

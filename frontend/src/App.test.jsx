@@ -16,10 +16,12 @@ afterEach(cleanup);
 it('keeps the size-exchange announcement without a free-shipping promotion in both themes', () => {
   const view = render(<App/>);
   const banner = view.container.querySelector('.announcement');
-  expect(banner.textContent).toBe('ĐỔI SIZE TRONG 30 NGÀY');
+  expect(banner.textContent).toContain('ĐỔI SIZE TRONG 30 NGÀY');
+  expect(banner.textContent).toContain('ANH LỚN / NEW FORM');
   expect(banner.textContent).not.toMatch(/699|miễn phí|freeship/i);
   fireEvent.click(screen.getByLabelText('Chuyển sang chế độ tối'));
-  expect(banner.textContent).toBe('ĐỔI SIZE TRONG 30 NGÀY');
+  expect(banner.textContent).toContain('ĐỔI SIZE TRONG 30 NGÀY');
+  expect(banner.textContent).not.toMatch(/699|miễn phí|freeship/i);
 });
 it('defaults to light theme and keeps one shared product search', async () => {
   const view = render(<App/>);

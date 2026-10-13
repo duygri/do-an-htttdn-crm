@@ -225,9 +225,10 @@ export default function ManagerApp() {
     <div className={`admin-shell manager-shell${profileMatch ? ' manager-profile-page' : ''}`} data-theme={theme} onKeyDown={event=>{if(['DIV','SPAN'].includes(event.target.tagName)&&event.target.getAttribute('role')==='button'&&['Enter',' '].includes(event.key)){event.preventDefault();event.target.click();}}}>
       <button
         className="admin-mobile-toggle"
-        aria-label="Mở menu quản trị"
+        aria-label={mobileMenuOpen ? "Đóng menu quản lý" : "Mở menu quản lý"}
         aria-expanded={mobileMenuOpen}
         onClick={() => setMobileMenuOpen((value) => !value)}
+        onKeyDown={event => { if (event.key === 'Escape') setMobileMenuOpen(false); }}
       >
         {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
       </button>
@@ -238,13 +239,13 @@ export default function ManagerApp() {
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
-      <aside className={`admin-sidebar ${mobileMenuOpen ? "is-open" : ""}`}>
+      <aside className={`admin-sidebar ${mobileMenuOpen ? "is-open" : ""}`} onKeyDown={event => { if (event.key === 'Escape') setMobileMenuOpen(false); }}>
         <div className="admin-brand">
           <span className="admin-brand-mark">
             <Activity size={18} />
           </span>
           <div>
-            ManagerPanel<small>ANH LỚN SHOP</small>
+            ANH LỚN<small>Quản lý cửa hàng · CRM</small>
           </div>
         </div>
         <div className="admin-profile">

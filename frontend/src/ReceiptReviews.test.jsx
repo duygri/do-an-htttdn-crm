@@ -2,13 +2,34 @@
 import React from 'react';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { afterEach, it, expect, vi } from 'vitest';
-import { OrdersPage, ReceiptAction } from './App';
+import { OrdersPage, ReceiptAction, OrderView } from './App';
 import OrderReviews from './OrderReviews';
 import { api } from './api';
 vi.mock('./api', async original => ({ ...await original(), api: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 const order = { id: 9, orderCode: 9009, status: 'DELIVERED', paymentMethod: 'COD', totalAmount: 100, items: [{ productId: 2, name: 'Áo', quantity: 1 }, { productId: 3, name: 'Quần', quantity: 1 }] };
 const states = [{ productId: 2, reviewed: false, canReview: true }, { productId: 3, reviewed: false, canReview: true }];
+it('hides returns on a completed order with even one reviewed product', async () => {
+  api.mockResolvedValue([{ productId: 2, reviewed: true, canReview: false }, states[1]]);
+  render(<OrderView order={{ ...order, status: 'COMPLETED' }}/>);
+  await screen.findByText('Đơn đã xác nhận nhận hàng và đã đánh giá sản phẩm nên không thể yêu cầu đổi trả.');
+  expect(screen.queryByText('YÊU CẦU ĐỔI/TRẢ')).toBeNull();
+});
+it('keeps returns available before the first review and hides them immediately after submitting', async () => {
+  api.mockImplementation(async (path, options) => options?.method === 'POST' ? {} : states);
+  render(<OrderView order={{ ...order, status: 'COMPLETED' }}/>);
+  expect(await screen.findByText('YÊU CẦU ĐỔI/TRẢ')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Đánh giá Áo' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Gửi đánh giá' }));
+  await screen.findByText('Đơn đã xác nhận nhận hàng và đã đánh giá sản phẩm nên không thể yêu cầu đổi trả.');
+  expect(screen.queryByText('YÊU CẦU ĐỔI/TRẢ')).toBeNull();
+});
+it('does not expose returns when completed-order review loading fails', async () => {
+  api.mockRejectedValue(new Error('Mất kết nối'));
+  render(<OrderView order={{ ...order, status: 'COMPLETED' }}/>);
+  await screen.findByText('Mất kết nối');
+  expect(screen.queryByText('YÊU CẦU ĐỔI/TRẢ')).toBeNull();
+});
 it.each([null, 9])('opens a review immediately after receipt from route %s and preserves list filters', async orderId => {
   let completed = false;
   api.mockImplementation(async (path, options) => {

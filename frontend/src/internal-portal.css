@@ -911,3 +911,10 @@ form.internal-filters {
   .internal-main { padding: 16px; }
   .internal-header { flex-direction: column; align-items: flex-start; }
 }
+
+@media (max-width: 600px) {
+  .internal-hero-banner { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .internal-kpi-grid { grid-template-columns: minmax(0, 1fr); }
+  .internal-header-right { flex-wrap: wrap; }
+  .admin-shell.internal-portal :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) { font-size: 16px; }
+}

@@ -319,8 +319,13 @@ function App() {
 
   const showNotice = (message, type = "success") => {
     setNotice({ message, type });
-    window.setTimeout(() => setNotice(null), 4200);
   };
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 4200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     api(endpoints.categories)
@@ -704,6 +709,7 @@ function App() {
     <div className={catalogPage ? "site-shell catalog-page" : `site-shell ${!checkoutPage && !ordersRoute && !extraPage ? 'shop-home-page' : ''}`} data-shop-theme={shopTheme}>
       <div className="announcement">
         <span>ĐỔI SIZE TRONG 30 NGÀY</span>
+        <span className="announcement-secondary">ANH LỚN / NEW FORM</span>
       </div>
       <header className="site-header">
         <button
@@ -1122,7 +1128,7 @@ function App() {
           }}/>
       ) : extraPage ? null : <main id="top">
         {sessionError && <div className="shop-connection" role="alert"><CircleAlert size={20} /><span>{sessionError}</span><button onClick={retrySession}>Thử lại</button></div>}
-        {!catalogPage && <StorefrontHome products={products.content || []} onCatalog={openCatalog} onProduct={openProduct}/>}
+        {!catalogPage && <StorefrontHome products={products.content || []} onCatalog={openCatalog} onProduct={openProduct} imageSrc={imageSrc}/>}
 
         <section className="catalog-section" id="catalog">
           <div className="catalog-head">
@@ -1399,16 +1405,17 @@ function App() {
       </main>}
 
       {notice && (
-        <div className={`toast ${notice.type}`}>
-          <span>
+        <div className={`toast ${notice.type}`} role={notice.type === 'error' ? 'alert' : 'status'} aria-atomic="true">
+          <span aria-hidden="true">
             {notice.type === "error" ? (
               <CircleAlert size={18} />
             ) : (
               <Check size={18} />
             )}
           </span>
-          {notice.message}
+          <div className="toast-message">{notice.message}</div>
           {notice.message?.includes('thêm') && notice.message?.includes('giỏ') && <button onClick={() => navigate('/gio-hang')}>Xem giỏ hàng</button>}
+          <button className="toast-close" aria-label="Đóng thông báo" onClick={() => setNotice(null)}><X size={18} aria-hidden="true" /></button>
         </div>
       )}
       {extraPage && !ordersRoute && <CustomerPageFrame account={accountPage} pathname={pathname} user={user} navigate={navigate}>
@@ -2449,6 +2456,8 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
   const [reason, setReason] = useState('');
   const [actionError, setActionError] = useState('');
   const actionLock = useRef(false);
+  const [hasOrderReview, setHasOrderReview] = useState(null);
+  useEffect(() => setHasOrderReview(null), [order.id]);
   useEffect(() => setPaid(order.paymentStatus === "PAID"), [order.id, order.paymentStatus]);
   const cancellableStatuses = ["PENDING_PAYMENT", "PENDING", "CONFIRMED", "PREPARING"];
   const cancel = () => { setAction('cancel'); setReason(''); setActionError(''); };
@@ -2467,7 +2476,7 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
   };
   return (
     <div className="order-view">
-      {order.status === 'COMPLETED' && <OrderReviews key={order.id} order={order} autoOpen={autoReview} onAutoOpened={onReviewOpened}/>}
+      {order.status === 'COMPLETED' && <OrderReviews key={order.id} order={order} autoOpen={autoReview} onAutoOpened={onReviewOpened} onReviewStatus={setHasOrderReview}/>}
       {action && <form className="shop-reason-form" onSubmit={submitAction}><h3>{action === 'cancel' ? 'Hủy đơn hàng' : 'Yêu cầu đổi/trả'}</h3><label>Lý do<textarea autoFocus required maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>{actionError && <p role="alert" className="shop-inline-error">{actionError}</p>}<div className="order-actions"><button type="button" className="button button-light" disabled={busy} onClick={() => setAction(null)}>Quay lại</button><button className="button button-dark" disabled={busy}>{busy ? 'Đang gửi...' : 'Xác nhận'}</button></div></form>}
       <div className="order-view-head">
         <div>
@@ -2538,7 +2547,8 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
         <br />
         {order.deliveryAddress}
       </p>
-      <div className="order-actions">{!busy && !action && <ReceiptAction order={order} onChanged={onReceiptConfirmed || onChanged} onNotice={onNotice}/>} {cancellableStatuses.includes(order.status) && <button type="button" className="button button-light" disabled={busy} onClick={cancel}>{busy ? "ĐANG HỦY..." : "HỦY ĐƠN"}</button>}{["DELIVERED", "COMPLETED"].includes(order.status) && (order.returnStatus || "NONE") === "NONE" && <button type="button" className="button button-light" disabled={busy} onClick={requestReturn}>YÊU CẦU ĐỔI/TRẢ</button>}</div>
+      {order.status === 'COMPLETED' && hasOrderReview === true && <p className="order-address">Đơn đã xác nhận nhận hàng và đã đánh giá sản phẩm nên không thể yêu cầu đổi trả.</p>}
+      <div className="order-actions">{!busy && !action && <ReceiptAction order={order} onChanged={onReceiptConfirmed || onChanged} onNotice={onNotice}/>} {cancellableStatuses.includes(order.status) && <button type="button" className="button button-light" disabled={busy} onClick={cancel}>{busy ? "ĐANG HỦY..." : "HỦY ĐƠN"}</button>}{(order.status === 'DELIVERED' || (order.status === 'COMPLETED' && hasOrderReview === false)) && (order.returnStatus || "NONE") === "NONE" && <button type="button" className="button button-light" disabled={busy} onClick={requestReturn}>YÊU CẦU ĐỔI/TRẢ</button>}</div>
     </div>
   );
 }

@@ -308,11 +308,14 @@ describe("admin navigation", () => {
     expect(container.querySelector(".admin-shell").dataset.theme).toBe("light");
     fireEvent.click(screen.getByRole("button", { name: "Chuyển sang giao diện tối" }));
     expect(window.localStorage.getItem("manager-theme")).toBe("dark");
-    fireEvent.click(screen.getByRole("button", { name: "Mở menu quản trị" }));
-    expect(screen.getByRole("button", { name: "Mở menu quản trị" }).getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Mở menu quản lý" }));
+    expect(screen.getByRole("button", { name: "Đóng menu quản lý" }).getAttribute("aria-expanded")).toBe("true");
+    fireEvent.keyDown(screen.getByRole("button", { name: "Đóng menu quản lý" }), { key: 'Escape' });
+    expect(screen.getByRole("button", { name: "Mở menu quản lý" }).getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Mở menu quản lý" }));
     fireEvent.click(screen.getByRole("button", { name: "Khách hàng", exact: true }));
     await screen.findByRole("table");
-    expect(screen.getByRole("button", { name: "Mở menu quản trị" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: "Mở menu quản lý" }).getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByRole("button", { name: "Khách hàng", exact: true }).getAttribute("aria-current")).toBe("page");
   });
 

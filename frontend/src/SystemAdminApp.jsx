@@ -264,6 +264,7 @@ export default function SystemAdminApp() {
                 <button
                   type="button"
                   className="internal-theme-toggle"
+                  aria-label={theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'}
                   onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
                 >
                   {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
