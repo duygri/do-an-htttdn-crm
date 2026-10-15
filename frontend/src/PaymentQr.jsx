@@ -11,39 +11,49 @@ export default function PaymentQr({ orderId, initial = null, onPaid }) {
   const [retrying, setRetrying] = useState(false);
   const [now, setNow] = useState(Date.now());
   const sequence = useRef(0);
+  const active=useRef(null),alive=useRef(false),callback=useRef(onPaid);
+  callback.current=onPaid;
   const paidNotified = useRef(initial?.paymentStatus === "PAID");
   const paymentStatusRef = useRef(initial?.paymentStatus);
   const load = async (sync = false) => {
+    if(!alive.current || active.current)return;
+    const controller=new AbortController();active.current=controller;
     const request = ++sequence.current;
     try {
-      const latest = await api(sync ? endpoints.syncOrderPayment(orderId) : endpoints.orderPayment(orderId), sync ? { method: "POST" } : {});
+      const latest = await api(sync ? endpoints.syncOrderPayment(orderId) : endpoints.orderPayment(orderId), {signal:controller.signal,...(sync?{method:'POST'}:{})});
       if (request === sequence.current) {
         setPayment(latest); paymentStatusRef.current = latest.paymentStatus; setError("");
         if (latest.paymentStatus === "PAID" && !paidNotified.current) {
           paidNotified.current = true;
-          onPaid?.();
+          callback.current?.();
         }
       }
     } catch (cause) { if (request === sequence.current) setError(cause.message); }
-    finally { if (request === sequence.current) setLoading(false); }
+    finally { if (request === sequence.current) {active.current=null;setLoading(false);} }
   };
   useEffect(() => {
+    alive.current=true;paymentStatusRef.current=initial?.paymentStatus;setPayment(initial);setError('');setLoading(!initial);setRetrying(false);
     paidNotified.current = initial?.paymentStatus === "PAID";
     void load();
     const poll = window.setInterval(() => { if (!document.hidden && paymentStatusRef.current !== "PAID") void load(true); }, 10000);
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => { sequence.current++; window.clearInterval(poll); window.clearInterval(tick); };
+    const visible=()=>{if(!document.hidden && paymentStatusRef.current!=='PAID')void load(true);};
+    document.addEventListener('visibilitychange',visible);
+    return () => { alive.current=false;sequence.current++;active.current?.abort();active.current=null;window.clearInterval(poll);window.clearInterval(tick);document.removeEventListener('visibilitychange',visible); };
   }, [orderId]);
 
   const retry = async () => {
-    if (retrying) return;
+    if (!alive.current || retrying || active.current?.retry) return;
+    active.current?.abort();const controller=new AbortController();controller.retry=true;active.current=controller;
+    const request=++sequence.current;
     setRetrying(true); setError("");
     try {
-      const latest = await api(endpoints.retryOrderPayment(orderId), { method: "POST" });
+      const latest = await api(endpoints.retryOrderPayment(orderId), { method: "POST",signal:controller.signal });
+      if(!alive.current || request!==sequence.current)return;
       setPayment(latest); paymentStatusRef.current = latest.paymentStatus;
-      if (latest.paymentStatus === "PAID" && !paidNotified.current) { paidNotified.current = true; onPaid?.(); }
-    } catch (cause) { setError(cause.message); }
-    finally { setRetrying(false); }
+      if (latest.paymentStatus === "PAID" && !paidNotified.current) { paidNotified.current = true; callback.current?.(); }
+    } catch (cause) { if(alive.current && request===sequence.current)setError(cause.message); }
+    finally { if(alive.current && request===sequence.current){active.current=null;setRetrying(false);setLoading(false);} }
   };
 
   const expired = payment?.expiresAt && Date.parse(payment.expiresAt) <= now;
@@ -61,6 +71,6 @@ export default function PaymentQr({ orderId, initial = null, onPaid }) {
       </>}
       {!pending && payment.retryable && <button type="button" className="button button-dark" disabled={retrying} onClick={retry}>{retrying ? "Đang tạo mã..." : "Tạo mã QR mới"}</button>}
     </>}
-    {error && <p className="shop-inline-error" role="alert">Không cập nhật được trạng thái: {error} <button type="button" onClick={load}>Thử lại</button></p>}
+    {error && <p className="shop-inline-error" role="alert">Không cập nhật được trạng thái: {error} <button type="button" onClick={()=>load()}>Thử lại</button></p>}
   </section>;
 }

@@ -1,6 +1,7 @@
 package com.htttdn.crm.repository; import com.htttdn.crm.entity.*; import org.springframework.data.jpa.repository.*; import org.springframework.data.domain.Page; import java.util.*;
 public interface FeedbackRepository extends JpaRepository<Feedback,Long> {
     boolean existsByOrderIdAndProductId(Long orderId,Long productId);
+    boolean existsByOrderId(Long orderId);
     List<Feedback> findByOrderId(Long orderId);
     Page<Feedback> findByDeletedAtIsNull(org.springframework.data.domain.Pageable p);
     Page<Feedback> findByStatusAndDeletedAtIsNull(String status,org.springframework.data.domain.Pageable p);

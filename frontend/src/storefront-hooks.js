@@ -4,15 +4,22 @@ import { api } from './api';
 export function useShopResource(path) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadedPath, setLoadedPath] = useState(null);
   const generation = useRef(0);
+  const active = useRef(null);
   const load = useCallback(async () => {
+    active.current?.abort();
+    const controller=new AbortController();active.current=controller;
     const id = ++generation.current;
     setError('');
-    try { const result = await api(path); if (id === generation.current) setData(result); }
+    setLoading(true);
+    try { const result = await api(path,{signal:controller.signal}); if (id === generation.current) {setData(result);setLoadedPath(path);} }
     catch (error) { if (id === generation.current) setError(error.message); }
+    finally {if(id===generation.current)setLoading(false);}
   }, [path]);
-  useEffect(() => { load(); return () => { generation.current++; }; }, [load]);
-  return { data, setData, error, load };
+  useEffect(() => { load(); return () => { generation.current++;active.current?.abort(); }; }, [load]);
+  return { data:loadedPath===path?data:null, setData, error, load, loading:loading || loadedPath!==path };
 }
 
 // Existing storefront dialogs share the same overlay structure.

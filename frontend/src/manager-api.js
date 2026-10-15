@@ -1,3 +1,5 @@
+import { beginManagerMutation } from './manager-sync';
+import {managerQuery} from './useManagerFilters';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
 async function request(url, options) {
   const controller = new AbortController();
@@ -41,15 +43,19 @@ export async function adminRefreshSession() {
 }
 
 export async function adminApi(path, options = {}, canRefresh = true) {
+  const mutating = !['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase()) && !path.startsWith('/api/manager/auth/');
+  const finish = mutating ? beginManagerMutation() : null;
+  try {
   const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
   if (adminAccessToken) headers.Authorization = `Bearer ${adminAccessToken}`;
   const body = options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body;
   const response = await request(`${API_BASE}${path}`, { ...options, headers, body, credentials: 'include' });
   if (response.status === 401 && canRefresh && !path.startsWith('/api/manager/auth/')) {
     const session = await adminRefreshSession();
-    if (session) return adminApi(path, options, false);
+    if (session) return await adminApi(path, options, false);
   }
-  return parseResponse(response);
+  return await parseResponse(response);
+  } finally { finish?.(); }
 }
 
 export async function adminSignIn(payload) {
@@ -67,14 +73,14 @@ export const adminEndpoints = {
   revenue: '/api/manager/reports/revenue',
   userReport: '/api/manager/reports/users',
   surveyStats: '/api/manager/surveys/stats',
-  users: ({ q = '', page = 0, size = 10 } = {}) => `/api/manager/users?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
+  users: ({ q = '', page = 0, size = 10, ...filters } = {}) => `/api/manager/users?q=${encodeURIComponent(q)}&page=${page}&size=${size}${Object.entries(filters).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>`&${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('')}`,
   user: id => `/api/manager/users/${id}`,
   lockUser: id => `/api/manager/users/${id}/lock`,
   deleteUser: id => `/api/manager/users/${id}`,
-  products: ({ q = '', page = 0, size = 10 } = {}) => `/api/manager/products?q=${encodeURIComponent(q)}&page=${page}&size=${size}`,
+  products: ({ q = '', page = 0, size = 10,...filters } = {}) => `/api/manager/products?${managerQuery({q,page,size,...filters})}`,
   product: id => `/api/manager/products/${id}`,
   productStock: id => `/api/manager/products/${id}/stock`,
-  orders: ({ status = '', page = 0, size = 10 } = {}) => `/api/manager/orders${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,
+  orders: ({ status = '', page = 0, size = 10,...filters } = {}) => `/api/manager/orders?${managerQuery({status,page,size,...filters})}`,
   order: id => `/api/manager/orders/${id}`,
   orderStatus: id => `/api/manager/orders/${id}/status`,
   feedback: ({ status = '', page = 0, size = 10 } = {}) => `/api/manager/feedback${status ? `?status=${encodeURIComponent(status)}&page=${page}&size=${size}` : `?page=${page}&size=${size}`}`,

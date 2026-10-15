@@ -106,7 +106,7 @@ export default function InternalDirectory({ kind, manager = false }) {
 
   const titles = {
     accounts: { title: 'Tài khoản nội bộ', desc: 'Quản trị danh sách quản trị viên và nhân viên vận hành hệ thống', icon: ShieldCheck },
-    products: { title: 'Tra cứu sản phẩm', desc: 'Xem danh mục, giá bán, số lượng tồn kho và liên kết nhà cung cấp', icon: Package },
+    products: { title: 'Tra cứu sản phẩm', desc: 'Xem danh mục, giá bán và số lượng tồn kho', icon: Package },
     suppliers: { title: 'Nhà cung cấp', desc: 'Quản lý thông tin liên hệ và đối tác phân phối hàng hóa', icon: Truck },
   };
 
@@ -197,7 +197,6 @@ export default function InternalDirectory({ kind, manager = false }) {
           <>
             {Object.entries({
               category: 'Danh mục',
-              supplierId: 'Mã số nhà cung cấp',
               minPrice: 'Giá từ',
               maxPrice: 'Giá đến',
             }).map(([k, label]) => (
@@ -335,7 +334,7 @@ export default function InternalDirectory({ kind, manager = false }) {
                     <td>
                       {kind === 'products' ? (
                         <span>
-                          <strong>{Number(row.price).toLocaleString('vi-VN')} đ</strong> · Tồn: {row.stock} · NCC: #{row.supplierId || '—'}
+                          <strong>{Number(row.price).toLocaleString('vi-VN')} đ</strong> · Tồn: {row.stock}
                         </span>
                       ) : kind === 'accounts' ? (
                         <span>

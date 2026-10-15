@@ -1,7 +1,21 @@
 import { beforeEach, afterEach, it, expect, vi } from 'vitest';
-beforeEach(() => { vi.resetModules(); vi.stubGlobal('fetch', vi.fn()); });
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => { vi.resetModules(); vi.stubEnv('VITE_API_BASE_URL', ''); vi.stubGlobal('fetch', vi.fn()); });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const response = (status, body) => ({ ok: status < 400, status, json: async () => body });
+it('uses the configured backend origin for all three portals', async () => {
+  vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8082/');
+  const { api, adminApi } = await import('./api');
+  const { adminApi: managerApi } = await import('./manager-api');
+  fetch.mockResolvedValue(response(200, []));
+  await api('/api/products');
+  await adminApi('/api/admin/products');
+  await managerApi('/api/manager/products');
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+    'http://localhost:8082/api/products',
+    'http://localhost:8082/api/admin/products',
+    'http://localhost:8082/api/manager/products',
+  ]);
+});
 it('uses port 8080 and preserves structured API errors', async () => {
   const { api, endpoints } = await import('./api');
   expect(endpoints.orders({ page: 2, size: 8, tab: 'TO_PAY', keyword: 'mã áo' })).toBe('/api/orders?page=2&size=8&tab=TO_PAY&keyword=m%C3%A3+%C3%A1o');

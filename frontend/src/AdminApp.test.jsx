@@ -26,6 +26,14 @@ beforeEach(() => {
   adminApi.mockResolvedValue({ content: [] });
 });
 afterEach(cleanup);
+it('removes manager supplier tools and redirects the retired route', async () => {
+  window.history.replaceState({}, '', '/manager/suppliers');
+  render(<AdminApp/>);
+  await waitFor(() => expect(window.location.pathname).toBe('/manager'));
+  expect(screen.queryByText(/nhà cung cấp/i)).toBeNull();
+  expect(screen.queryByText('Đối tác cung cấp')).toBeNull();
+  expect(adminApi.mock.calls.some(([url]) => url.includes('/suppliers'))).toBe(false);
+});
 
 describe("admin list lifecycle", () => {
   it("mounts and cleans up under StrictMode without returning a Promise cleanup", async () => {
@@ -111,7 +119,7 @@ describe("admin navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Chi tiết" }));
     await screen.findByRole("dialog");
     expect(screen.getByRole("dialog").textContent).toContain("Thanh toán khi nhận hàng");
-    expect(adminApi).toHaveBeenCalledWith("/api/manager/orders/9");
+    expect(adminApi).toHaveBeenCalledWith("/api/manager/orders/9", expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it("shows PayOS payment state separately from order processing and can refresh it", async () => {
@@ -294,17 +302,20 @@ describe("admin navigation", () => {
     expect(window.location.pathname).toBe("/manager/orders");
   });
 
-  it("defaults to dark theme, persists a toggle and closes the mobile menu on navigation", async () => {
+  it("defaults to light theme, persists a toggle and closes the mobile menu on navigation", async () => {
     const { container } = render(<AdminApp />, { wrapper });
     await screen.findByRole("heading", { name: "Tổng quan", level: 1 });
-    expect(container.querySelector(".admin-shell").dataset.theme).toBe("dark");
-    fireEvent.click(screen.getByRole("button", { name: "Chuyển sang giao diện sáng" }));
-    expect(window.localStorage.getItem("manager-theme")).toBe("light");
-    fireEvent.click(screen.getByRole("button", { name: "Mở menu quản trị" }));
-    expect(screen.getByRole("button", { name: "Mở menu quản trị" }).getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector(".admin-shell").dataset.theme).toBe("light");
+    fireEvent.click(screen.getByRole("button", { name: "Chuyển sang giao diện tối" }));
+    expect(window.localStorage.getItem("manager-theme")).toBe("dark");
+    fireEvent.click(screen.getByRole("button", { name: "Mở menu quản lý" }));
+    expect(screen.getByRole("button", { name: "Đóng menu quản lý" }).getAttribute("aria-expanded")).toBe("true");
+    fireEvent.keyDown(screen.getByRole("button", { name: "Đóng menu quản lý" }), { key: 'Escape' });
+    expect(screen.getByRole("button", { name: "Mở menu quản lý" }).getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Mở menu quản lý" }));
     fireEvent.click(screen.getByRole("button", { name: "Khách hàng", exact: true }));
     await screen.findByRole("table");
-    expect(screen.getByRole("button", { name: "Mở menu quản trị" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: "Mở menu quản lý" }).getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByRole("button", { name: "Khách hàng", exact: true }).getAttribute("aria-current")).toBe("page");
   });
 

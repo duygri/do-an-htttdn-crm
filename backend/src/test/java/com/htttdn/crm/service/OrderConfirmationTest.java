@@ -43,7 +43,27 @@ class OrderConfirmationTest {
     final VoucherService vouchers = mock(VoucherService.class);
     final NotificationService notifications = mock(NotificationService.class);
     final PayosService payos = mock(PayosService.class);
-    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos);
+    final FeedbackRepository feedback = mock(FeedbackRepository.class);
+    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback);
+
+    @Test void completedReviewedOrderCannotRequestReturn() {
+        User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);
+        Order order = paymentOrder("COMPLETED"); order.setCustomer(customer);
+        when(orders.findForStatusUpdate(9L)).thenReturn(Optional.of(order));
+        when(feedback.existsByOrderId(9L)).thenReturn(true);
+        assertEquals("RETURN_AFTER_REVIEW_NOT_ALLOWED", assertThrows(ApiException.class, () -> service.requestReturn(customer,9L,"Lỗi sản phẩm")).code());
+        assertEquals("NONE",order.getReturnStatus());
+        verify(orders,never()).save(any()); verifyNoInteractions(notifications);
+    }
+
+    @Test void deliveredOrCompletedWithoutReviewCanStillRequestReturn() {
+        User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);
+        for (String status : List.of("DELIVERED", "COMPLETED")) {
+            Order order = paymentOrder(status); order.setCustomer(customer);
+            when(orders.findForStatusUpdate(9L)).thenReturn(Optional.of(order));
+            assertEquals("REQUESTED",service.requestReturn(customer,9L,"Lỗi sản phẩm").returnStatus());
+        }
+    }
 
     @Test void codStartsPendingWithoutCallingPayos() {
         Product product = new Product(); org.springframework.test.util.ReflectionTestUtils.setField(product,"id",1L); product.setName("Áo"); product.setPrice(BigDecimal.TEN); product.setStock(5); product.setActive(true);

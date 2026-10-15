@@ -1,11 +1,18 @@
-import AdminVouchers from "./AdminVouchers";
-import InternalDirectory from './InternalDirectory';
-import {CustomerCreate,SurveyAudience,SupplierAssignment} from './ManagerTools';
+import { hasReturn, showReturn, displayOrderLabel, returnLabel } from './order-display';
+import {useManagerFilters,managerQuery,vietnamDateRange} from './useManagerFilters';
+import ManagerOrderDetail from './ManagerOrderDetail';
+import CustomerLifecycle, {CustomerLifecycleFilters} from './CustomerLifecycle';
+import { useManagerResource, useManagerList, ManagerSyncStatus, useManagerReadPause } from "./useManagerResource";
+import {CustomerCreate,SurveyAudience} from './ManagerTools';
 import './internal-portal.css';
 import { TicketPercent } from "lucide-react";
 import { canAdvanceOrder, isFinalOrder } from './order-transitions';
 import SurveyRewardEditor, { RewardFields, emptyReward } from './SurveyRewardEditor';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+const AdminVouchers = React.lazy(() => import('./AdminVouchers'));
+const CustomerProfile = React.lazy(() => import('./CustomerProfile'));
+const CustomerCare = React.lazy(() => import('./CustomerCare'));
+const CareDashboard = React.lazy(() => import('./CareDashboard'));
 import {
   Activity,
   LayoutDashboard,
@@ -54,8 +61,9 @@ const pageData = (value) => value?.content || [];
 const navItems = [
   ["dashboard", "Tổng quan"],
   ["users", "Khách hàng"],
+  ["care", "Chăm sóc khách hàng"],
+  ["care-dashboard", "Hiệu quả chăm sóc"],
   ["products", "Sản phẩm"],
-  ["suppliers", "Nhà cung cấp"],
   ["orders", "Đơn hàng"],
   ["feedback", "Phản hồi"],
   ["surveys", "Khảo sát"],
@@ -66,8 +74,9 @@ const validSections = new Set(navItems.map(([key]) => key));
 const navIcons = {
   dashboard: LayoutDashboard,
   users: UsersIcon,
+  care: ClipboardList,
+  'care-dashboard': Activity,
   products: Package,
-  suppliers: Package,
   orders: ShoppingCart,
   feedback: MessageSquare,
   surveys: ClipboardList,
@@ -129,6 +138,7 @@ const formatDate = (value) =>
 const userOrigin = import.meta.env.VITE_USER_ORIGIN || "http://localhost:5173";
 const normalizeAdminPath = (value) => {
   if (value === "/manager/login") return value;
+  if (/^\/manager\/users\/[^/]+$/.test(value)) return value;
   const key = value.replace(/^\/manager\/?/, "").split("/")[0] || "dashboard";
   return validSections.has(key)
     ? key === "dashboard"
@@ -138,22 +148,24 @@ const normalizeAdminPath = (value) => {
 };
 
 export default function ManagerApp() {
-  const [path, setPath] = useState(window.location.pathname);
+  const [path, setPath] = useState(window.location.pathname + window.location.search);
   const [admin, setAdmin] = useState(null);
   const [checking, setChecking] = useState(true);
   const [sessionError,setSessionError]=useState('');
   const [notice, setNotice] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState(
-    () => window.localStorage.getItem("manager-theme") || "dark"
+    () => window.localStorage.getItem("manager-theme") || "light"
   );
   const section =
     path === "/manager/login"
       ? "login"
-      : path.replace(/^\/manager\/?/, "").split("/")[0] || "dashboard";
+      : path.split('?')[0].replace(/^\/manager\/?/, "").split("/")[0] || "dashboard";
+  const profileMatch = path.split('?')[0].match(/^\/manager\/users\/([^/]+)$/);
   const go = (next) => {
     const target = next === "dashboard" ? "/manager" : `/manager/${next}`;
     window.history.pushState({}, "", target);
+    window.dispatchEvent(new Event('manager:navigation'));
     setPath(target);
     setMobileMenuOpen(false);
   };
@@ -170,8 +182,8 @@ export default function ManagerApp() {
       const current = window.location.pathname;
       const normalized = normalizeAdminPath(current);
       if (current !== normalized)
-        window.history.replaceState({}, "", normalized);
-      setPath(normalized);
+        window.history.replaceState({}, "", normalized + window.location.search);
+      setPath(normalized + window.location.search);
     };
     onPop();
     window.addEventListener("popstate", onPop);
@@ -183,6 +195,16 @@ export default function ManagerApp() {
       .catch(e=>setSessionError(e.message))
       .finally(() => setChecking(false));
     return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  useEffect(() => {
+    const expired = () => {
+      setAdmin(null);
+      window.history.replaceState({}, '', '/manager/login');
+      setPath('/manager/login');
+      setNotice({ message: 'Phiên quản lý đã hết hạn. Vui lòng đăng nhập lại.', type: 'error' });
+    };
+    window.addEventListener('manager:session-expired', expired);
+    return () => window.removeEventListener('manager:session-expired', expired);
   }, []);
   if (checking)
     return <div className="admin-loading">Đang kiểm tra phiên quản trị...</div>;
@@ -200,12 +222,13 @@ export default function ManagerApp() {
       />
     );
   return (
-    <div className="admin-shell" data-theme={theme}>
+    <div className={`admin-shell manager-shell${profileMatch ? ' manager-profile-page' : ''}`} data-theme={theme} onKeyDown={event=>{if(['DIV','SPAN'].includes(event.target.tagName)&&event.target.getAttribute('role')==='button'&&['Enter',' '].includes(event.key)){event.preventDefault();event.target.click();}}}>
       <button
         className="admin-mobile-toggle"
-        aria-label="Mở menu quản trị"
+        aria-label={mobileMenuOpen ? "Đóng menu quản lý" : "Mở menu quản lý"}
         aria-expanded={mobileMenuOpen}
         onClick={() => setMobileMenuOpen((value) => !value)}
+        onKeyDown={event => { if (event.key === 'Escape') setMobileMenuOpen(false); }}
       >
         {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
       </button>
@@ -216,13 +239,13 @@ export default function ManagerApp() {
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
-      <aside className={`admin-sidebar ${mobileMenuOpen ? "is-open" : ""}`}>
+      <aside className={`admin-sidebar ${mobileMenuOpen ? "is-open" : ""}`} onKeyDown={event => { if (event.key === 'Escape') setMobileMenuOpen(false); }}>
         <div className="admin-brand">
           <span className="admin-brand-mark">
             <Activity size={18} />
           </span>
           <div>
-            ManagerPanel<small>ANH LỚN SHOP</small>
+            ANH LỚN<small>Quản lý cửa hàng · CRM</small>
           </div>
         </div>
         <div className="admin-profile">
@@ -251,9 +274,9 @@ export default function ManagerApp() {
         <button
           className="admin-logout"
           onClick={async () => {
-            await adminSignOut();
             setAdmin(null);
             go("login");
+            await adminSignOut();
           }}
         >
           <LogOut size={16} aria-hidden="true" />
@@ -264,7 +287,7 @@ export default function ManagerApp() {
         <header className="admin-topbar">
           <div className="admin-topbar-left">
             <span className="admin-breadcrumb">
-              Admin <span>/</span>{" "}
+              Quản lý <span>/</span>{" "}
               <b>
                 {navItems.find((item) => item[0] === section)?.[1] ||
                   "Tổng quan"}
@@ -298,7 +321,7 @@ export default function ManagerApp() {
         </header>
         <div className="admin-page-heading">
           <h1>
-            {navItems.find((item) => item[0] === section)?.[1] || "Tổng quan"}
+            {profileMatch ? 'Hồ sơ khách hàng 360°' : navItems.find((item) => item[0] === section)?.[1] || "Tổng quan"}
           </h1>
           <p>
             {section === "dashboard"
@@ -311,15 +334,19 @@ export default function ManagerApp() {
               : "Quản lý và cập nhật dữ liệu cửa hàng."}
           </p>
         </div>
+        <ManagerSyncStatus />
+        <React.Suspense fallback={<PanelLoading/>}>
         {section === "dashboard" && <Dashboard go={go} />}
-        {section === "users" && <Users notify={notify} />}{" "}
+        {section === "users" && (profileMatch ? <CustomerProfile key={profileMatch[1]} customerId={profileMatch[1]} location={path} go={go} /> : <Users notify={notify} location={path} go={go} />)}{" "}
         {section === "products" && <Products notify={notify} />}{" "}
-        {section === "suppliers" && <><InternalDirectory kind="suppliers" manager/><SupplierAssignment/></>}
         {section === "orders" && <Orders notify={notify} />}{" "}
         {section === "feedback" && <Feedback notify={notify} />}{" "}
         {section === "surveys" && <Surveys notify={notify} />}
         {section === "reports" && <Reports />}
         {section === "vouchers" && <AdminVouchers />}
+        {section === "care" && <CustomerCare go={go} location={path}/>}
+        {section === "care-dashboard" && <CareDashboard go={go} location={path}/>}
+        </React.Suspense>
       </main>
       {notice && (
         <div className={`admin-toast ${notice.type}`}>{notice.message}</div>
@@ -344,7 +371,7 @@ function AdminLogin({ theme, onAuthenticated, onNotice, error }) {
     }
   };
   return (
-    <div className="admin-login" data-theme={theme}>
+    <div className="admin-login manager-login" data-theme={theme}>
       <div className="admin-login-card">
         <div className="admin-mark">
           AL<span>MANAGER</span>
@@ -394,37 +421,17 @@ function AdminLogin({ theme, onAuthenticated, onNotice, error }) {
 }
 
 const recentOrdersEndpoint = () => adminEndpoints.orders({ size: 100 });
+const orderSummaryEndpoint = () => '/api/manager/orders/summary';
 function Dashboard({ go }) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
-  const version = useRef(0);
-  const load = (silent = false) => {
-    const current = ++version.current;
-    if (!silent) setError("");
-    setRefreshing(true);
-    Promise.all([
-      adminApi(adminEndpoints.revenue),
-      adminApi(adminEndpoints.userReport),
-      adminApi(adminEndpoints.surveyStats),
-    ])
-      .then(([revenue, users, surveys]) => {
-        if (current === version.current) setData({ revenue, users, surveys });
-      })
-      .catch((error) => {
-        if (current === version.current)
-          setError(error.message || "Không tải được dữ liệu dashboard.");
-      })
-      .finally(() => {
-        if (current === version.current) setRefreshing(false);
-      });
-  };
-  useEffect(() => {
-    load();
-    return () => {
-      version.current += 1;
-    };
+  const fetchDashboard = useCallback(async signal => {
+    const [revenue, users, surveys] = await Promise.all([
+      adminApi(adminEndpoints.revenue, { signal }),
+      adminApi(adminEndpoints.userReport, { signal }),
+      adminApi(adminEndpoints.surveyStats, { signal }),
+    ]);
+    return { revenue, users, surveys };
   }, []);
+  const { data, error, refreshing, load } = useManagerResource(fetchDashboard);
   if (error)
     return (
       <div className="admin-panel admin-error-state">
@@ -591,16 +598,6 @@ function Dashboard({ go }) {
             </div>
             <ChevronRight size={16} className="admin-quick-arrow" />
           </div>
-          <div className="admin-quick-card" role="button" tabIndex={0} onClick={() => go("suppliers")} title="Đến trang đối tác cung cấp">
-            <div className="admin-quick-icon teal">
-              <Package size={18} />
-            </div>
-            <div className="admin-quick-text">
-              <b>Đối tác cung cấp</b>
-              <small>Danh bạ & phân bổ nguồn hàng</small>
-            </div>
-            <ChevronRight size={16} className="admin-quick-arrow" />
-          </div>
         </div>
       </section>
 
@@ -686,6 +683,7 @@ function Dashboard({ go }) {
 }
 function RecentOrders({ go }) {
   const { data, loading, error, load } = useAdminList(recentOrdersEndpoint);
+  const {data:summary} = useAdminList(orderSummaryEndpoint);
   if (loading) return <PanelLoading />;
   if (error)
     return (
@@ -694,17 +692,17 @@ function RecentOrders({ go }) {
       </div>
     );
   const orders = pageData(data);
-  const counts = Object.entries(statusLabels).map(([status, label]) => ({
+  const counts = Object.entries({...statusLabels,RETURN:'Đổi trả'}).filter(([status])=>status!=='PENDING_PAYMENT').map(([status, label]) => ({
     status,
     label,
-    count: orders.filter((order) => order.status === status).length,
+    count: Number.isFinite(summary?.ALL) ? (summary[status]||0) : orders.filter((order) => status==='RETURN'?showReturn(order):!showReturn(order)&&order.status === status).length,
   }));
   return (
     <section className="admin-panel admin-recent-orders">
       <div className="admin-section-heading">
         <div>
           <h2>Đơn hàng gần đây</h2>
-          <p>Phân bố trạng thái trong {orders.length} đơn mới nhất</p>
+          <p>{Number.isFinite(summary?.ALL)?`Trạng thái toàn bộ ${summary.ALL} đơn hàng`:`Phân bố trạng thái trong ${orders.length} đơn mới nhất`}</p>
         </div>
         <button className="admin-action" onClick={() => go("orders")}>
           Xem tất cả <ArrowRight size={14} />
@@ -712,18 +710,16 @@ function RecentOrders({ go }) {
       </div>
       <div className="admin-status-strip">
         {counts.map(({ status, label, count }) => (
-          <span
+          <button type="button"
             key={status}
             className="admin-status-chip"
-            onClick={() => go("orders")}
-            role="button"
-            tabIndex={0}
+            onClick={() => go(`orders?status=${encodeURIComponent(status)}`)}
             title={`Lọc đơn hàng: ${label}`}
           >
             <i style={{ background: statusColors[status] }} />
             {label}
             <b>{count}</b>
-          </span>
+          </button>
         ))}
       </div>
       <Table headers={["Mã đơn", "Khách hàng", "Tổng tiền", "Trạng thái"]}>
@@ -744,7 +740,7 @@ function RecentOrders({ go }) {
                 <strong>{money(order.totalAmount)}</strong>
               </td>
               <td>
-                <OrderBadge status={order.status} />
+                <OrderBadge status={order.status} order={order} />
               </td>
             </tr>
           );
@@ -753,11 +749,11 @@ function RecentOrders({ go }) {
     </section>
   );
 }
-function OrderBadge({ status }) {
+function OrderBadge({ status, order }) {
   return (
-    <span className="admin-badge" style={{ color: statusColors[status] }}>
+    <span className="admin-badge" style={{ color: showReturn(order) ? "var(--order-return-color, #c2410c)" : statusColors[status] }}>
       <span className="admin-badge-dot" />
-      {statusLabels[status] || status}
+      {order ? displayOrderLabel(order, statusLabels) : statusLabels[status] || status}
     </span>
   );
 }
@@ -790,45 +786,12 @@ function PanelLoading() {
     </div>
   );
 }
-export function useAdminList(endpoint) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const mounted = useRef(false);
-  const requestVersion = useRef(0);
-  const load = useCallback(async () => {
-    if (!mounted.current) return;
-    const version = ++requestVersion.current;
-    const isCurrent = () => mounted.current && version === requestVersion.current;
-    setLoading(true);
-    setError("");
-    try {
-      const result = await adminApi(endpoint());
-      if (isCurrent()) setData(result);
-    } catch (error) {
-      if (isCurrent()) {
-        setError(error.message || "Không tải được dữ liệu.");
-        setData({ content: [] });
-      }
-    } finally {
-      if (isCurrent()) setLoading(false);
-    }
-  }, [endpoint]);
-  useEffect(() => {
-    mounted.current = true;
-    void load();
-    return () => {
-      mounted.current = false;
-      // Invalidate pending requests, including StrictMode's first mount.
-      requestVersion.current += 1;
-    };
-  }, [load]);
-  return { data, load, loading, error };
-}
-function Table({ headers, children }) {
+export const useAdminList = useManagerList;
+
+function Table({ headers, children, className = '' }) {
   const hasRows = React.Children.count(children) > 0;
   return (
-    <div className="admin-table-wrap">
+    <div className={`admin-table-wrap ${className}`}>
       <table>
         <thead>
           <tr>
@@ -839,7 +802,7 @@ function Table({ headers, children }) {
         </thead>
         <tbody>
           {hasRows ? (
-            children
+            React.Children.map(children,row=>React.isValidElement(row)?React.cloneElement(row,{},React.Children.map(row.props.children,(cell,index)=>React.isValidElement(cell)?React.cloneElement(cell,{'data-label':headers[index]}):cell)):row)
           ) : (
             <tr>
               <td className="admin-table-empty" colSpan={headers.length}>
@@ -873,14 +836,23 @@ function ListError({ message, onRetry }) {
   );
 }
 
-function Users({ notify }) {
-  const [page, setPage] = useState(0);
-  const [search, setSearch] = useState("");
+function Users({ notify, location, go }) {
+  const params = new URLSearchParams(location.split('?')[1]);
+  const page = Math.max(0, Number.parseInt(params.get('page'), 10) || 0);
+  const query = params.get('q') || '';
+  const [search, setSearch] = useState(query);
+  useEffect(() => setSearch(query), [query]);
+  const changeFilters = patch => {const next=new URLSearchParams(params);Object.entries(patch).forEach(([k,v])=>v===''?next.delete(k):next.set(k,String(v)));if(!Object.hasOwn(patch,'page'))next.set('page','0');go(`users?${next}`);};
+  const setPage = next => changeFilters({page:next});
+  const searchUsers = value => changeFilters({q:value.trim()});
   const [dialog, setDialog] = useState(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const endpoint = useCallback(() => adminEndpoints.users({ page }), [page]);
-  const { data, load, loading, error } = useAdminList(endpoint);
+  const filterKey=params.toString();
+  const endpoint = useCallback(() => {const filters=Object.fromEntries(new URLSearchParams(filterKey));return adminEndpoints.users({...filters,page,q:query});}, [page, query,filterKey]);
+  const { data:previousData, load, loading, error,stale } = useAdminList(endpoint,{keepPreviousData:true});
+  const data=stale?null:previousData;
+  useManagerReadPause(!!dialog || busy);
   const closeDialog = () => {
     if (!busy) {
       setDialog(null);
@@ -919,24 +891,8 @@ function Users({ notify }) {
     }
   };
   const users = pageData(data);
-  const filteredUsers = useMemo(() => {
-    if (!search.trim()) return users;
-    const q = search.toLowerCase();
-    return users.filter(
-      (user) =>
-        user.fullName?.toLowerCase().includes(q) ||
-        user.email?.toLowerCase().includes(q) ||
-        user.phone?.includes(q)
-    );
-  }, [users, search]);
+  const filteredUsers = users;
 
-  if (loading) return <PanelLoading />;
-  if (error)
-    return (
-      <div className="admin-panel">
-        <ListError message={error} onRetry={load} />
-      </div>
-    );
   return (
     <div className="admin-panel">
       <PanelTitle
@@ -953,56 +909,75 @@ function Users({ notify }) {
             placeholder="Tìm theo tên, email, SĐT..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') searchUsers(search); }}
           />
           {search && (
             <button
               type="button"
               className="admin-search-clear"
-              onClick={() => setSearch("")}
+              onClick={() => { setSearch(''); searchUsers(''); }}
             >
               <X size={13} />
             </button>
           )}
         </div>
         <span className="admin-toolbar-count">
-          {filteredUsers.length} khách hàng
+          {data?.totalElements ?? filteredUsers.length} khách hàng
         </span>
+        <button className="admin-action" onClick={() => searchUsers(search)}>Tìm khách hàng</button>
       </div>
+      <CustomerLifecycleFilters params={params} onChange={changeFilters}/>
+      {error&&!previousData&&<ListError message={error} onRetry={load}/>}
+      {loading&&<p role="status">Đang tải khách hàng...</p>}
+      {!loading&&!error&&!filteredUsers.length&&<p>Không có khách hàng phù hợp bộ lọc.</p>}
       <Table
-        headers={["Họ tên", "Email", "Điện thoại", "Trạng thái", "Thao tác"]}
+        className="manager-customer-table"
+        headers={["Họ tên", "Email", "Điện thoại", "Phân nhóm", "Mua hàng", "Trạng thái", "Thao tác"]}
       >
         {filteredUsers.map((user) => (
           <tr key={user.id}>
             <td>
-              <b>{user.fullName}</b>
+              <div className="admin-table-customer">
+                <span className="admin-customer-avatar">
+                  {(user.fullName || "C").trim().slice(0, 1).toUpperCase()}
+                </span>
+                <b>{user.fullName}</b>
+              </div>
             </td>
             <td>{user.email}</td>
             <td>{user.phone || "—"}</td>
+            <td><CustomerLifecycle segment={user.segmentation}/></td>
+            <td><div className="customer-purchase-metrics"><span>{user.completedOrders??0} đơn hoàn thành</span><strong>{money(user.completedValue??0)}</strong><span>{user.lastCompletedOrderAt?new Date(user.lastCompletedOrderAt).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Chưa mua hàng'}</span></div></td>
             <td>
               <span
                 className={`admin-badge ${user.locked ? "danger" : "success"}`}
               >
+                <span className="admin-badge-dot" />
                 {user.locked ? "Đã khóa" : "Hoạt động"}
               </span>
             </td>
             <td>
-              <button
-                className="admin-action"
-                onClick={() =>
-                  user.locked
-                    ? update(user, false)
-                    : setDialog({ type: "lock", user })
-                }
-              >
-                {user.locked ? "Mở khóa" : "Khóa"}
-              </button>
-              <button
-                className="admin-action danger-text"
-                onClick={() => setDialog({ type: "delete", user })}
-              >
-                Xóa
-              </button>
-              <CustomerCreate user={user} onSaved={load}/>
+              <div className="admin-table-row-actions">
+                <button
+                  className="admin-action"
+                  onClick={() =>
+                    user.locked
+                      ? update(user, false)
+                      : setDialog({ type: "lock", user })
+                  }
+                >
+                  {user.locked ? "Mở khóa" : "Khóa"}
+                </button>
+                <button
+                  className="admin-action danger-text"
+                  onClick={() => setDialog({ type: "delete", user })}
+                >
+                  Xóa
+                </button>
+                <CustomerCreate user={user} onSaved={load}/>
+                <button className="admin-action" onClick={() => go(`users/${user.id}?${new URLSearchParams({q:query,page:String(page),...Object.fromEntries(params)})}`)}>Xem hồ sơ</button>
+                {user.segmentation?.dormant&&<button className="admin-action" onClick={()=>go(`care?customerId=${user.id}`)}>Tạo chăm sóc</button>}
+              </div>
             </td>
           </tr>
         ))}
@@ -1093,12 +1068,19 @@ function Users({ notify }) {
 }
 
 function Products({ notify }) {
-  const { data, load, loading, error } = useAdminList(adminEndpoints.products);
-  const [search, setSearch] = useState("");
+  const [filters,changeFilters]=useManagerFilters({q:'',category:'',minPrice:'',maxPrice:'',stock:'ALL',active:'true',sort:'createdAt',direction:'DESC',page:'0'});
+  const endpoint=useCallback(()=>adminEndpoints.products(filters),[filters]);
+  const { data:previousData, load, loading, error,stale } = useAdminList(endpoint,{keepPreviousData:true});
+  const data=stale?null:previousData;
+  const search=filters.q,setSearch=value=>changeFilters({q:value});
+  const selectedCategory=filters.category,setSelectedCategory=value=>changeFilters({category:value});
+  const {data:categoryData}=useManagerList(useCallback(()=>'/api/manager/products/categories',[]));
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const productWriteLock = useRef(false);
   const [editing, setEditing] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(null);
+  useManagerReadPause(dialogOpen || !!confirmArchive);
   const [form, setForm] = useState({
     name: "",
     category: "",
@@ -1142,6 +1124,8 @@ function Products({ notify }) {
 
   const save = async (event) => {
     event.preventDefault();
+    if(productWriteLock.current)return;
+    productWriteLock.current=true;
     setSaving(true);
     try {
       await adminApi(
@@ -1170,11 +1154,14 @@ function Products({ notify }) {
     } catch (error) {
       notify(error.message, "error");
     } finally {
+      productWriteLock.current=false;
       setSaving(false);
     }
   };
 
   const archive = async (id) => {
+    if(productWriteLock.current)return;
+    productWriteLock.current=true;setSaving(true);
     try {
       await adminApi(adminEndpoints.product(id), { method: "DELETE" });
       notify("Đã ẩn sản phẩm.");
@@ -1182,21 +1169,16 @@ function Products({ notify }) {
       load();
     } catch (error) {
       notify(error.message, "error");
+    } finally {
+      productWriteLock.current=false;setSaving(false);
     }
   };
 
   const products = pageData(data);
-  const filteredProducts = useMemo(() => {
-    if (!search.trim()) return products;
-    const q = search.toLowerCase();
-    return products.filter(
-      (product) =>
-        product.name?.toLowerCase().includes(q) ||
-        product.category?.toLowerCase().includes(q)
-    );
-  }, [products, search]);
+  const categories = Array.isArray(categoryData)?categoryData:[];
+  const filteredProducts = products;
 
-  if (loading) return <PanelLoading />;
+  if (loading && !previousData) return <PanelLoading />;
   if (error)
     return (
       <div className="admin-panel">
@@ -1206,6 +1188,28 @@ function Products({ notify }) {
   return (
     <div className="admin-panel">
       <PanelTitle title="Sản phẩm" subtitle="Quản lý catalog và tồn kho." />
+
+      {categories.length > 0 && (
+        <div className="admin-category-pills" role="tablist" aria-label="Lọc theo danh mục">
+          <button
+            type="button"
+            className={`admin-category-pill ${!selectedCategory ? "active" : ""}`}
+            onClick={() => setSelectedCategory("")}
+          >
+            Tất cả danh mục
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              className={`admin-category-pill ${selectedCategory === cat ? "active" : ""}`}
+              onClick={() => setSelectedCategory(cat === selectedCategory ? "" : cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="admin-table-toolbar">
         <div className="admin-search-wrap">
@@ -1229,7 +1233,7 @@ function Products({ notify }) {
         </div>
         <div className="admin-toolbar-actions">
           <span className="admin-toolbar-count">
-            {filteredProducts.length} sản phẩm
+            {data?.totalElements ?? filteredProducts.length} sản phẩm
           </span>
           <button
             type="button"
@@ -1241,7 +1245,15 @@ function Products({ notify }) {
         </div>
       </div>
 
-      <Table headers={["Sản phẩm", "Danh mục", "Giá", "Tồn kho", ""]}>
+      <div className="manager-advanced-filters">
+        <label>Giá từ<input type="number" min="0" value={filters.minPrice} onChange={e=>changeFilters({minPrice:e.target.value})}/></label>
+        <label>Giá đến<input type="number" min="0" value={filters.maxPrice} onChange={e=>changeFilters({maxPrice:e.target.value})}/></label>
+        <label>Tồn kho<select value={filters.stock} onChange={e=>changeFilters({stock:e.target.value})}><option value="ALL">Tất cả</option><option value="AVAILABLE">Còn hàng</option><option value="OUT">Hết hàng</option></select></label>
+        <label>Hiển thị<select value={filters.active} onChange={e=>changeFilters({active:e.target.value})}><option value="true">Đang bán</option><option value="false">Đã ẩn</option><option value="ALL">Tất cả</option></select></label>
+        <label>Sắp xếp<select value={filters.sort} onChange={e=>changeFilters({sort:e.target.value})}><option value="createdAt">Ngày tạo</option><option value="name">Tên</option><option value="price">Giá</option><option value="stock">Tồn kho</option></select></label>
+        <label>Thứ tự<select value={filters.direction} onChange={e=>changeFilters({direction:e.target.value})}><option value="DESC">Giảm dần</option><option value="ASC">Tăng dần</option></select></label>
+      </div>
+      <Table className="manager-product-table" headers={["Sản phẩm", "Danh mục", "Giá", "Tồn kho", ""]}>
         {filteredProducts.map((product) => (
           <tr key={product.id}>
             <td>
@@ -1311,6 +1323,7 @@ function Products({ notify }) {
         ))}
       </Table>
 
+      <PageControls page={Number(filters.page)||0} totalPages={data?.totalPages||0} totalElements={data?.totalElements} onPage={page=>changeFilters({page:String(page)})}/>
       {/* Dialogue Thêm / Chỉnh sửa sản phẩm */}
       {dialogOpen && (
         <div
@@ -1488,6 +1501,7 @@ function Products({ notify }) {
               <button
                 type="button"
                 className="admin-dialog-cancel"
+                disabled={saving}
                 onClick={() => setConfirmArchive(null)}
               >
                 Hủy
@@ -1495,6 +1509,7 @@ function Products({ notify }) {
               <button
                 type="button"
                 className="admin-danger-button"
+                disabled={saving}
                 onClick={() => archive(confirmArchive.id)}
               >
                 Xác nhận ẩn
@@ -1508,12 +1523,18 @@ function Products({ notify }) {
 }
 
 function Orders({ notify }) {
-  const [page, setPage] = useState(0);
-  const [status, setStatus] = useState("");
-  const [search, setSearch] = useState("");
-  const [detail, setDetail] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState("");
+  const [filters,changeFilters]=useManagerFilters({status:'',q:'',paymentStatus:'',fromDate:'',toDate:'',sort:'createdAt',direction:'DESC',page:'0'});
+  const page=Number(filters.page)||0,setPage=value=>changeFilters({page:String(value)});
+  const status=filters.status,setStatus=value=>changeFilters({status:value});
+  const search=filters.q,setSearch=value=>changeFilters({q:value});
+  const query=useMemo(()=>({status:filters.status,q:filters.q,paymentStatus:filters.paymentStatus,sort:filters.sort,direction:filters.direction,page,...vietnamDateRange(filters.fromDate,filters.toDate)}),[filters,page]);
+  const summaryEndpoint=useCallback(()=>'/api/manager/orders/summary?'+managerQuery({q:query.q,paymentStatus:query.paymentStatus,from:query.from,to:query.to}),[query.q,query.paymentStatus,query.from,query.to]);
+  const {data:counts}=useManagerList(summaryEndpoint);
+  const [detailId, setDetailId] = useState(null);
+  const detailEndpoint = useCallback(() => adminEndpoints.order(detailId), [detailId]);
+  const { data: detailData, loading: detailLoading, error: detailError, load: reloadDetail } =
+    useManagerList(detailEndpoint, { enabled: detailId !== null });
+  const detail = detailId === null ? null : (detailData?.id === detailId ? detailData : { id: detailId });
   const [updatingId, setUpdatingId] = useState(null);
   const [cancelOrder, setCancelOrder] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -1531,10 +1552,11 @@ function Orders({ notify }) {
       ? openCancel(order)
       : update(order.id, nextStatus);
   const endpoint = useCallback(
-    () => adminEndpoints.orders({ status, page }),
-    [status, page]
+    () => adminEndpoints.orders(query),
+    [query]
   );
-  const { data, load, loading, error } = useAdminList(endpoint);
+  const { data:previousData, load, loading, error,stale } = useAdminList(endpoint,{keepPreviousData:true});
+  const data=stale?null:previousData;
   const update = async (id, status, reason) => {
     if (updatingId !== null) return;
     setUpdatingId(id);
@@ -1548,7 +1570,7 @@ function Orders({ notify }) {
         },
       });
       notify("Đã cập nhật đơn hàng.");
-      if (detail?.id === id) setDetail(updated);
+      if (detailId === id) await reloadDetail(true);
       setCancelOrder(null);
       await load();
     } catch (error) {
@@ -1558,31 +1580,25 @@ function Orders({ notify }) {
       setUpdatingId(null);
     }
   };
-  const showDetail = async (id) => {
-    setDetailLoading(true);
-    setDetailError("");
-    setDetail({ id });
-    try {
-      setDetail(await adminApi(adminEndpoints.order(id)));
-    } catch (error) {
-      setDetailError(error.message || "Không tải được đơn hàng.");
-    } finally {
-      setDetailLoading(false);
-    }
+  const showDetail = (id) => {
+    if (detailId === id) void reloadDetail();
+    else setDetailId(id);
   };
   const orders = pageData(data);
-  const filteredOrders = useMemo(() => {
-    if (!search.trim()) return orders;
-    const q = search.toLowerCase();
-    return orders.filter(
-      (order) =>
-        String(order.orderCode || "").toLowerCase().includes(q) ||
-        order.customer?.fullName?.toLowerCase().includes(q) ||
-        order.customer?.email?.toLowerCase().includes(q)
-    );
-  }, [orders, search]);
+  const filteredOrders = orders;
 
-  if (loading) return <PanelLoading />;
+  const orderQuickTabs = [
+    { key: "", label: "Tất cả", color: "#64748b" },
+    { key: "PENDING", label: "Chờ xác nhận", color: "#d97706" },
+    { key: "CONFIRMED", label: "Đã xác nhận", color: "#8b5cf6" },
+    { key: "SHIPPED", label: "Đang giao", color: "#3b82f6" },
+    { key: "DELIVERED", label: "Đã giao", color: "#10b981" },
+    { key: "COMPLETED", label: "Khách đã nhận", color: "#14b8a6" },
+    { key: "CANCELLED", label: "Đã hủy", color: "#ef4444" },
+    { key: "RETURN", label: "Đổi trả", color: "#c2410c" },
+  ];
+
+  if (loading && !previousData) return <PanelLoading />;
   if (error)
     return (
       <div className="admin-panel">
@@ -1595,7 +1611,23 @@ function Orders({ notify }) {
         title="Đơn hàng"
         subtitle="Theo dõi và cập nhật tiến trình giao hàng."
       />
-        <div className="admin-order-toolbar">
+      <div className="admin-order-status-tabs" role="tablist" aria-label="Lọc nhanh trạng thái đơn">
+        {orderQuickTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`admin-status-tab-btn ${status === tab.key ? "active" : ""}`}
+            onClick={() => {
+              setStatus(tab.key);
+              setPage(0);
+            }}
+          >
+            <span className="admin-status-tab-dot" style={{ background: tab.color }} />
+            <span>{tab.label}{counts?.[tab.key||'ALL']!==undefined?` (${counts[tab.key||'ALL']})`:''}</span>
+          </button>
+        ))}
+      </div>
+      <div className="admin-order-toolbar">
         <div className="admin-search-wrap">
           <Search size={15} className="admin-search-icon" aria-hidden="true" />
           <input
@@ -1626,6 +1658,11 @@ function Orders({ notify }) {
             }}
           >
             <option value="">Tất cả đơn hàng</option>
+            <option value="RETURN">Tất cả đổi trả</option>
+            <option value="RETURN_REQUESTED">Đổi trả — chờ xử lý</option>
+            <option value="RETURN_APPROVED">Đổi trả — đã chấp thuận</option>
+            <option value="RETURN_REJECTED">Đổi trả — đã từ chối</option>
+            <option value="RETURN_COMPLETED">Đổi trả — hoàn tất</option>
             {orderStatuses.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -1635,6 +1672,13 @@ function Orders({ notify }) {
         </div>
         <span>{data?.totalElements ?? 0} đơn hàng</span>
         <button type="button" className="admin-action" onClick={load} aria-label="Tải lại trạng thái thanh toán"><RefreshCw size={16} /> Tải lại</button>
+      </div>
+      <div className="manager-advanced-filters">
+        <label>Thanh toán<select value={filters.paymentStatus} onChange={e=>changeFilters({paymentStatus:e.target.value})}><option value="">Tất cả</option><option value="COD">COD</option><option value="PENDING">Chờ thanh toán</option><option value="PAID">Đã thanh toán</option><option value="EXPIRED">Hết hạn</option><option value="FAILED">Thất bại</option><option value="CANCELLED">Đã hủy thanh toán</option></select></label>
+        <label>Từ ngày<input type="date" value={filters.fromDate} onChange={e=>changeFilters({fromDate:e.target.value})}/></label>
+        <label>Đến ngày<input type="date" value={filters.toDate} onChange={e=>changeFilters({toDate:e.target.value})}/></label>
+        <label>Sắp xếp<select value={filters.sort} onChange={e=>changeFilters({sort:e.target.value})}><option value="createdAt">Ngày đặt</option><option value="totalAmount">Tổng tiền</option><option value="orderCode">Mã đơn</option></select></label>
+        <label>Thứ tự<select value={filters.direction} onChange={e=>changeFilters({direction:e.target.value})}><option value="DESC">Giảm dần</option><option value="ASC">Tăng dần</option></select></label>
       </div>
       <div className="admin-order-table">
         <Table
@@ -1650,42 +1694,67 @@ function Orders({ notify }) {
           {filteredOrders.map((order) => (
             <tr key={order.id}>
               <td>
-                <b className="admin-code">#{order.orderCode}</b>
+                <span className="admin-order-code-badge">#{order.orderCode}</span>
                 <small className="admin-table-subline">
                   {formatDate(order.createdAt)}
                 </small>
               </td>
               <td>
-                <b>{order.customer?.fullName || "Customer"}</b>
-                <small className="admin-table-subline">
-                  {order.customer?.email || ""}
-                </small>
+                <div className="admin-table-customer">
+                  <span className="admin-customer-avatar">
+                    {(order.customer?.fullName || "C").trim().slice(0, 1).toUpperCase()}
+                  </span>
+                  <div>
+                    <b>{order.customer?.fullName || "Customer"}</b>
+                    <small className="admin-table-subline">
+                      {order.customer?.email || ""}
+                    </small>
+                  </div>
+                </div>
               </td>
               <td>
-                {paymentMethodLabels[order.paymentMethod] ||
-                  order.paymentMethod ||
-                  "—"}
-                {order.paymentMethod === "PAYOS" && <small className="admin-table-subline" aria-label="Trạng thái thanh toán">{paymentStatusLabels[order.paymentStatus] || order.paymentStatus || "—"}</small>}
+                <span className="admin-payment-method">
+                  {paymentMethodLabels[order.paymentMethod] ||
+                    order.paymentMethod ||
+                    "—"}
+                </span>
+                {order.paymentMethod === "PAYOS" && (
+                  <small
+                    className={`admin-table-subline admin-payment-status-pill ${
+                      order.paymentStatus === "PAID"
+                        ? "is-paid"
+                        : order.paymentStatus === "PENDING"
+                        ? "is-pending"
+                        : ""
+                    }`}
+                    aria-label="Trạng thái thanh toán"
+                  >
+                    {paymentStatusLabels[order.paymentStatus] ||
+                      order.paymentStatus ||
+                      "—"}
+                  </small>
+                )}
               </td>
-              <td>
+              <td className="admin-order-total-cell">
                 <strong>{money(order.totalAmount)}</strong>
               </td>
               <td>
-                <OrderBadge status={order.status} />
+                <OrderBadge status={order.status} order={order} />
               </td>
               <td>
                 <div className="admin-order-actions">
                   <select
+                    className="admin-inline-status-select"
                     aria-label={`Cập nhật trạng thái đơn ${order.orderCode}`}
                     disabled={
-                      updatingId !== null || isFinalOrder(order.status)
+                      updatingId !== null || isFinalOrder(order.status) || hasReturn(order)
                     }
                     value={order.status}
                     onChange={(event) =>
                       changeStatus(order, event.target.value)
                     }
                   >
-                    {orderStatusOptions(order.status).map(([value, label]) => (
+                    {(showReturn(order) ? [[order.status, ['REJECTED','COMPLETED'].includes(order.returnStatus) ? returnLabel(order.returnStatus) : "Đang đổi trả"]] : orderStatusOptions(order.status)).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
@@ -1709,7 +1778,7 @@ function Orders({ notify }) {
             <article className="admin-order-card" key={order.id}>
               <div>
                 <b>#{order.orderCode}</b>
-                <OrderBadge status={order.status} />
+                <OrderBadge status={order.status} order={order} />
               </div>
               <small>{formatDate(order.createdAt)}</small>
               <p>{order.customer?.fullName || "Customer"}</p>
@@ -1724,12 +1793,12 @@ function Orders({ notify }) {
                 <select
                   aria-label={`Cập nhật trạng thái đơn ${order.orderCode}`}
                   disabled={
-                    updatingId !== null || isFinalOrder(order.status)
+                    updatingId !== null || isFinalOrder(order.status) || hasReturn(order)
                   }
                   value={order.status}
                   onChange={(event) => changeStatus(order, event.target.value)}
                 >
-                  {orderStatusOptions(order.status).map(([value, label]) => (
+                  {(showReturn(order) ? [[order.status, ['REJECTED','COMPLETED'].includes(order.returnStatus) ? returnLabel(order.returnStatus) : "Đang đổi trả"]] : orderStatusOptions(order.status)).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -1821,115 +1890,7 @@ function Orders({ notify }) {
           </form>
         </div>
       )}
-      {detail && !cancelOrder && (
-        <div
-          className="admin-dialog-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setDetail(null);
-          }}
-        >
-          <div
-            className="admin-dialog admin-order-detail"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="admin-order-detail-title"
-          >
-            <div className="admin-section-heading">
-              <h2 id="admin-order-detail-title">
-                Đơn hàng #{detail.orderCode || detail.id}
-              </h2>
-              <button
-                aria-label="Đóng chi tiết"
-                className="admin-action"
-                onClick={() => setDetail(null)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            {detailLoading ? (
-              <p role="status">Đang tải chi tiết...</p>
-            ) : detailError ? (
-              <ListError
-                message={detailError}
-                onRetry={() => showDetail(detail.id)}
-              />
-            ) : (
-              <>
-                <OrderBadge status={detail.status} />
-                <div className="admin-detail-grid">
-                  <div>
-                    <span>Khách hàng</span>
-                    <b>{detail.customer?.fullName || "—"}</b>
-                    <small>{detail.customer?.email || ""}</small>
-                  </div>
-                  <div>
-                    <span>Ngày đặt</span>
-                    <b>{formatDate(detail.createdAt)}</b>
-                  </div>
-                  <div>
-                    <span>Phương thức thanh toán</span>
-                    <b>
-                      {paymentMethodLabels[detail.paymentMethod] ||
-                        detail.paymentMethod ||
-                        "—"}
-                    </b>
-                  </div>
-                  <div>
-                    <span>Trạng thái thanh toán</span>
-                    <b>
-                      {paymentStatusLabels[detail.paymentStatus] ||
-                        detail.paymentStatus ||
-                        "—"}
-                    </b>
-                  </div>
-                  <div className="admin-detail-wide">
-                    <span>Địa chỉ giao hàng</span>
-                    <b>{detail.deliveryAddress || "—"}</b>
-                  </div>
-                  {detail.status === "CANCELLED" && (
-                    <div className="admin-detail-wide">
-                      <span>Lý do hủy đơn</span>
-                      <b className="admin-cancel-reason">
-                        {detail.cancelReason?.trim() || "Chưa có lý do hủy"}
-                      </b>
-                      {!detail.cancelReason?.trim() && (
-                        <button
-                          className="admin-action"
-                          onClick={() => openCancel(detail)}
-                        >
-                          Bổ sung lý do
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <h3>Sản phẩm</h3>
-                <div className="admin-detail-items">
-                  {(detail.items || []).map((item) => (
-                    <div key={item.id}>
-                      <span>
-                        {item.product?.name || "Sản phẩm"} × {item.quantity}
-                        <small>
-                          {[item.size, item.color].filter(Boolean).join(" / ")}
-                        </small>
-                      </span>
-                      <b>
-                        {money(
-                          Number(item.unitPrice || 0) * item.quantity
-                        )}
-                      </b>
-                    </div>
-                  ))}
-                </div>
-                <div className="admin-detail-total">
-                  <span>Tổng tiền</span>
-                  <strong>{money(detail.totalAmount)}</strong>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {detail && !cancelOrder && <ManagerOrderDetail detail={detail} loading={detailLoading} error={detailError} onRetry={() => showDetail(detail.id)} onClose={() => setDetailId(null)} onCancel={openCancel} />}
     </div>
   );
 }
@@ -2041,8 +2002,17 @@ function Feedback({ notify }) {
       >
         {pageData(data).map((item) => (
           <tr key={item.id}>
-            <td>{item.customer?.fullName || "Customer"}</td>
-            <td>{item.product?.name || "—"}</td>
+            <td>
+              <div className="admin-table-customer">
+                <span className="admin-customer-avatar">
+                  {(item.customer?.fullName || "C").trim().slice(0, 1).toUpperCase()}
+                </span>
+                <span>{item.customer?.fullName || "Customer"}</span>
+              </div>
+            </td>
+            <td>
+              <b>{item.product?.name || "—"}</b>
+            </td>
             <td>
               <span
                 className="admin-star-rating"
@@ -2062,6 +2032,7 @@ function Feedback({ notify }) {
             </td>
             <td>
               <select
+                className="admin-inline-status-select"
                 aria-label={`Trạng thái phản hồi ${item.id}`}
                 value={item.status || "NEW"}
                 disabled={busy}
@@ -2078,6 +2049,7 @@ function Feedback({ notify }) {
               <span
                 className={`admin-badge ${item.hidden ? "danger" : "success"}`}
               >
+                <span className="admin-badge-dot" />
                 {item.hidden ? "Đã ẩn" : "Công khai"}
               </span>
             </td>
@@ -2974,7 +2946,7 @@ function PanelTitle({ title, subtitle }) {
   return (
     <div className="admin-panel-title">
       <div>
-        <span className="admin-eyebrow">ADMIN MANAGEMENT</span>
+        <span className="admin-eyebrow">QUẢN LÝ CỬA HÀNG</span>
         <h2>{title}</h2>
         <p>{subtitle}</p>
       </div>

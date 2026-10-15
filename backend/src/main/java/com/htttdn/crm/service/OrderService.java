@@ -30,13 +30,15 @@ public class OrderService {
     private final VoucherService vouchers;
     private final NotificationService notifications;
     private final PayosService payos;
+    private final FeedbackRepository feedback;
 
     public OrderService(OrderRepository orders, ProductRepository products, CartItemRepository carts,
                         PaymentRepository payments, PaymentAttemptRepository attempts, PaymentWebhookEventRepository webhookEvents,
-                        VoucherService vouchers, NotificationService notifications, PayosService payos) {
+                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback) {
         this.orders = orders; this.products = products; this.carts = carts; this.payments = payments;
         this.attempts = attempts;
         this.webhookEvents = webhookEvents; this.vouchers = vouchers; this.notifications = notifications; this.payos = payos;
+        this.feedback = feedback;
     }
 
     @Transactional
@@ -283,6 +285,8 @@ public class OrderService {
 
     @Transactional public OrderView requestReturn(User customer, Long id, String reason) {
         Order order = lockedOwned(customer, id); if (!Set.of("DELIVERED", "COMPLETED").contains(order.getStatus())) throw new ApiException(HttpStatus.CONFLICT, "RETURN_NOT_ALLOWED", "Chỉ có thể yêu cầu đổi trả sau khi đã nhận hàng."); if (order.getReturnStatus() != null && !"NONE".equals(order.getReturnStatus())) throw new ApiException(HttpStatus.CONFLICT, "RETURN_ALREADY_REQUESTED", "Đơn hàng đã có yêu cầu đổi trả.");
+        if ("COMPLETED".equals(order.getStatus()) && feedback.existsByOrderId(order.getId()))
+            throw new ApiException(HttpStatus.CONFLICT, "RETURN_AFTER_REVIEW_NOT_ALLOWED", "Đơn đã xác nhận nhận hàng và đã đánh giá sản phẩm nên không thể yêu cầu đổi trả.");
         order.setReturnStatus("REQUESTED"); order.setReturnReason(reason.trim()); order.setReturnRequestedAt(Instant.now()); order.setUpdatedAt(Instant.now()); orders.save(order); notifications.create(customer, "Đã tiếp nhận yêu cầu đổi trả", "Yêu cầu đổi trả đơn #" + order.getOrderCode() + " đang chờ xử lý.", "RETURN_REQUESTED", order.getId()); return view(order);
     }
 
@@ -349,13 +353,14 @@ public class OrderService {
     private ApiException invalidCart() { return new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CART", "Sản phẩm trong giỏ không còn hợp lệ."); }
     private long nextCode() { long code = 100000000000L + (System.currentTimeMillis() % 89999999999L); while (orders.findByOrderCode(code).isPresent()) code++; return code; }
 
-    public OrderView view(Order o) { List<OrderLineView> lines = o.getItems().stream().map(i -> new OrderLineView(i.getProduct().getId(), i.getProduct().getName(), i.getProduct().getImageUrl(), i.getQuantity(), i.getUnitPrice(), i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())), i.getSize(), i.getColor())).toList(); return new OrderView(o.getId(), o.getOrderCode(), o.getStatus(), o.getPaymentStatus(), o.getPaymentMethod(), o.getDeliveryAddress(), o.getTrackingCode(), o.getCancelReason(), o.getReturnStatus(), o.getReturnReason(), o.getVoucherCode(), o.getDiscountAmount(), o.getTotalAmount(), o.getCreatedAt(), o.getUpdatedAt(), lines); }
+    public OrderView view(Order o) { List<OrderLineView> lines = o.getItems().stream().map(i -> new OrderLineView(i.getProduct().getId(), i.getProduct().getName(), i.getProduct().getImageUrl(), i.getQuantity(), i.getUnitPrice(), i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())), i.getSize(), i.getColor())).toList(); return new OrderView(o.getId(), o.getOrderCode(), o.getStatus(), o.getPaymentStatus(), o.getPaymentMethod(), o.getDeliveryAddress(), o.getTrackingCode(), o.getCancelReason(), o.getReturnStatus(), o.getReturnReason(), o.getVoucherCode(), o.getDiscountAmount(), o.getTotalAmount(), o.getCreatedAt(), o.getUpdatedAt(), lines, o.getReturnRequestedAt(), o.getReturnHistory().stream().map(e->new ReturnEventView(e.getStatus(),e.getNote(),e.getCreatedAt())).toList()); }
 
     public record RequestedItem(Long productId, int quantity, String size, String color) {}
     private record CartLineKey(Long productId, String size, String color) {}
     public record CheckoutRequest(String deliveryAddress, String paymentMethod, String voucherCode, List<RequestedItem> items) {}
     public record Checkout(OrderView order, String paymentUrl, String paymentLinkId, String qrCode, Instant expiresAt) {}
     public record PaymentView(Long orderId, Long orderCode, String paymentStatus, BigDecimal amount, Instant expiresAt, String qrCode, String paymentUrl, boolean retryable) {}
-    public record OrderView(Long id, Long orderCode, String status, String paymentStatus, String paymentMethod, String deliveryAddress, String trackingCode, String cancelReason, String returnStatus, String returnReason, String voucherCode, BigDecimal discountAmount, BigDecimal totalAmount, Instant createdAt, Instant updatedAt, List<OrderLineView> items) {}
+    public record ReturnEventView(String status,String note,Instant createdAt) {}
+    public record OrderView(Long id, Long orderCode, String status, String paymentStatus, String paymentMethod, String deliveryAddress, String trackingCode, String cancelReason, String returnStatus, String returnReason, String voucherCode, BigDecimal discountAmount, BigDecimal totalAmount, Instant createdAt, Instant updatedAt, List<OrderLineView> items, Instant returnRequestedAt, List<ReturnEventView> returnHistory) {}
     public record OrderLineView(Long productId, String name, String imageUrl, int quantity, BigDecimal unitPrice, BigDecimal lineTotal, String size, String color) {}
 }

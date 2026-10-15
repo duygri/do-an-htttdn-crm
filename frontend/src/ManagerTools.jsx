@@ -1,7 +1,9 @@
 import React,{useEffect,useState} from 'react';
 import {adminApi as api} from './manager-api';
+import {useManagerReadPause} from './useManagerResource';
 export function CustomerCreate({onSaved,user}){
  const [form,setForm]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ useManagerReadPause(!!form);
  return <div><button type="button" onClick={()=>setForm(user?{fullName:user.fullName,phone:user.phone||'',preferences:user.preferences||''}:{fullName:'',email:'',password:'',phone:'',preferences:''})}>{user?'Sửa thông tin':'Thêm khách hàng'}</button>{form&&<form className="internal-filters" onSubmit={async e=>{e.preventDefault();if(busy)return;setBusy(true);setError('');try{await api(user?`/api/manager/users/${user.id}`:'/api/manager/users',{method:user?'PUT':'POST',body:form});setForm(null);onSaved()}catch(e){setError(e.message)}finally{setBusy(false)}}}>{Object.entries(user?{fullName:'Họ tên',phone:'Điện thoại',preferences:'Sở thích'}:{fullName:'Họ tên',email:'Email',password:'Mật khẩu ban đầu',phone:'Điện thoại',preferences:'Sở thích'}).map(([key,label])=><label key={key}>{label}<input required={['fullName','email','password'].includes(key)} type={key==='password'?'password':key==='email'?'email':'text'} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}<button disabled={busy}>Lưu khách hàng</button><button disabled={busy} type="button" onClick={()=>setForm(null)}>Hủy</button></form>}{error&&<p role="alert">{error}</p>}</div>
 }
 export function SurveyAudience({value,onChange,disabled}){
