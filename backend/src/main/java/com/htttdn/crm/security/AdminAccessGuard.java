@@ -21,7 +21,9 @@ public class AdminAccessGuard extends OncePerRequestFilter {
             User user = users.findById(claims.userId()).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Admin token không hợp lệ."));
             String role=manager?"MANAGER":"ADMIN";
             if (!role.equals(claims.role()) || !role.equals(user.getRole()) || user.isLocked() || user.getDeletedAt()!=null) throw new ApiException(HttpStatus.FORBIDDEN, role+"_REQUIRED", "Không có quyền truy cập portal này.");
-            chain.doFilter(request, response);
+            request.setAttribute(com.htttdn.crm.service.AuditTrail.ACTOR_ATTRIBUTE,new com.htttdn.crm.service.AuditTrail.Actor(user.getId(),user.getFullName(),role));
+            try { chain.doFilter(request, response); }
+            finally { request.removeAttribute(com.htttdn.crm.service.AuditTrail.ACTOR_ATTRIBUTE); }
         } catch (ApiException e) { response.setStatus(e.status().value()); response.setContentType("application/json"); response.getWriter().print("{\"code\":\"" + e.code() + "\",\"message\":\"" + e.getMessage() + "\"}"); }
     }
 }

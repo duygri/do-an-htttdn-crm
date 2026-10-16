@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class CustomerProfileIntegrationTest {
     @Autowired CustomerProfileService service;
+    @Autowired CustomerActivityService activities;
     @Autowired EntityManager em;
     @Autowired JdbcTemplate db;
     @Autowired MockMvc mvc;
@@ -57,7 +58,7 @@ class CustomerProfileIntegrationTest {
         assertEquals(2,service.orders(customer.getId(),1,2).content().size());
     }
     @Test void managerOnlyAndExplicitProjectionsOnEveryEndpoint() throws Exception {
-        for(String suffix:new String[]{"","/addresses","/orders","/feedback","/surveys","/vouchers","/voucher-usages"}) {
+        for(String suffix:new String[]{"","/addresses","/orders","/feedback","/surveys","/vouchers","/voucher-usages","/activities"}) {
             mvc.perform(get(base()+suffix)).andExpect(status().isUnauthorized());
             for(User wrong:new User[]{customer,root}) mvc.perform(get(base()+suffix).header("Authorization",token(wrong))).andExpect(status().isForbidden());
             String body=mvc.perform(get(base()+suffix).header("Authorization",token(staff))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -107,5 +108,35 @@ class CustomerProfileIntegrationTest {
         customer.setPhone("0901234567");em.flush();
         mvc.perform(get("/api/manager/users?q=090123&size=1").header("Authorization",token(staff)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.content[0].id").value(customer.getId()));
+    }
+    @Test void activityIsCustomerScopedPaginatedAndDoesNotInventHistory() throws Exception {
+        var own=order(customer,777,"DELIVERED","100");order(other,778,"COMPLETED","999");
+        em.persist(new AuditLog(staff.getId(),"Manager","MANAGER","UPDATE","ORDER",own.getId(),"{}","{}"));
+        em.flush();
+        assertEquals(2,activities.list(customer.getId(),0,1).totalElements());
+        assertEquals(2,activities.list(customer.getId(),0,1).totalPages());
+        assertEquals(1,activities.list(customer.getId(),1,1).content().size());
+        assertTrue(activities.list(customer.getId(),0,10).content().stream().allMatch(e->e.targetId()==own.getId()));
+        assertEquals(1,activities.list(other.getId(),0,10).totalElements());
+        mvc.perform(get(base()+"/activities?size=0").header("Authorization",token(staff))).andExpect(status().isBadRequest());
+        customer.setDeletedAt(Instant.now());em.flush();
+        mvc.perform(get(base()+"/activities").header("Authorization",token(staff))).andExpect(status().isNotFound());
+    }
+    @Test void ratingAndSurveyFiltersRunBeforePaginationAndExcludeDeletedFeedback() throws Exception {
+        var category=new Category();category.setName("Rating");em.persist(category);
+        var p=new Product();p.setCategoryEntity(category);p.setName("Product");p.setPrice(BigDecimal.TEN);em.persist(p);
+        for(int rating:new int[]{2,4,5}) {
+            var f=new Feedback();f.setCustomer(customer);f.setProduct(p);f.setRating(rating);f.setHidden(true);
+            if(rating==5)f.setDeletedAt(Instant.now());em.persist(f);
+        }
+        em.flush();
+        db.update("insert into survey_definitions(id,title,status,created_at,deleted_at) values(901,'Old survey','DRAFT',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        db.update("insert into survey_responses(customer_id,survey_id,created_at) values(?,901,CURRENT_TIMESTAMP)",customer.getId());
+        mvc.perform(get("/api/manager/users?minRating=3&maxRating=3&surveyed=true&size=1").header("Authorization",token(staff)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.content[0].id").value(customer.getId()));
+        mvc.perform(get("/api/manager/users?surveyed=false&size=1").header("Authorization",token(staff)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.content[0].id").value(other.getId()));
+        for(String query:new String[]{"minRating=0","maxRating=6","minRating=4&maxRating=2"})
+            mvc.perform(get("/api/manager/users?"+query).header("Authorization",token(staff))).andExpect(status().isBadRequest());
     }
 }

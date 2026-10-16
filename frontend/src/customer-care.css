@@ -24,3 +24,9 @@
 .manager-shell .care-metrics button:hover{border-color:var(--admin-primary)}
 .manager-shell .care-metrics button:focus-visible{outline:2px solid var(--admin-primary);outline-offset:3px}
 .manager-shell .care-metrics strong{display:block;font-size:28px;margin-top:8px}
+.manager-shell .care-source{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.manager-shell .care-source a{color:var(--admin-primary);text-decoration:underline;text-underline-offset:3px}
+.manager-shell .care-source :is(a,button,input,textarea,select):focus-visible{outline:2px solid var(--admin-primary);outline-offset:3px}
+.manager-shell .admin-feedback-actions .care-source:has(.care-form){width:min(440px,80vw)}
+.manager-shell .care-result{border-top:1px solid var(--admin-border);margin-top:14px;padding-top:10px;overflow-wrap:anywhere}
+.manager-shell .care-result button:focus-visible{outline:2px solid var(--admin-primary);outline-offset:3px}

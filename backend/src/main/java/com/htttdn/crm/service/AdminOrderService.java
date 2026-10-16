@@ -50,6 +50,7 @@ public class AdminOrderService extends AdminServiceSupport {
             throw new ApiException(HttpStatus.BAD_REQUEST, "CANCEL_REASON_REQUIRED", "Vui lòng nhập lý do hủy đơn từ 1 đến 1.000 ký tự.");
         }
         Order order = orders.findForStatusUpdate(id).orElseThrow();
+        var before=snapshot(order);
         if (order.getReturnStatus()!=null && !"NONE".equals(order.getReturnStatus()))
             throw new ApiException(HttpStatus.CONFLICT,"RETURN_IN_PROGRESS","Đơn có yêu cầu đổi trả; hãy dùng chức năng xử lý đổi trả.");
         if (!canAdvance(order.getStatus(), request.status())) {
@@ -71,6 +72,7 @@ public class AdminOrderService extends AdminServiceSupport {
         }
         order.setStatus(request.status());
         order.setUpdatedAt(Instant.now());
+        audit("ORDER_STATUS","ORDER",id,before,order);
         return orders.save(order);
     }
 }

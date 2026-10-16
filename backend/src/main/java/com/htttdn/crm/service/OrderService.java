@@ -31,14 +31,16 @@ public class OrderService {
     private final NotificationService notifications;
     private final PayosService payos;
     private final FeedbackRepository feedback;
+    private final AuditTrail audit;
 
     public OrderService(OrderRepository orders, ProductRepository products, CartItemRepository carts,
                         PaymentRepository payments, PaymentAttemptRepository attempts, PaymentWebhookEventRepository webhookEvents,
-                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback) {
+                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit) {
         this.orders = orders; this.products = products; this.carts = carts; this.payments = payments;
         this.attempts = attempts;
         this.webhookEvents = webhookEvents; this.vouchers = vouchers; this.notifications = notifications; this.payos = payos;
         this.feedback = feedback;
+        this.audit = audit;
     }
 
     @Transactional
@@ -265,7 +267,16 @@ public class OrderService {
                 }
             }
         }
-        order.setStatus("CANCELLED"); order.setPaymentStatus("CANCELLED"); order.setCancelReason(clean(reason) == null ? "Khách hàng yêu cầu hủy đơn." : clean(reason)); payments.findByOrderId(order.getId()).ifPresent(payment -> { payment.setStatus("CANCELLED"); payments.save(payment); }); releaseStock(order); vouchers.release(order); order.setUpdatedAt(Instant.now()); orders.save(order); notifications.create(customer, "Đã hủy đơn hàng", "Đơn hàng #" + order.getOrderCode() + " đã được hủy.", "ORDER_CANCELLED", order.getId()); return view(order);
+        var before = AuditTrail.snapshot(order);
+        order.setStatus("CANCELLED"); order.setPaymentStatus("CANCELLED"); order.setCancelReason(clean(reason) == null ? "Khách hàng yêu cầu hủy đơn." : clean(reason)); payments.findByOrderId(order.getId()).ifPresent(payment -> { payment.setStatus("CANCELLED"); payments.save(payment); }); releaseStock(order); vouchers.release(order); order.setUpdatedAt(Instant.now()); orders.save(order); notifications.create(customer, "Đã hủy đơn hàng", "Đơn hàng #" + order.getOrderCode() + " đã được hủy.", "ORDER_CANCELLED", order.getId());
+        recordCustomerAction(customer, "CUSTOMER_CANCEL", order, before);
+        return view(order);
+    }
+
+    // customer is resolved by AuthService, never from a client-supplied actor header/body.
+    private void recordCustomerAction(User customer, String action, Order order, Map<String,Object> before) {
+        audit.recordAs(new AuditTrail.Actor(customer.getId(), customer.getFullName(), "CUSTOMER"),
+            action, "ORDER", order.getId(), before, AuditTrail.snapshot(order));
     }
 
     private Order lockedOwned(User customer, Long id) {
@@ -278,8 +289,10 @@ public class OrderService {
         if ("COMPLETED".equals(order.getStatus())) return view(order);
         if (!"DELIVERED".equals(order.getStatus()) || (order.getReturnStatus() != null && !"NONE".equals(order.getReturnStatus())))
             throw new ApiException(HttpStatus.CONFLICT, "RECEIPT_NOT_ALLOWED", "Chỉ xác nhận đơn đã giao và chưa có yêu cầu đổi trả. Vui lòng tải lại đơn hàng.");
+        var before = AuditTrail.snapshot(order);
         order.setStatus("COMPLETED"); order.setUpdatedAt(Instant.now()); orders.save(order);
         notifications.create(customer, "Đơn hàng hoàn thành", "Bạn đã xác nhận nhận hàng cho đơn #" + order.getOrderCode() + ".", "ORDER_COMPLETED", order.getId());
+        recordCustomerAction(customer, "CUSTOMER_RECEIPT", order, before);
         return view(order);
     }
 

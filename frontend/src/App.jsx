@@ -11,6 +11,7 @@ import CustomerLayout from './CustomerLayout';
 import CustomerVouchers, { RewardSummary } from './CustomerVouchers';
 import OrderReviews from './OrderReviews';
 import CustomerPassword from './CustomerPassword';
+const SupportTickets=React.lazy(()=>import('./SupportTickets'));
 import { useCartSelection, cartLineKey, canBuyLine, transferGuestSelection, subtractPurchased } from './cart-selection';
 import { useCustomerRouter, actionPaths, isAccountPath, needsCustomer, isKnownPath, safeReturn } from './customer-routing';
 import './customer-pages.css';
@@ -785,6 +786,7 @@ function App() {
             if (action === 'login' || action === 'register') { setAuthMode(action); setAuthAfterLogin(null); setAuthOpen(true); return; }
             if (action === 'logout') { logout(); return; }
             if (action === 'orders') { navigateOrders(); return; }
+            if (action === 'support') { navigate('/ho-tro'); return; }
             const screens = { profile: setProfileOpen, wishlist: setWishlistOpen, notifications: setNotificationsOpen, addresses: setAddressesOpen, surveys: setSurveysOpen, password: setPasswordOpen };
             screens[action]?.(true);
           }}/>
@@ -1421,6 +1423,7 @@ function App() {
       {extraPage && !ordersRoute && <CustomerPageFrame account={accountPage} pathname={pathname} user={user} navigate={navigate}>
       {needsCustomer(pathname) && (sessionChecking || sessionError || !user) ? <CheckoutState title={sessionChecking ? 'Đang khôi phục tài khoản' : 'Đăng nhập để tiếp tục'} message={sessionError || 'Đang kiểm tra phiên đăng nhập...'} loading={sessionChecking} action={sessionError ? 'Thử lại' : undefined} onAction={retrySession}/> : <>
       {pathname === '/tai-khoan/voucher' && <CustomerVouchers/>}
+      {(pathname==='/ho-tro'||/^\/ho-tro\/\d+$/.test(pathname))&&<React.Suspense fallback={<p role="status">Đang tải hỗ trợ…</p>}><SupportTickets location={pathname+window.location.search} navigate={navigate}/></React.Suspense>}
       {!isKnownPath(pathname) && <CheckoutState title="Không tìm thấy trang" message="Đường dẫn không tồn tại." action="Về trang chủ" onAction={() => navigate('/')}/>}
       {pathname === '/thanh-toan' && <CheckoutState title="Kiểm tra thanh toán" message="Mở đơn hàng để kiểm tra trạng thái thanh toán được xác nhận từ cửa hàng." action="Xem đơn hàng" onAction={() => navigate('/don-hang')}/>}
       {productId && productError && <CheckoutState title="Chưa tải được sản phẩm" message={productError} action="Thử lại" onAction={() => setProductReload(value => value + 1)}/>}
@@ -1515,7 +1518,7 @@ function App() {
       )}
       {wishlistOpen && (wishlistError ? <CheckoutState title="Chưa tải được yêu thích" message={wishlistError} action="Thử lại" onAction={loadWishlist}/> : wishlistLoading ? <CheckoutState title="Đang tải yêu thích" loading/> : <WishlistModal page items={wishlist} onClose={() => navigate('/tai-khoan')} onRemove={(item) => toggleWishlist(item)} onOpen={openProduct} onNotice={showNotice} />)}
       {addressesOpen && <AddressModal page onClose={() => navigate('/tai-khoan')} onNotice={showNotice} />}
-      {notificationsOpen && <NotificationsModal page onClose={() => navigate('/tai-khoan')} onNotice={showNotice} onCount={setNotificationCount} />}
+      {notificationsOpen && <NotificationsModal page onClose={() => navigate('/tai-khoan')} onNotice={showNotice} onCount={setNotificationCount} onNavigate={navigate}/>}
       {passwordOpen && <CustomerPassword initialMode={pathname === '/quen-mat-khau' ? 'forgot' : pathname === '/dat-lai-mat-khau' ? 'reset' : 'change'} onNavigate={navigate} onNotice={showNotice} />}
       </>}
       </CustomerPageFrame>}
@@ -2476,6 +2479,7 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
   };
   return (
     <div className="order-view">
+      <a className="back-link" href={`/ho-tro?orderId=${order.id}&new=1`}>Yêu cầu hỗ trợ đơn hàng này</a>
       {order.status === 'COMPLETED' && <OrderReviews key={order.id} order={order} autoOpen={autoReview} onAutoOpened={onReviewOpened} onReviewStatus={setHasOrderReview}/>}
       {action && <form className="shop-reason-form" onSubmit={submitAction}><h3>{action === 'cancel' ? 'Hủy đơn hàng' : 'Yêu cầu đổi/trả'}</h3><label>Lý do<textarea autoFocus required maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>{actionError && <p role="alert" className="shop-inline-error">{actionError}</p>}<div className="order-actions"><button type="button" className="button button-light" disabled={busy} onClick={() => setAction(null)}>Quay lại</button><button className="button button-dark" disabled={busy}>{busy ? 'Đang gửi...' : 'Xác nhận'}</button></div></form>}
       <div className="order-view-head">
@@ -2558,15 +2562,17 @@ function WishlistModal({ page = false, items, onClose, onRemove, onOpen, onNotic
 
 
 
-function NotificationsModal({ page = false, onClose, onNotice, onCount }) {
+function NotificationsModal({ page = false, onClose, onNotice, onCount,onNavigate }) {
+  const alive=useRef(true);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
   const { data, error: listError, load } = useShopResource(endpoints.notifications);
   const lock = useRef(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   useEffect(() => { if (data) onCount(data.unreadCount || 0); }, [data, onCount]);
   const read = async item => {
-    if (lock.current || item?.readAt) return;
+    if (lock.current) return;
+    if(item?.readAt){if(item.supportTicketId)onNavigate?.(`/ho-tro/${item.supportTicketId}`);return;}
     lock.current = true; setBusy(true); setError('');
-    try { await api(item ? endpoints.notificationRead(item.id) : endpoints.notificationsReadAll, { method: 'PATCH' }); await load(); }
+    try { await api(item ? endpoints.notificationRead(item.id) : endpoints.notificationsReadAll, { method: 'PATCH' }); await load(); if(alive.current&&item?.supportTicketId)onNavigate?.(`/ho-tro/${item.supportTicketId}`); }
     catch (cause) { setError(cause.message); }
     finally { lock.current = false; setBusy(false); }
   };

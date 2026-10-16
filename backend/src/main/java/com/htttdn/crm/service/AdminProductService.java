@@ -36,10 +36,10 @@ public class AdminProductService extends AdminServiceSupport {
         },org.springframework.data.domain.PageRequest.of(page,size,org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.fromString(direction),sort).and(org.springframework.data.domain.Sort.by("id").descending())));
     }
     public java.util.List<String> categoryNames(){return categories.findAll().stream().map(Category::getName).sorted().toList();}
-    @Transactional public Product create(ProductRequest request) { Product product = new Product(); copy(product, request); return products.save(product); }
-    @Transactional public Product update(Long id, ProductRequest request) { Product product = get(id); copy(product, request); product.setUpdatedAt(Instant.now()); return products.save(product); }
-    @Transactional public void archive(Long id) { Product product = get(id); product.setActive(false); products.save(product); }
-    @Transactional public Product stock(Long id, StockRequest request) { Product product = get(id); product.setStock(request.quantity()); product.setUpdatedAt(Instant.now()); return products.save(product); }
+    @Transactional public Product create(ProductRequest request) { Product product = new Product(); copy(product, request);products.save(product);audit("CREATE","PRODUCT",product.getId(),java.util.Map.of(),product); return product; }
+    @Transactional public Product update(Long id, ProductRequest request) { Product product = get(id);var before=snapshot(product); copy(product, request); product.setUpdatedAt(Instant.now());audit("UPDATE","PRODUCT",id,before,product); return products.save(product); }
+    @Transactional public void archive(Long id) { Product product = get(id);var before=snapshot(product); product.setActive(false); products.save(product);if(!before.equals(snapshot(product)))audit("ARCHIVE","PRODUCT",id,before,product); }
+    @Transactional public Product stock(Long id, StockRequest request) { Product product = get(id);var before=snapshot(product); product.setStock(request.quantity()); product.setUpdatedAt(Instant.now());if(!before.equals(snapshot(product)))audit("STOCK","PRODUCT",id,before,product); return products.save(product); }
     private Product get(Long id) { return products.findById(id).orElseThrow(); }
     private void copy(Product p, ProductRequest r) {
         p.setName(r.name());

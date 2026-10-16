@@ -7,8 +7,15 @@ import './customer-care.css';
 const labels={total:'Tổng công việc',todo:'Chưa thực hiện',inProgress:'Đang xử lý',completed:'Hoàn thành',overdue:'Quá hạn'};
 const statuses={todo:'TODO',inProgress:'IN_PROGRESS',completed:'COMPLETED'};
 function useData(url){const fetcher=useCallback(signal=>adminApi(url,{signal}),[url]);return useManagerResource(fetcher,{keepPreviousData:true});}
+const CareOutcomes=React.lazy(()=>import('./CareOutcomes'));
 export default function CareDashboard({go,location}){
- const p=new URLSearchParams(location?.split('?')[1]);const filters={from:p.get('from')||'',to:p.get('to')||'',assigneeId:p.get('assigneeId')||''};
+ const p=new URLSearchParams((location||window.location.pathname+window.location.search).split('?')[1]);
+ const tab=p.get('tab')==='outcomes'?'outcomes':'overview';
+ const switchTab=next=>{if(next!==tab)go(`care-dashboard?${managerQuery({tab:next,assigneeId:p.get('assigneeId')||''})}`);};
+ return <div><nav className="care-report-tabs" aria-label="Báo cáo chăm sóc"><button type="button" className={tab==='overview'?'admin-primary':'admin-action'} aria-pressed={tab==='overview'} onClick={()=>switchTab('overview')}>Tổng quan</button><button type="button" className={tab==='outcomes'?'admin-primary':'admin-action'} aria-pressed={tab==='outcomes'} onClick={()=>switchTab('outcomes')}>Kết quả chăm sóc</button></nav>{tab==='overview'?<CareOverview go={go} location={location}/>:<React.Suspense fallback={<p role="status">Đang tải báo cáo kết quả…</p>}><CareOutcomes go={go} location={location}/></React.Suspense>}</div>;
+}
+function CareOverview({go,location}){
+ const p=new URLSearchParams((location||window.location.pathname+window.location.search).split('?')[1]);const filters={from:p.get('from')||'',to:p.get('to')||'',assigneeId:p.get('assigneeId')||''};
  const [showDormant,setShowDormant]=useState(false),[page,setPage]=useState(0);
  const resource=useData(`/api/manager/care/dashboard?${managerQuery(filters)}`),data=resource.stale?null:resource.data;
  const dormantFetcher=useCallback(signal=>adminApi(`/api/manager/care/dormant?page=${page}&size=10`,{signal}),[page]);

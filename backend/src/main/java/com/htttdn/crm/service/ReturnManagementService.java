@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.Set;
 
 @Service
-public class ReturnManagementService {
+public class ReturnManagementService extends AdminServiceSupport {
     private final OrderRepository orders;
     private final OrderReturnEventRepository events;
     private final UserRepository users;
@@ -38,11 +38,13 @@ public class ReturnManagementService {
         boolean valid="REQUESTED".equals(order.getReturnStatus()) && Set.of("APPROVED","REJECTED").contains(status)
             || "APPROVED".equals(order.getReturnStatus()) && "COMPLETED".equals(status);
         if (!valid) throw conflict();
+        var before=snapshot(order);
         order.setReturnStatus(status);order.setUpdatedAt(Instant.now());
         OrderReturnEvent event=events.save(new OrderReturnEvent(order,manager,status,note));
         order.getReturnHistory().add(event);
         String label=switch(status){case "APPROVED"->"Yêu cầu đổi trả đã được chấp thuận";case "REJECTED"->"Yêu cầu đổi trả đã bị từ chối";default->"Đổi trả đã xử lý hoàn tất";};
         notifications.create(order.getCustomer(),label,"Đơn #"+order.getOrderCode()+": "+label+(note.isEmpty()?"":". "+note),"RETURN_"+status,id);
+        audit("RETURN_PROCESS","ORDER",id,before,order);
         return orders.save(order);
     }
     private ApiException conflict(){return new ApiException(HttpStatus.CONFLICT,"INVALID_RETURN_TRANSITION","Yêu cầu đổi trả đã thay đổi hoặc không đủ điều kiện. Vui lòng tải lại.");}
