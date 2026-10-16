@@ -20,6 +20,7 @@ const respond = async path => {
   if (path === '/api/surveys/7') return survey;
   if (path === '/api/surveys/mine' || path === '/api/surveys') return [survey];
   if (path.startsWith('/api/orders?')) return { content: [], totalPages: 0, totalElements: 0 };
+  if (path.startsWith('/api/support-tickets?')) return {content:[],totalPages:0,totalElements:0};
   return {};
 };
 beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); window.history.replaceState({}, '', '/'); window.scrollTo = vi.fn(); refreshSession.mockResolvedValue({ customer }); api.mockImplementation(respond); signIn.mockResolvedValue({ customer }); });
@@ -48,6 +49,7 @@ it.each([
   ['/tai-khoan', 'Khách kiểm thử'], ['/tai-khoan/dia-chi', 'Địa chỉ của tôi'],
   ['/tai-khoan/doi-mat-khau', 'Đổi mật khẩu'], ['/yeu-thich', 'Món đồ bạn thích.'],
   ['/thong-bao', 'Thông báo'], ['/khao-sat/7', 'Gu của bạn'], ['/don-hang', 'Đơn hàng của tôi'],
+  ['/ho-tro', 'Yêu cầu hỗ trợ của tôi'],
 ])('opens %s directly as a page with the shared account menu', async (path, heading) => {
   window.history.replaceState({}, '', path); render(<App/>);
   await screen.findByRole('heading', { name: heading });

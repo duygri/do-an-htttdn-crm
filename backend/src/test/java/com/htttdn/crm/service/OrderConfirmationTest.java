@@ -22,6 +22,8 @@ class OrderConfirmationTest {
         assertEquals("COD",order.getPaymentStatus());
         verify(notifications,times(1)).create(eq(customer),anyString(),anyString(),eq("ORDER_COMPLETED"),eq(9L));
         verify(orders,times(1)).save(order); verifyNoInteractions(products,carts,vouchers,payos,payments);
+        verify(audit,times(1)).recordAs(argThat(a->a.id().equals(2L)&&a.role().equals("CUSTOMER")),eq("CUSTOMER_RECEIPT"),eq("ORDER"),eq(9L),
+            argThat(s->"DELIVERED".equals(s.get("status"))),argThat(s->"COMPLETED".equals(s.get("status"))));
     }
     @Test void receiptRejectsUndeliveredCancelledAndReturnRequests() {
         User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);
@@ -32,7 +34,7 @@ class OrderConfirmationTest {
             assertThrows(ApiException.class, () -> service.confirmReceipt(customer,9L));
             assertEquals(status,order.getStatus());
         }
-        verifyNoInteractions(notifications); verify(orders,never()).save(any());
+        verifyNoInteractions(notifications,audit); verify(orders,never()).save(any());
     }
     final OrderRepository orders = mock(OrderRepository.class);
     final ProductRepository products = mock(ProductRepository.class);
@@ -44,7 +46,8 @@ class OrderConfirmationTest {
     final NotificationService notifications = mock(NotificationService.class);
     final PayosService payos = mock(PayosService.class);
     final FeedbackRepository feedback = mock(FeedbackRepository.class);
-    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback);
+    final AuditTrail audit = mock(AuditTrail.class);
+    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit);
 
     @Test void completedReviewedOrderCannotRequestReturn() {
         User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);
@@ -121,6 +124,19 @@ class OrderConfirmationTest {
         Order order = new Order(); org.springframework.test.util.ReflectionTestUtils.setField(order,"id",9L);
         order.setOrderCode(9009L); order.setStatus(status); order.setPaymentMethod("PAYOS"); order.setPaymentStatus("PENDING"); order.setTotalAmount(BigDecimal.TEN); order.setCustomer(new User());
         return order;
+    }
+    @Test void paymentConfirmedDuringCancellationDoesNotLogCustomerCancellation() {
+        User customer=new User();org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);
+        Order order=paymentOrder("PENDING");order.setCustomer(customer);
+        Payment payment=new Payment();payment.setOrder(order);
+        PaymentAttempt attempt=new PaymentAttempt();attempt.setOrder(order);attempt.setProviderOrderCode(9009L);attempt.setPaymentLinkId("paid-link");
+        when(orders.findForStatusUpdate(9L)).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(9L)).thenReturn(Optional.of(payment));
+        when(attempts.findFirstByOrderIdOrderByIdDesc(9L)).thenReturn(Optional.of(attempt));
+        when(payos.getPayment("paid-link")).thenReturn(new PayosService.ProviderPayment(9009L,10L,10L,"PAID","paid-link"));
+        assertEquals("PENDING",service.cancel(customer,9L,"Cancel").status());
+        assertEquals("PAID",order.getPaymentStatus());verifyNoInteractions(audit,products,vouchers);
+        verify(payos,never()).cancelPaymentLink(anyString());
     }
     @Test void expiryOnlyChangesPaymentStateAndIsIdempotent() {
         Order order = paymentOrder("PENDING"); order.setExpiresAt(java.time.Instant.now().minusSeconds(60));

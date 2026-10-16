@@ -1,9 +1,13 @@
 import { hasReturn, showReturn, displayOrderLabel, returnLabel } from './order-display';
 import {useManagerFilters,managerQuery,vietnamDateRange} from './useManagerFilters';
 import ManagerOrderDetail from './ManagerOrderDetail';
+import SourceCareCreator from './SourceCareCreator';
+import ManagerMyTasks,{MyTaskSummary,CareTaskDetail} from './ManagerMyTasks';
+import ManagerNotificationBell from './ManagerNotificationBell';
 import CustomerLifecycle, {CustomerLifecycleFilters} from './CustomerLifecycle';
 import { useManagerResource, useManagerList, ManagerSyncStatus, useManagerReadPause } from "./useManagerResource";
 import {CustomerCreate,SurveyAudience} from './ManagerTools';
+import SurveyRecipientGroup,{groupSurveyRoute,groupSurveySource} from './SurveyRecipientGroup';
 import './internal-portal.css';
 import { TicketPercent } from "lucide-react";
 import { canAdvanceOrder, isFinalOrder } from './order-transitions';
@@ -13,6 +17,9 @@ const AdminVouchers = React.lazy(() => import('./AdminVouchers'));
 const CustomerProfile = React.lazy(() => import('./CustomerProfile'));
 const CustomerCare = React.lazy(() => import('./CustomerCare'));
 const CareDashboard = React.lazy(() => import('./CareDashboard'));
+const RetentionReport = React.lazy(() => import('./RetentionReport'));
+const AuditLogs = React.lazy(() => import('./AuditLogs'));
+const SupportTickets = React.lazy(()=>import('./SupportTickets'));
 import {
   Activity,
   LayoutDashboard,
@@ -62,26 +69,32 @@ const navItems = [
   ["dashboard", "Tổng quan"],
   ["users", "Khách hàng"],
   ["care", "Chăm sóc khách hàng"],
+  ["my-tasks", "Việc của tôi"],
   ["care-dashboard", "Hiệu quả chăm sóc"],
   ["products", "Sản phẩm"],
   ["orders", "Đơn hàng"],
   ["feedback", "Phản hồi"],
+  ["support-tickets", "Phiếu hỗ trợ"],
   ["surveys", "Khảo sát"],
   ["reports", "Báo cáo"],
   ["vouchers", "Mã giảm giá"],
+  ["audit-logs", "Nhật ký thao tác"],
 ];
 const validSections = new Set(navItems.map(([key]) => key));
 const navIcons = {
   dashboard: LayoutDashboard,
   users: UsersIcon,
   care: ClipboardList,
+  'my-tasks': ClipboardList,
   'care-dashboard': Activity,
   products: Package,
   orders: ShoppingCart,
   feedback: MessageSquare,
+  'support-tickets': MessageSquare,
   surveys: ClipboardList,
   reports: Activity,
   vouchers: TicketPercent,
+  'audit-logs': Activity,
 };
 const statusLabels = {
   PENDING_PAYMENT: "Chờ thanh toán",
@@ -162,9 +175,9 @@ export default function ManagerApp() {
       ? "login"
       : path.split('?')[0].replace(/^\/manager\/?/, "").split("/")[0] || "dashboard";
   const profileMatch = path.split('?')[0].match(/^\/manager\/users\/([^/]+)$/);
-  const go = (next) => {
+  const go = (next, state = {}) => {
     const target = next === "dashboard" ? "/manager" : `/manager/${next}`;
-    window.history.pushState({}, "", target);
+    window.history.pushState(state, "", target);
     window.dispatchEvent(new Event('manager:navigation'));
     setPath(target);
     setMobileMenuOpen(false);
@@ -248,14 +261,7 @@ export default function ManagerApp() {
             ANH LỚN<small>Quản lý cửa hàng · CRM</small>
           </div>
         </div>
-        <div className="admin-profile">
-          <span>{admin.fullName?.slice(0, 1)?.toUpperCase() || "A"}</span>
-          <div>
-            <b>{admin.fullName}</b>
-            <small>{admin.email || "Nhân viên quản lý"}</small>
-          </div>
-        </div>
-        <nav>
+        <nav aria-label="Chức năng quản lý">
           {navItems.map(([key, label]) => {
             const Icon = navIcons[key];
             return (
@@ -271,6 +277,14 @@ export default function ManagerApp() {
             );
           })}
         </nav>
+        <div className="manager-sidebar-footer">
+        <div className="admin-profile">
+          <span>{admin.fullName?.slice(0, 1)?.toUpperCase() || "A"}</span>
+          <div>
+            <b>{admin.fullName}</b>
+            <small>{admin.email || "Nhân viên quản lý"}</small>
+          </div>
+        </div>
         <button
           className="admin-logout"
           onClick={async () => {
@@ -282,6 +296,7 @@ export default function ManagerApp() {
           <LogOut size={16} aria-hidden="true" />
           Đăng xuất
         </button>
+        </div>
       </aside>
       <main className="admin-main">
         <header className="admin-topbar">
@@ -295,6 +310,7 @@ export default function ManagerApp() {
             </span>
           </div>
           <div className="admin-topbar-actions">
+            <ManagerNotificationBell go={go} location={path}/>
             <span className="admin-live-dot">DỮ LIỆU TRỰC TIẾP</span>
             <button
               className="manager-theme-toggle"
@@ -335,14 +351,19 @@ export default function ManagerApp() {
           </p>
         </div>
         <ManagerSyncStatus />
+        {(section==='care'||section==='my-tasks')&&new URLSearchParams(path.split('?')[1]).get('taskId')&&<CareTaskDetail key={new URLSearchParams(path.split('?')[1]).get('taskId')} taskId={new URLSearchParams(path.split('?')[1]).get('taskId')} onOpenTask={id=>{const p=new URLSearchParams(path.split('?')[1]);p.set('taskId',id);go(`${section}?${p}`);}} onClose={()=>{const p=new URLSearchParams(path.split('?')[1]);p.delete('taskId');go(`${section}${p.size?'?'+p:''}`);}}/>}
         <React.Suspense fallback={<PanelLoading/>}>
+        {section === 'dashboard' && <MyTaskSummary go={go}/>}
+        {section === 'my-tasks' && <ManagerMyTasks go={go} location={path}/>}
         {section === "dashboard" && <Dashboard go={go} />}
         {section === "users" && (profileMatch ? <CustomerProfile key={profileMatch[1]} customerId={profileMatch[1]} location={path} go={go} /> : <Users notify={notify} location={path} go={go} />)}{" "}
         {section === "products" && <Products notify={notify} />}{" "}
         {section === "orders" && <Orders notify={notify} />}{" "}
         {section === "feedback" && <Feedback notify={notify} />}{" "}
-        {section === "surveys" && <Surveys notify={notify} />}
-        {section === "reports" && <Reports />}
+        {section==='support-tickets'&&<SupportTickets manager location={path} navigate={go}/>}
+        {section === "surveys" && <Surveys notify={notify} location={path} go={go} />}
+        {section === "reports" && <Reports go={go} />}
+        {section === 'audit-logs' && <AuditLogs manager />}
         {section === "vouchers" && <AdminVouchers />}
         {section === "care" && <CustomerCare go={go} location={path}/>}
         {section === "care-dashboard" && <CareDashboard go={go} location={path}/>}
@@ -478,11 +499,11 @@ function Dashboard({ go }) {
           onClick={() => go("users")}
         />
         <Stat
-          label="Tổng doanh thu"
+          label="Giá trị đơn chưa hủy"
           value={money(data.revenue.totalRevenue)}
           icon={DollarSign}
           color="green"
-          detail="Doanh thu ghi nhận từ hệ thống"
+          detail="Tổng giá trị đơn chưa hủy; không phải tiền đã thu"
           onClick={() => go("reports")}
         />
         <Stat
@@ -588,13 +609,13 @@ function Dashboard({ go }) {
             </div>
             <ChevronRight size={16} className="admin-quick-arrow" />
           </div>
-          <div className="admin-quick-card" role="button" tabIndex={0} onClick={() => go("reports")} title="Đến trang báo cáo doanh thu">
+          <div className="admin-quick-card" role="button" tabIndex={0} onClick={() => go("reports")} title="Đến trang báo cáo khách hàng">
             <div className="admin-quick-icon indigo">
               <Activity size={18} />
             </div>
             <div className="admin-quick-text">
-              <b>Báo cáo doanh thu</b>
-              <small>Biểu đồ & phân tích chỉ số</small>
+              <b>Báo cáo khách hàng</b>
+              <small>Khách hàng, khảo sát & giữ chân</small>
             </div>
             <ChevronRight size={16} className="admin-quick-arrow" />
           </div>
@@ -644,8 +665,8 @@ function Dashboard({ go }) {
             );
           })}
           <small className="admin-data-note">
-            API hiện chưa cung cấp doanh thu theo tháng; không hiển thị biểu đồ
-            từ dữ liệu giả.
+            Giá trị đơn chưa hủy không phải tiền đã thu; API hiện chưa cung cấp
+            giá trị đơn theo tháng.
           </small>
         </section>
         <section className="admin-panel admin-account-overview">
@@ -927,6 +948,7 @@ function Users({ notify, location, go }) {
         <button className="admin-action" onClick={() => searchUsers(search)}>Tìm khách hàng</button>
       </div>
       <CustomerLifecycleFilters params={params} onChange={changeFilters}/>
+      <button type="button" className="admin-action" onClick={()=>go(groupSurveyRoute(params),{createGroupedSurvey:true})}>Tạo khảo sát cho nhóm này</button>
       {error&&!previousData&&<ListError message={error} onRetry={load}/>}
       {loading&&<p role="status">Đang tải khách hàng...</p>}
       {!loading&&!error&&!filteredUsers.length&&<p>Không có khách hàng phù hợp bộ lọc.</p>}
@@ -2055,6 +2077,7 @@ function Feedback({ notify }) {
             </td>
             <td>
               <div className="admin-feedback-actions">
+                {['NEW','IN_PROGRESS'].includes(item.status||'NEW')&&<SourceCareCreator key={item.id} type="FEEDBACK" id={item.id}/>}
                 <button
                   className="admin-action"
                   disabled={busy}
@@ -2203,16 +2226,20 @@ function Feedback({ notify }) {
   );
 }
 
-function Surveys({ notify }) {
+function Surveys({ notify, location = '', go }) {
+  const source=groupSurveySource(location);
+  const [autoOpen]=useState(()=>!!source&&window.history.state?.createGroupedSurvey===true);
+  useEffect(()=>{if(autoOpen)window.history.replaceState({...window.history.state,createGroupedSurvey:false},'',window.location.href);},[autoOpen]);
   const [reward,setReward]=useState(emptyReward);
   const [page, setPage] = useState(0);
   const endpoint = useCallback(() => adminEndpoints.surveys({ page }), [page]);
   const { data, load, loading, error } = useAdminList(endpoint);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(autoOpen);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [audience,setAudience]=useState({audience:'ALL',customerIds:[]});
+  const [audience,setAudience]=useState(()=>autoOpen?{audience:'SELECTED',recipientFilter:source.filter}:{audience:'ALL',customerIds:[]});
+  const [groupReady,setGroupReady]=useState(false);
   const newQuestion = () => ({
     key: crypto.randomUUID(),
     text: "",
@@ -2224,9 +2251,11 @@ function Surveys({ notify }) {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  useManagerReadPause(dialogOpen || busy || !!deleting);
 
-  const openCreate = () => {
-    setAudience({audience:'ALL',customerIds:[]});
+  const openCreate = (grouped = false) => {
+    setGroupReady(false);
+    setAudience(grouped&&source?{audience:'SELECTED',recipientFilter:source.filter}:{audience:'ALL',customerIds:[]});
     setReward(emptyReward());
     setFormError("");
     setTitle("");
@@ -2257,7 +2286,7 @@ function Surveys({ notify }) {
 
   const create = async (event) => {
     event.preventDefault();
-    if (busy) return;
+    if (busy || (audience.recipientFilter && !groupReady)) return;
     setFormError("");
     const prepared = questions.map((q) => ({
       text: q.text.trim(),
@@ -2285,7 +2314,7 @@ function Surveys({ notify }) {
     }
     setBusy(true);
     try {
-      await adminApi("/api/manager/surveys", {
+      const saved = await adminApi("/api/manager/surveys", {
         method: "POST",
         body: {
           title: title.trim(),
@@ -2299,7 +2328,7 @@ function Surveys({ notify }) {
       setDescription("");
       setQuestions([newQuestion()]);
       setDialogOpen(false);
-      notify("Đã lưu khảo sát nháp.");
+      notify(audience.recipientFilter?`Đã lưu khảo sát nháp cho ${saved.recipientCount} khách hàng. Chưa phát hành.`:"Đã lưu khảo sát nháp.");
       if (page) setPage(0);
       else await load();
     } catch (e) {
@@ -2360,10 +2389,11 @@ function Surveys({ notify }) {
         <button
           type="button"
           className="admin-primary admin-btn-with-icon"
-          onClick={openCreate}
+          onClick={()=>openCreate()}
         >
           <Plus size={16} /> Tạo khảo sát
         </button>
+        {source&&<><button type="button" className="admin-action" onClick={()=>openCreate(true)}>Tạo khảo sát cho nhóm này</button><button type="button" className="admin-action" onClick={()=>go(source.back)}>Quay lại nhóm khách hàng</button></>}
       </div>
 
       {loading ? (
@@ -2459,7 +2489,7 @@ function Surveys({ notify }) {
             <form onSubmit={create} className="admin-dialog-form">
               <div className="admin-survey-dialog-body">
                 <RewardFields value={reward} onChange={setReward} disabled={busy}/>
-                <SurveyAudience value={audience} onChange={setAudience} disabled={busy}/>
+                {audience.recipientFilter?<SurveyRecipientGroup filter={audience.recipientFilter} onReady={setGroupReady} disabled={busy} onOther={()=>setAudience({audience:'ALL',customerIds:[]})}/>:<SurveyAudience value={audience} onChange={setAudience} disabled={busy}/>}
                 {formError && (
                   <p role="alert" className="danger-text" style={{ margin: 0 }}>
                     {formError}
@@ -2663,7 +2693,7 @@ function Surveys({ notify }) {
                 <button
                   type="submit"
                   className="admin-primary"
-                  disabled={busy || !questions.length}
+                  disabled={busy || !questions.length || (!!audience.recipientFilter && !groupReady)}
                 >
                   {busy ? "Đang lưu..." : "Lưu bản nháp"}
                 </button>
@@ -2911,8 +2941,10 @@ function SurveyReports() {
   );
 }
 
-function Reports() {
-  const [tab, setTab] = useState("customers");
+export function Reports({go}) {
+  const [filters, change] = useManagerFilters({tab:'customers'});
+  const tab = ['customers','surveys','retention'].includes(filters.tab) ? filters.tab : 'customers';
+  const setTab = next => change({tab:next,page:''});
   return (
     <div className="admin-panel">
       <PanelTitle
@@ -2936,8 +2968,11 @@ function Reports() {
           <ClipboardList size={15} aria-hidden="true" />
           Kết quả khảo sát
         </button>
+        <button className={tab === 'retention' ? 'admin-primary' : 'admin-action'} aria-pressed={tab === 'retention'} onClick={() => setTab('retention')}>
+          <TrendingUp size={15} aria-hidden="true" />Giữ chân khách hàng
+        </button>
       </div>
-      {tab === "customers" ? <CustomerReport /> : <SurveyReports />}
+      {tab === 'customers' ? <CustomerReport /> : tab === 'surveys' ? <SurveyReports /> : <React.Suspense fallback={<PanelLoading />}><RetentionReport go={go} /></React.Suspense>}
     </div>
   );
 }

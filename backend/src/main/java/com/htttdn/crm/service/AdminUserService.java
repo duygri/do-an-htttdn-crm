@@ -22,7 +22,7 @@ public class AdminUserService extends AdminServiceSupport {
         String email=r.email().trim().toLowerCase(java.util.Locale.ROOT);
         if(users.existsByEmailIgnoreCase(email))throw VoucherService.bad("EMAIL_EXISTS","Email đã tồn tại.");
         if(r.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>72)throw VoucherService.bad("INVALID_PASSWORD","Mật khẩu tối đa 72 byte.");
-        User u=new User();u.setRole("CUSTOMER");u.setEmail(email);u.setFullName(r.fullName().trim());u.setPhone(r.phone());u.setPreferences(r.preferences());u.setPasswordHash(encoder.encode(r.password()));return users.save(u);
+        User u=new User();u.setRole("CUSTOMER");u.setEmail(email);u.setFullName(r.fullName().trim());u.setPhone(r.phone());u.setPreferences(r.preferences());u.setPasswordHash(encoder.encode(r.password()));users.save(u);audit("CREATE","CUSTOMER",u.getId(),java.util.Map.of(),u);return u;
     }
     private final RefreshTokenRepository refreshTokens;
     private final NotificationService notifications;
@@ -31,9 +31,10 @@ public class AdminUserService extends AdminServiceSupport {
     }
     public Page<User> list(String q, int page, int size) { return users.findActiveCustomers(q == null ? "" : q.trim(), page(page, size)); }
     public User get(Long id) { return users.findById(id).filter(u -> "CUSTOMER".equals(u.getRole()) && u.getDeletedAt() == null).orElseThrow(() -> new NoSuchElementException("Không tìm thấy tài khoản customer.")); }
-    @Transactional public User update(Long id, UserRequest request) { User user = get(id); user.setFullName(request.fullName()); user.setPhone(request.phone()); user.setPreferences(request.preferences()); return users.save(user); }
+    @Transactional public User update(Long id, UserRequest request) { User user = get(id);var before=snapshot(user); user.setFullName(request.fullName()); user.setPhone(request.phone()); user.setPreferences(request.preferences());audit("UPDATE","CUSTOMER",id,before,user); return users.save(user); }
     @Transactional public User lock(Long id, LockRequest request) {
         User user = get(id);
+        var before=snapshot(user);
         if (request.locked()) {
             String reason = request.reason() == null ? "" : request.reason().trim();
             if (reason.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "LOCK_REASON_REQUIRED", "Vui lòng nhập lý do khóa tài khoản.");
@@ -47,14 +48,17 @@ public class AdminUserService extends AdminServiceSupport {
             user.setLocked(false); user.setLockReason(null);
             users.save(user);
         }
+        if(!before.equals(snapshot(user)))audit(request.locked()?"LOCK":"UNLOCK","CUSTOMER",id,before,user);
         return user;
     }
     @Transactional public void delete(Long id) {
         User user = get(id);
+        var before=snapshot(user);
         user.setDeletedAt(Instant.now());
         user.setLocked(true);
         user.setLockReason(null);
         users.save(user);
         refreshTokens.revokeByUserId(id);
+        audit("DELETE","CUSTOMER",id,before,user);
     }
 }

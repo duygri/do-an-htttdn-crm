@@ -21,6 +21,7 @@ public class AdminFeedbackService extends AdminServiceSupport {
     }
     @Transactional public Feedback update(Long id, FeedbackRequest request) {
         Feedback item = getForModeration(id);
+        var before=snapshot(item);
         if (item.getDeletedAt() != null) throw new ApiException(HttpStatus.NOT_FOUND, "FEEDBACK_NOT_FOUND", "Không tìm thấy phản hồi.");
         if (request.status() != null) {
             if (!Set.of("NEW", "IN_PROGRESS", "RESOLVED").contains(request.status())) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_STATUS", "Trạng thái phản hồi không hợp lệ.");
@@ -33,12 +34,15 @@ public class AdminFeedbackService extends AdminServiceSupport {
         }
         if (request.hidden() != null) item.setHidden(request.hidden());
         if (request.status() != null || request.adminResponse() != null) item.setProcessedAt(Instant.now());
+        audit("UPDATE","FEEDBACK",id,before,item);
         return feedback.save(item);
     }
     @Transactional public void delete(Long id) {
         Feedback item = getForModeration(id);
         if (item.getDeletedAt() != null) return;
+        var before=snapshot(item);
         item.setDeletedAt(Instant.now());
         feedback.save(item);
+        audit("DELETE","FEEDBACK",id,before,item);
     }
 }

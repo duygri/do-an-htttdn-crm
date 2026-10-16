@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.util.*;
 
 @Service
-public class AdminVoucherService {
+public class AdminVoucherService extends AdminServiceSupport {
     private final StoreVoucherRepository vouchers;
     private final OrderRepository orders;
     private final ObjectMapper mapper;
@@ -52,10 +52,11 @@ public class AdminVoucherService {
         StoreVoucher v=new StoreVoucher(); apply(v,input);
         if(vouchers.findByCodeIgnoreCase(v.getCode()).isPresent())
             throw new ApiException(HttpStatus.CONFLICT,"VOUCHER_DUPLICATE","Mã giảm giá đã tồn tại.");
-        vouchers.saveAndFlush(v); return view(v,Instant.now());
+        vouchers.saveAndFlush(v);audit("CREATE","VOUCHER",v.getId(),Map.of(),v); return view(v,Instant.now());
     }
     @Transactional public View update(Long id,JsonNode patch) {
         StoreVoucher v=vouchers.lockById(id).orElseThrow(VoucherService::notFound);
+        var before=snapshot(v);
         if(v.getOwnerCustomerId()!=null) throw invalid("Không được sửa mã thưởng đã cấp cho khách hàng.");
         if(patch==null||!patch.isObject()) throw invalid("Dữ liệu cập nhật không hợp lệ.");
         ObjectNode merged=mapper.valueToTree(input(v));
@@ -67,7 +68,7 @@ public class AdminVoucherService {
         try {next=mapper.treeToValue(merged,Input.class);} catch(Exception e){throw invalid("Định dạng dữ liệu không hợp lệ.");}
         if(!VoucherService.normalize(v.getCode()).equals(VoucherService.normalize(next.code()))) throw invalid("Không được đổi tên mã đã tạo.");
         String originalCode=v.getCode();
-        apply(v,next); v.setCode(originalCode); vouchers.saveAndFlush(v); return view(v,Instant.now());
+        apply(v,next); v.setCode(originalCode); vouchers.saveAndFlush(v);audit("UPDATE","VOUCHER",id,before,v); return view(v,Instant.now());
     }
     public static void apply(StoreVoucher v,Input r) {
         if(r==null) throw invalid("Vui lòng nhập thông tin mã.");

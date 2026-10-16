@@ -26,6 +26,8 @@ class CustomerCarePostgresTest {
    if(!connection.getMetaData().getDatabaseProductName().equals("PostgreSQL"))throw new IllegalStateException("QA requires PostgreSQL");
    ScriptUtils.executeSqlScript(connection,new FileSystemResource("../database/migration_customer_care.sql"));
    ScriptUtils.executeSqlScript(connection,new FileSystemResource("../database/migration_customer_care.sql")); // rerun is safe
+   ScriptUtils.executeSqlScript(connection,new FileSystemResource("../database/migration_care_sources.sql"));
+   ScriptUtils.executeSqlScript(connection,new FileSystemResource("../database/migration_care_outcomes.sql"));
   }
  }
  User user(String name,String role){var u=new User();u.setFullName(name);u.setEmail(name+"@example.test");u.setPasswordHash("qa-not-a-login");u.setRole(role);em.persist(u);em.flush();return u;}
@@ -34,7 +36,7 @@ class CustomerCarePostgresTest {
   service.addNote(auth,customer.getId(),new CustomerCareService.NoteInput("Ghi chú thử nghiệm rollback"));assertEquals(1,service.notes(customer.getId(),0,10).totalElements());
   for(int i=0;i<15;i++)service.create(auth,new CustomerCareService.CreateTask(customer.getId(),manager.getId(),"Call "+i,"QA",Instant.now().minusSeconds(60)));
   var f=new CustomerCareService.Filters(unique,customer.getId(),manager.getId(),"TODO",true,1,10);var page=service.tasks(f);assertEquals(15,page.totalElements());assertEquals(5,page.content().size());
-  var t=page.content().getFirst();var completed=service.update(auth,t.id(),new CustomerCareService.UpdateTask(t.assigneeId(),t.title(),t.description(),t.dueAt(),"COMPLETED",t.version()));assertFalse(completed.overdue());assertEquals(14,service.tasks(f).totalElements());
+  var t=page.content().getFirst();var completed=service.update(auth,t.id(),new CustomerCareService.UpdateTask(t.assigneeId(),t.title(),t.description(),t.dueAt(),"COMPLETED",t.version(),"CONTACTED",null));assertFalse(completed.overdue());assertEquals(14,service.tasks(f).totalElements());
   assertEquals(15L,db.queryForObject("select count(*) from customer_care_tasks where customer_id=?",Long.class,customer.getId()));
   var report=dashboard.dashboard(null,null,manager.getId());assertEquals(15,report.counts().total());assertEquals(14,report.counts().overdue());assertEquals(1,report.counts().completed());assertEquals(1,report.staff().size());
  }

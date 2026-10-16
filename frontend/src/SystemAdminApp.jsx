@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi, adminRefreshSession, adminSignIn, adminSignOut } from './api';
 import InternalDirectory from './InternalDirectory';
+import AuditLogs from './AuditLogs';
 import './internal-portal.css';
 import {
   LayoutDashboard,
@@ -26,12 +27,14 @@ const menu = {
   dashboard: 'Tổng quan',
   accounts: 'Tài khoản nội bộ',
   products: 'Sản phẩm',
+  'audit-logs': 'Nhật ký thao tác',
 };
 
 const menuIcons = {
   dashboard: LayoutDashboard,
   accounts: ShieldCheck,
   products: Package,
+  'audit-logs': Activity,
 };
 
 export default function SystemAdminApp() {
@@ -479,7 +482,7 @@ export default function SystemAdminApp() {
                 </div>
               </div>
             ) : (
-              menu[section] && <InternalDirectory key={section} kind={section} />
+              section === 'audit-logs' ? <AuditLogs /> : menu[section] && <InternalDirectory key={section} kind={section} />
             )}
           </main>
         </>

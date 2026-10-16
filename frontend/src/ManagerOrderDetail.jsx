@@ -3,6 +3,7 @@ import { adminApi } from './manager-api';
 import { useManagerReadPause } from './useManagerResource';
 import { showReturn, displayOrderLabel, deliveryLabel, returnLabels } from './order-display';
 import './order-display.css';
+import SourceCareCreator from './SourceCareCreator';
 export { returnLabels } from './order-display';
 import { X, User, Calendar, CreditCard, MapPin, RotateCcw, AlertTriangle } from 'lucide-react';
 
@@ -117,6 +118,7 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
                 </li>)}
               </ol>
               {!detail.returnHistory?.length && <p>Chưa có lịch sử xử lý.</p>}
+              {!action&&['REQUESTED','APPROVED'].includes(detail.returnStatus)&&detail.status!=='CANCELLED'&&<SourceCareCreator key={detail.id} type="RETURN_ORDER" id={detail.id}/>}
               {!action && <div className="admin-dialog-actions">
                 {detail.returnStatus==='REQUESTED' && <><button className="admin-primary" onClick={()=>openAction('APPROVED')}>Chấp thuận</button><button className="admin-action danger-text" onClick={()=>openAction('REJECTED')}>Từ chối</button></>}
                 {detail.returnStatus==='APPROVED' && <button className="admin-primary" onClick={()=>openAction('COMPLETED')}>Hoàn tất xử lý</button>}

@@ -283,7 +283,7 @@ describe("admin navigation", () => {
     fireEvent.change(await screen.findByLabelText("Chọn khảo sát"), { target: { value: "8" } });
     await screen.findByText("Đen");
     expect(screen.getByText(/Tổng tỷ lệ có thể vượt 100%/)).toBeTruthy();
-    expect(adminApi.mock.calls.every(([url]) => url.startsWith("/api/manager/reports/"))).toBe(true);
+    expect(adminApi.mock.calls.every(([url]) => url.startsWith("/api/manager/reports/") || url === '/api/manager/notifications/summary')).toBe(true);
   });
 
   it("renders actual report values and recent orders, and opens their management page", async () => {

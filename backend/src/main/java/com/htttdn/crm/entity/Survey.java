@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference; import jakarta.per
 public class Survey {
     private String audience="ALL";
     public String getAudience(){return audience;} public void setAudience(String value){audience=value;}
+    @Transient public int getRecipientCount(){return recipients.size();}
     @com.fasterxml.jackson.annotation.JsonIgnore @ElementCollection(fetch=FetchType.EAGER) @CollectionTable(name="survey_recipients",joinColumns=@JoinColumn(name="survey_id")) @Column(name="customer_id")
     private Set<Long> recipients=new HashSet<>();
     @com.fasterxml.jackson.annotation.JsonIgnore public Set<Long> getRecipients(){return recipients;}
