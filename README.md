@@ -1,100 +1,326 @@
-# Enterprise Information System Project
+# ANH LỚN SHOP - Hệ thống bán hàng và quản lý quan hệ khách hàng (CRM)
 
-CRM simulation project for the Enterprise Information Systems course.
+Đồ án môn **Hệ thống thông tin doanh nghiệp**, xây dựng website bán thời trang nam kết hợp CRM. Hệ thống không chỉ hỗ trợ mua hàng mà còn tổng hợp hồ sơ khách hàng, phân nhóm, khảo sát, tiếp nhận yêu cầu hỗ trợ và theo dõi công việc chăm sóc sau bán.
 
-## Project scope
+Dự án gồm ba giao diện độc lập **Khách hàng**, **Admin hệ thống** và **Nhân viên quản lý**, dùng chung backend và cơ sở dữ liệu PostgreSQL. Nội dung dưới đây mô tả chức năng đã có trong mã nguồn; các giới hạn triển khai được nêu riêng, không xem đây là hệ thống vận hành thương mại đã được chứng nhận.
 
-The project covers three areas from the assessment requirements:
+## Mục lục
 
-- Part I: analysis, system design, documentation, testing, and reporting.
-- Part II: database implementation and the Admin interface.
-- Part III: CRM features for managers and customers.
+- [Mục tiêu và phạm vi đồ án](#mục-tiêu-và-phạm-vi-đồ-án)
+- [Vai trò và phân quyền](#vai-trò-và-phân-quyền)
+- [Các chức năng chính](#các-chức-năng-chính)
+- [Quy tắc nghiệp vụ và chỉ số CRM](#quy-tắc-nghiệp-vụ-và-chỉ-số-crm)
+- [Công nghệ và kiến trúc](#công-nghệ-và-kiến-trúc)
+- [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+- [Cài đặt và chạy local](#cài-đặt-và-chạy-local)
+- [Cấu hình thanh toán PayOS](#cấu-hình-thanh-toán-payos)
+- [Kiểm thử và CI](#kiểm-thử-và-ci)
+- [Tài liệu chi tiết](#tài-liệu-chi-tiết)
+- [Giới hạn và lưu ý triển khai](#giới-hạn-và-lưu-ý-triển-khai)
+- [Quy trình đóng góp](#quy-trình-đóng-góp)
 
-The complete task list is tracked in [GitHub Issues](https://github.com/duygri/do-an-htttdn-crm/issues) and the [GitHub Project](https://github.com/users/duygri/projects/1).
+## Mục tiêu và phạm vi đồ án
 
-## Planned technology stack
+- Phân tích yêu cầu, mô hình hóa nghiệp vụ, thiết kế hệ thống và cơ sở dữ liệu.
+- Xây dựng luồng bán hàng từ tra cứu sản phẩm đến đặt hàng, thanh toán, nhận hàng, đánh giá và đổi trả.
+- Tách quản trị tài khoản nội bộ khỏi nghiệp vụ vận hành cửa hàng.
+- Tập trung dữ liệu và lịch sử tương tác trong hồ sơ khách hàng 360°.
+- Hỗ trợ chăm sóc có người phụ trách, hạn xử lý, kết quả, nhắc việc và báo cáo.
+- Kiểm thử phân quyền, tính đúng dữ liệu, thao tác đồng thời và khả năng phục hồi khi lỗi API.
 
-- Frontend: React
-- Backend: Java 21 with Spring Boot REST API
-- Database: PostgreSQL
-- Design and diagrams: Google Stitch or Figma, draw.io, and related tools
+Đầu việc được theo dõi tại [GitHub Issues](https://github.com/duygri/do-an-htttdn-crm/issues) và [GitHub Project](https://github.com/users/duygri/projects/1).
 
-## Repository structure
+## Vai trò và phân quyền
+
+| Vai trò | Giao diện local | Trách nhiệm chính |
+| --- | --- | --- |
+| `CUSTOMER` | <http://localhost:5173> | Mua hàng, quản lý thông tin cá nhân, theo dõi đơn, khảo sát và gửi yêu cầu hỗ trợ |
+| `ADMIN` | <http://localhost:5174/admin/login> | Quản trị tài khoản ADMIN/MANAGER, tra cứu sản phẩm và xem nhật ký hệ thống |
+| `MANAGER` | <http://localhost:5175/manager/login> | Vận hành cửa hàng, quản lý khách hàng và thực hiện nghiệp vụ CRM |
+
+Ba portal sử dụng luồng đăng nhập và phiên riêng. Backend kiểm tra vai trò, trạng thái tài khoản và quyền sở hữu dữ liệu; không chỉ ẩn nút trên giao diện. ADMIN không dùng token của mình để thao tác nghiệp vụ thay MANAGER.
+
+## Các chức năng chính
+
+### 1. Website khách hàng
+
+- **Tài khoản:** đăng ký, đăng nhập/đăng xuất, cập nhật hồ sơ, đổi mật khẩu và quản lý sổ địa chỉ nhận hàng.
+- **Sản phẩm:** tìm kiếm, lọc, sắp xếp, xem chi tiết, chọn màu/size/số lượng, xem đánh giá và lưu yêu thích.
+- **Giỏ hàng:** chỉnh số lượng, xóa dòng, chọn từng sản phẩm hoặc chọn tất cả; giữ các món chưa mua trong giỏ sau khi đặt hàng. Hỗ trợ giỏ khách và gộp giỏ khi đăng nhập.
+- **Đặt hàng:** trang checkout riêng, địa chỉ mặc định hoặc địa chỉ khác cho đơn hiện tại, voucher, tổng tiền và phương thức COD/PayOS.
+- **Thanh toán QR:** hiển thị QR PayOS, mở link thanh toán, kiểm tra trạng thái và thử lại mã hết hạn/thất bại trên cùng đơn đủ điều kiện.
+- **Đơn hàng:** lịch sử có tab trạng thái, tìm kiếm/phân trang, xem chi tiết, tiếp tục thanh toán, hủy đơn theo điều kiện và xác nhận đã nhận hàng.
+- **Đánh giá/đổi trả:** đánh giá gắn với sản phẩm trong đơn hoàn thành; gửi yêu cầu đổi trả khi đủ điều kiện và theo dõi kết quả xử lý.
+- **Khảo sát/voucher:** trả lời khảo sát công khai hoặc được chỉ định, nhận voucher thưởng nếu được cấu hình; xem voucher cá nhân và ưu đãi cửa hàng còn hiệu lực.
+- **Hỗ trợ:** tạo phiếu gắn với đơn của mình nếu cần, gửi trao đổi và theo dõi tiến trình; không xem được ghi chú nội bộ của Manager.
+- **Thông báo:** xem và đánh dấu đã đọc các thông báo trong web. Có giao diện sáng/tối và bố cục responsive.
+
+Các trang thường dùng: `/san-pham/{id}`, `/gio-hang`, `/dat-hang`, `/don-hang`, `/tai-khoan`, `/tai-khoan/voucher`, `/khao-sat`, `/ho-tro`. Đường dẫn `/thanh-toan` phục vụ luồng quay về từ PayOS, không phải trang tạo đơn mới.
+
+### 2. Portal nhân viên quản lý
+
+- **Tổng quan:** chỉ số vận hành và liên kết nhanh đến đúng chức năng/bộ lọc.
+- **Khách hàng:** thêm/sửa, khóa/mở khóa, xóa mềm, tìm kiếm và lọc trên toàn bộ dữ liệu trước phân trang.
+- **Hồ sơ 360°:** thông tin liên hệ, địa chỉ, đơn hàng, đánh giá, khảo sát, voucher, chăm sóc và lịch sử hoạt động đã được ghi nhận.
+- **Phân nhóm:** chưa mua, mua lần đầu, quay lại, thân thiết; nhãn lâu chưa mua lại. Kết hợp ngày mua, số đơn, giá trị, điểm đánh giá và trạng thái tham gia khảo sát.
+- **Chăm sóc:** ghi chú, tạo/giao việc, hạn xử lý, ghi nhận kết quả, tạo việc kế tiếp; tạo việc từ phản hồi chưa xử lý hoặc đơn đổi trả.
+- **Việc của tôi:** xem việc cá nhân đang mở, đến hạn, sắp đến hạn, quá hạn và việc chăm sóc tiếp; nhận thông báo nhắc hạn có lưu.
+- **Sản phẩm và tồn kho:** quản lý thông tin, danh mục, giá, trạng thái hiển thị và số lượng tồn.
+- **Đơn hàng/đổi trả:** tìm kiếm, lọc, theo dõi thanh toán, cập nhật tiến trình giao hàng; chấp thuận, từ chối hoặc hoàn tất yêu cầu đổi trả theo luồng cho phép.
+- **Phản hồi:** tiếp nhận, trả lời, xử lý, ẩn/hiện và xóa mềm đánh giá.
+- **Phiếu hỗ trợ:** tạo hộ khách, phân công, trao đổi công khai, ghi chú nội bộ và cập nhật trạng thái xử lý.
+- **Khảo sát:** tạo nháp, phát hành/gỡ, thống kê kết quả, chọn tất cả khách hoặc chỉ định người nhận và cấu hình voucher thưởng.
+- **Khảo sát theo nhóm:** tạo bản nháp từ toàn bộ khách khớp bộ lọc, xem trước và chốt người nhận khi lưu; không tự phát hành. Có thể lọc đã/chưa trả lời một khảo sát cụ thể.
+- **Voucher/báo cáo/nhật ký:** quản lý mã giảm giá, báo cáo khách hàng, khảo sát, mua lại, kết quả chăm sóc và tra cứu nhật ký nghiệp vụ.
+
+Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang mở được cập nhật mỗi 5 giây; tạm dừng khi tab bị ẩn hoặc người dùng đang nhập/gửi thao tác liên quan.
+
+### 3. Portal Admin hệ thống
+
+- Xem tổng quan và tra cứu sản phẩm bằng tìm kiếm, bộ lọc, sắp xếp và phân trang.
+- Tạo, sửa, khóa/mở khóa, xóa mềm và đổi quyền tài khoản ADMIN/MANAGER.
+- Bảo vệ thao tác tự khóa/xóa/đổi quyền và tài khoản Admin hoạt động cuối cùng.
+- Xem nhật ký hệ thống, bao gồm các thao tác khách hàng đã được bổ sung ghi nhận.
+- Liên kết đến portal Manager và website khách hàng; không thay thế vai trò vận hành của Manager.
+
+## Quy tắc nghiệp vụ và chỉ số CRM
+
+### Đơn hàng, thanh toán và hậu mãi
+
+- Trạng thái xử lý đơn, thanh toán và đổi trả được quản lý riêng.
+- Luồng điển hình: **Chờ xác nhận → Đang xử lý → Đang giao → Đã giao/chờ khách xác nhận → Hoàn thành**. Đơn mới không được xem là hoàn thành chỉ vì đã thanh toán.
+- Chỉ khách sở hữu đơn đã giao, chưa có yêu cầu đổi trả mới xác nhận nhận hàng. Manager không hoàn thành đơn thay khách và không có tác vụ tự hoàn tất theo thời gian.
+- Mỗi sản phẩm trong mỗi đơn hoàn thành chỉ đánh giá một lần; nhiều màu/size của cùng sản phẩm trong đơn dùng chung đánh giá. Bình luận tối đa 4.000 ký tự.
+- Đơn đã xác nhận nhận hàng và đã có đánh giá không được gửi yêu cầu đổi trả mới.
+- QR mặc định có hạn 15 phút. Trạng thái trả tiền do backend xác nhận qua PayOS; không tin tham số trên URL trình duyệt. Thử lại QR không tạo đơn mới hoặc trừ tồn kho lần nữa.
+- Mỗi đơn dùng một voucher. Voucher thưởng khảo sát thuộc đúng tài khoản, có giới hạn lượt; điều kiện được kiểm tra lại khi đặt hàng.
+- Xử lý đổi trả không tự hoàn tiền, cộng tồn kho hoặc thay trạng thái thanh toán. Việc xử lý thực tế bên ngoài cần được ghi nhận đúng nghiệp vụ.
+
+### Phân nhóm và báo cáo
+
+| Chỉ số/nhóm | Quy tắc |
+| --- | --- |
+| Chưa mua hàng | Không có đơn `COMPLETED` |
+| Mua lần đầu | Có một đơn hoàn thành, chưa đạt ngưỡng thân thiết |
+| Khách quay lại | Có ít nhất hai đơn hoàn thành, chưa đạt ngưỡng thân thiết |
+| Khách thân thiết | Ít nhất 5 đơn hoàn thành **hoặc** giá trị đơn hoàn thành từ 5.000.000 đồng; ưu tiên nhóm này |
+| Lâu chưa mua lại | Nhãn bổ sung: đã mua và từ 30 ngày lịch Việt Nam kể từ ngày đặt gần nhất trong các đơn hoàn thành |
+| Tỷ lệ mua lại toàn thời gian | Khách có ít nhất hai đơn hoàn thành / khách có ít nhất một đơn hoàn thành × 100 |
+| Giá trị đơn hoàn thành | Tổng tiền sau giảm giá của đơn `COMPLETED`, chưa trừ hoàn tiền; không đồng nhất tiền đã thu |
+| Tỷ lệ đã giải quyết công việc chăm sóc | Số việc có kết quả `RESOLVED` / số việc hoàn thành đã ghi nhận kết quả hợp lệ × 100 |
+
+Các phép chia có mẫu số 0 trả 0. Ngày nghiệp vụ CRM dùng múi giờ `Asia/Ho_Chi_Minh`. Đơn hoàn thành có đổi trả vẫn nằm trong phép tính giá trị đơn hoàn thành. Chỉ số **Giá trị đơn chưa hủy** ở dashboard là một phép tính khác, không phải tiền thực thu.
+
+Khi lọc theo khảo sát cụ thể, **chưa trả lời chỉ tính trong đối tượng nhận khảo sát đó**, không gom khách ngoài nhóm. Điểm đánh giá sản phẩm không được gọi là điểm hài lòng khảo sát. Timeline chỉ tổng hợp sự kiện có dữ liệu lưu, không dựng lại lịch sử cũ.
+
+Phiếu hỗ trợ có luồng **Mới → Đang xử lý → Chờ khách → Đã giải quyết**, cho phép xử lý tiếp từ bước chờ khách. Công việc chăm sóc có luồng riêng **Chưa thực hiện → Đang xử lý → Hoàn thành**. Nhắc việc đến hạn/quá hạn được backend kiểm tra định kỳ 60 giây, chống gửi trùng và không nhắc lặp hằng ngày.
+
+## Công nghệ và kiến trúc
+
+| Thành phần | Công nghệ/cách tổ chức |
+| --- | --- |
+| Frontend | React, Vite, JavaScript/JSX, CSS; Lucide React và `qrcode.react` |
+| Backend | Java 21, Spring Boot 3.4.3, REST API, Spring Data JPA, JDBC và Bean Validation |
+| Dữ liệu | PostgreSQL; transaction, khóa bản ghi và kiểm soát phiên bản ở các luồng cần chống tranh chấp |
+| Xác thực | JWT, refresh token, BCrypt; kiểm tra vai trò và trạng thái tài khoản tại backend |
+| Kiểm thử | JUnit, Spring Boot Test, MockMvc, H2, PostgreSQL opt-in; Vitest và React Testing Library |
+| CI | GitHub Actions: backend verify, frontend build, lint tài liệu/PlantUML và CodeQL |
+| Thiết kế/tài liệu | Figma/Google Stitch, Markdown và sơ đồ PlantUML |
+
+Luồng chung: **Ba portal React → REST API Spring Boot → PostgreSQL**. PayOS là dịch vụ thanh toán bên ngoài, giao tiếp với backend qua API và webhook. Namespace nghiệp vụ Manager là `/api/manager/*`, quản trị hệ thống là `/api/admin/*`; API khách hàng dùng các đường dẫn như `/api/orders`, `/api/surveys`, `/api/support-tickets`.
+
+## Cấu trúc thư mục
 
 ```text
-docs/       Requirements, diagrams, architecture, and user documentation
-database/   Schema, seed data, and backup or restore documentation
-backend/    Java Spring Boot backend application
-frontend/   React frontend application
-tests/      Test cases, scenarios, and test evidence
+backend/               Ứng dụng Spring Boot, REST API và test backend
+frontend/              Ba portal React, API client, CSS và test frontend
+database/              Schema, dữ liệu mẫu, migration và tài liệu database
+docs/                  Yêu cầu, thiết kế, sơ đồ và hướng dẫn chức năng CRM
+tests/                 Tài liệu/kịch bản kiểm thử bổ sung
+.github/workflows/     Quy trình CI và kiểm tra mã nguồn
 ```
 
-## Development workflow
+## Cài đặt và chạy local
 
-1. Select an assigned GitHub Issue.
-2. Create a branch from `main` using the Issue ID, for example `feature/III-CRM-01-add-customer`.
-3. Implement and test the task.
-4. Open a Pull Request and link the Issue with `Closes #number`.
-5. Ask another member to review the Pull Request.
-6. Merge only after review and update the Issue status to `Done`.
+### 1. Yêu cầu môi trường
 
-## Local setup
+- Git, JDK 21 và Maven 3.9.x.
+- PostgreSQL và công cụ `psql` hoặc pgAdmin.
+- Node.js **22.22.2 trở lên trong nhánh 22.x**, hoặc **24.15.0 trở lên trong nhánh 24.x**, phù hợp yêu cầu engine của lockfile hiện tại.
+- Chạy lệnh từ thư mục gốc repository, trừ các bước có `cd` riêng. Ví dụ dưới dùng PowerShell; mỗi portal/backend chạy trong một terminal riêng.
 
-### Prerequisites
+```powershell
+git clone https://github.com/duygri/do-an-htttdn-crm.git
+cd do-an-htttdn-crm
+```
 
-- Java 21 and Maven
-- PostgreSQL
-- Node.js 22.22.2 or later in the 22.x line, or 24.15.0 or later in the 24.x line. These versions satisfy the Node engine requirements in the current frontend lockfile.
+### 2. Tạo database mới
 
-Create a PostgreSQL database named `htttdn`, then run `database/schema.sql` and `database/seed_data.sql`. If the database was created from an older version of this project, run `database/cleanup_legacy.sql` once between the schema and seed scripts.
+```powershell
+psql -U postgres -c "CREATE DATABASE htttdn;"
+psql -U postgres -d htttdn -v ON_ERROR_STOP=1 -f database/schema.sql
+psql -U postgres -d htttdn -v ON_ERROR_STOP=1 -f database/seed_data.sql
+```
 
-Start the backend:
+`schema.sql` là cấu trúc khởi tạo hiện tại; `seed_data.sql` thêm dữ liệu minh họa để demo. Không chạy seed tùy tiện trên dữ liệu thật.
+
+Tài khoản Admin minh họa do seed tạo là `admin@shop.com`, mật khẩu mẫu được ghi trong chính script seed. Chỉ dùng tài khoản mẫu ở local, đổi mật khẩu trước khi triển khai. Đăng nhập Admin để tạo tài khoản `MANAGER` với mật khẩu riêng; **không có tài khoản Manager mặc định**. Khách có thể đăng ký trên website.
+
+### 3. Nâng cấp database đã có
+
+Sao lưu, xác định phiên bản schema đã triển khai và đọc migration liên quan trước khi thực hiện. Không thay việc nâng cấp bằng cách xóa database hoặc chạy lại mọi script. Các nhóm migration có trong repository:
+
+| Nhóm chức năng | Script |
+| --- | --- |
+| Nền tảng tài khoản/portal | `migration_admin_user_split.sql`, `migration_manager_portal.sql` |
+| Khảo sát, phản hồi và voucher | `migration_survey_management.sql`, `migration_feedback_moderation.sql`, `migration_voucher_management.sql`, `migration_review_survey_rewards.sql` |
+| Thanh toán và đổi trả | `migration_payos_qr.sql`, `migration_payos_attempts.sql`, `migration_return_management.sql` |
+| Chăm sóc khách hàng | `migration_customer_care.sql` → `migration_care_sources.sql` → `migration_care_outcomes.sql` → `migration_care_reminders.sql` |
+| Nhật ký và phiếu hỗ trợ | `migration_audit_logs.sql`, `migration_support_tickets.sql` |
+
+Các script nằm trong `database/`. Migration nhắc hạn cần bảng công việc và thông báo có trước; migration hỗ trợ cần các bảng tài khoản, đơn hàng và thông báo. Backend có ghi audit cần bảng nhật ký trước khi thực hiện nghiệp vụ mới. Xem hướng dẫn từng chức năng ở mục [Tài liệu chi tiết](#tài-liệu-chi-tiết).
+
+`cleanup_legacy.sql` dành cho dữ liệu/cấu trúc cũ, **không phải bước cài đặt mặc định**. Chỉ dùng khi đã hiểu nội dung, có bản sao lưu và đã kiểm thử trên bản sao. Khởi động lại backend sau khi cập nhật migration/mã nguồn; chạy SQL không tự nạp endpoint mới vào tiến trình Java đang chạy.
+
+### 4. Chạy backend
 
 ```powershell
 cd backend
 $env:DB_URL='jdbc:postgresql://localhost:5432/htttdn'
 $env:DB_USERNAME='postgres'
-$env:DB_PASSWORD='mat-khau-postgres-cua-ban'
+$env:DB_PASSWORD='<mat-khau-postgresql-cua-ban>'
 $env:SERVER_PORT='8080'
+$env:JWT_SECRET='<chuoi-bi-mat-ngau-nhien-dai-danh-cho-moi-truong-cua-ban>'
+$env:SPRING_JPA_HIBERNATE_DDL_AUTO='none'
 mvn spring-boot:run
 ```
 
-Start the customer storefront in another terminal:
+Lệnh trên giả định đã chạy schema/migration phù hợp. Chế độ `none` tránh để Hibernate tự thay đổi schema ngoài quy trình nâng cấp.
+
+**Lưu ý cổng:** cấu hình backend trong repository mặc định là `8082`, còn frontend mặc định gọi `8080`. Ví dụ chủ động đặt backend về `8080`. Nếu giữ `8082` hoặc dùng cổng khác, phải đổi `VITE_API_BASE_URL` tương ứng ở cả ba terminal frontend.
+
+### 5. Chạy ba portal frontend
+
+Cài dependency một lần:
 
 ```powershell
 cd frontend
 npm ci
+```
+
+Trong ba terminal riêng, từ thư mục `frontend`:
+
+```powershell
 $env:VITE_API_BASE_URL='http://localhost:8080'
 npm run dev:user
 ```
 
-The backend defaults to port `8082`, while the frontend defaults to API URL `http://localhost:8080`. The backend command above sets port `8080` so both services match. If you use another backend port, set `VITE_API_BASE_URL` to that same URL in each frontend terminal.
-
-Start the other portals in separate terminals from `frontend`:
-
 ```powershell
 $env:VITE_API_BASE_URL='http://localhost:8080'
-npm run dev:admin   # http://localhost:5174
+npm run dev:admin
 ```
 
 ```powershell
 $env:VITE_API_BASE_URL='http://localhost:8080'
-npm run dev:manager # http://localhost:5175
+npm run dev:manager
 ```
 
-The customer storefront runs at `http://localhost:5173`.
+`npm run dev` mặc định chạy User. Các cổng lần lượt là `5173`, `5174`, `5175` và dùng `--strictPort`: nếu bị chiếm, chương trình báo lỗi thay vì tự chuyển cổng. Khởi động lại Vite sau khi thay biến môi trường. Có thể tham khảo [frontend/.env.example](frontend/.env.example), không commit cấu hình riêng hoặc khóa bí mật vào Git.
 
-Run the automated checks:
+### 6. Các biến môi trường thường dùng
+
+| Biến | Công dụng |
+| --- | --- |
+| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Kết nối PostgreSQL |
+| `SERVER_PORT` | Cổng backend |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | Quản lý thay đổi schema; ví dụ local ở trên dùng `none` sau khi cài SQL |
+| `JWT_SECRET` | Bí mật ký token; phải thay giá trị phát triển trước khi triển khai |
+| `CORS_ORIGINS` | Danh sách origin frontend được phép, phân cách bằng dấu phẩy; cần đủ ba portal |
+| `SECURE_REFRESH_COOKIE` | Đặt `true` khi triển khai qua HTTPS |
+| `VITE_API_BASE_URL` | URL backend mà từng portal gọi |
+| `VITE_USER_ORIGIN`, `VITE_ADMIN_ORIGIN`, `VITE_MANAGER_ORIGIN` | Origin các portal để tạo liên kết điều hướng |
+| `CRM_CARE_REMINDERS_ENABLED` | Bật/tắt scheduler nhắc việc; mặc định bật |
+
+Ví dụ CORS local: `http://localhost:5173,http://localhost:5174,http://localhost:5175`. Không dùng cấu hình phát triển, bí mật mặc định hoặc tài khoản seed để vận hành thật.
+
+## Cấu hình thanh toán PayOS
+
+Thiết lập ở terminal backend trước khi chạy:
 
 ```powershell
-cd frontend
-npm test
-npm run build
+$env:PAYOS_CLIENT_ID='<client-id>'
+$env:PAYOS_API_KEY='<api-key>'
+$env:PAYOS_CHECKSUM_KEY='<checksum-key>'
+$env:PAYOS_RETURN_URL='http://localhost:5173/thanh-toan'
+$env:PAYOS_CANCEL_URL='http://localhost:5173/thanh-toan'
 ```
 
+- Thiếu khóa thì checkout PayOS trả lỗi cấu hình, không tạo QR giả; COD vẫn dùng được.
+- Đăng ký webhook trỏ đến `POST /api/payments/payos/webhook` ở backend có thể truy cập công khai. Backend xác thực chữ ký và có API đồng bộ trạng thái để đối chiếu với nhà cung cấp.
+- URL quay về trình duyệt chỉ phục vụ hiển thị, không được dùng để tự đánh dấu đã thanh toán.
+- Không đưa khóa PayOS vào biến `VITE_*`, ảnh chụp, log hoặc commit. Kiểm thử tự động dùng phản hồi giả lập, không yêu cầu thanh toán tiền thật.
+
+## Kiểm thử và CI
+
+Backend, chạy trong `backend`:
+
 ```powershell
-cd backend
+mvn test -q
 mvn verify
 ```
 
-PayOS QR checkout requires `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, and `PAYOS_CHECKSUM_KEY`; optionally set `PAYOS_RETURN_URL` and `PAYOS_CANCEL_URL`. Without the keys, PayOS checkout returns a configuration error while COD remains available. The PayOS webhook must be publicly reachable for payment status to change to paid. On an existing PostgreSQL database, run `database/migration_payos_qr.sql` before starting the updated backend with `ddl-auto=none`.
+Frontend, chạy trong `frontend`:
+
+```powershell
+npm test
+npm run build
+# Máy ít tài nguyên có thể giới hạn số worker:
+npm test -- --maxWorkers=2
+```
+
+Kiểm tra whitespace, chạy tại thư mục gốc:
+
+```powershell
+git diff --check
+```
+
+Test backend thường dùng H2 và dữ liệu thử. Một số test PostgreSQL chỉ chạy khi bật `CRM_POSTGRES_QA=true`; đọc từng lớp test trước khi bật và chỉ dùng database kiểm thử. Không phải mọi test opt-in đều dùng bảng tạm: một số tạo dữ liệu rồi rollback và có thể làm tăng sequence. Không trỏ các test này vào database vận hành.
+
+GitHub Actions phân loại thay đổi để chạy backend `mvn verify`, frontend build và lint/typecheck nếu được cấu hình, kiểm tra whitespace và sơ đồ PlantUML; CodeQL kiểm tra riêng. Chỉ merge khi các kiểm tra bắt buộc đạt. Không lấy số test ghi trong tài liệu cũ làm số cố định cho mọi phiên bản; kết quả thực tế nằm trong log CI và báo cáo test.
+
+## Tài liệu chi tiết
+
+| Nội dung | Tài liệu |
+| --- | --- |
+| Yêu cầu và phạm vi | [PRD](docs/prd-htttdn-crm.md), [yêu cầu hệ thống](docs/requirements.md) |
+| Hồ sơ 360° và phân nhóm | [Hồ sơ khách hàng](docs/customer-profile-360.md), [vòng đời](docs/customer-lifecycle.md) |
+| Chăm sóc và việc kế tiếp | [Chăm sóc](docs/customer-care.md), [liên kết nguồn](docs/care-sources.md), [kết quả và theo dõi tiếp](docs/care-outcomes.md) |
+| Nhắc việc cá nhân | [Việc của tôi và thông báo](docs/care-reminders.md) |
+| Báo cáo | [Dashboard chăm sóc](docs/care-dashboard.md), [kết quả chăm sóc](docs/care-outcomes-report.md), [giữ chân khách hàng](docs/retention-report.md) |
+| Khảo sát theo nhóm | [Chốt người nhận từ bộ lọc](docs/survey-recipient-groups.md), [lọc theo khảo sát cụ thể](docs/customer-survey-filters.md) |
+| Hỗ trợ và đổi trả | [Phiếu hỗ trợ](docs/support-tickets.md), [xử lý đổi trả](docs/return-management.md) |
+| Voucher và đánh giá | [Voucher](database/VOUCHERS.md), [đánh giá và thưởng khảo sát](database/REVIEWS_REWARDS.md) |
+| Nhật ký và kiểm tra nghiệp vụ | [Audit log](docs/audit-logs.md), [ma trận QA](docs/crm-workflow-qa.md) |
+| Sơ đồ | [Thư mục sơ đồ](docs/diagrams/) |
+
+Tài liệu từng đợt có thể ghi kết quả kiểm tra ở thời điểm khác nhau. Khi có khác biệt, đối chiếu phiên bản mã nguồn và migration đang triển khai.
+
+## Giới hạn và lưu ý triển khai
+
+- Đây là đồ án mô phỏng; cần rà soát bảo mật, cấu hình, hiệu năng, sao lưu/khôi phục và vận hành trước khi dùng thực tế.
+- Chưa tích hợp email gửi mã khôi phục mật khẩu. Luồng khôi phục công khai mặc định bị khóa; chế độ xem mã chỉ dành cho môi trường `development` và phải bật rõ `DEV_PASSWORD_RESET_ENABLED=true`. Không bật chế độ này khi triển khai thật.
+- Chưa có email marketing, thông báo hệ điều hành, hoàn tiền tự động hoặc chiến dịch tự phát voucher. Nhắc việc và thông báo hiện tại nằm trong web.
+- Báo cáo mua lại toàn thời gian chưa phải phân tích giữ chân theo cohort; giá trị đơn không phải tiền thực thu hay lợi nhuận.
+- Giao diện quản lý nhà cung cấp không nằm trong menu hiện tại; database/API có thể còn thành phần tương thích từ các phiên bản trước.
+- Khi triển khai frontend lên web server, cần cấu hình fallback phù hợp cho route phía client để mở URL trực tiếp/refresh không bị 404, đồng thời chuyển tiếp đúng API và cookie.
+- Khi lỗi kết nối, kiểm tra backend đã chạy đúng cổng, `VITE_API_BASE_URL`, CORS và migration. Lỗi thiếu endpoint thường cần build/khởi động lại backend đúng phiên bản, không chỉ chạy SQL.
+- Thư mục `database/backup` hiện là khung tài liệu; không xem đó là bằng chứng đã hoàn tất diễn tập sao lưu/khôi phục.
+
+## Quy trình đóng góp
+
+1. Chọn hoặc tạo GitHub Issue với phạm vi và tiêu chí hoàn thành rõ ràng.
+2. Tạo branch mới từ `main` đã cập nhật; đặt tên mô tả công việc, ví dụ `codex/docs-vietnamese-project-readme`.
+3. Giữ các thay đổi local của người khác; không commit mật khẩu, token, `.env.local` hoặc cấu hình database riêng.
+4. Bổ sung test hồi quy, tài liệu và migration khi thật sự cần thay đổi schema.
+5. Chạy các kiểm tra tương ứng, tạo Pull Request và liên kết Issue bằng `Closes #...` nếu có.
+6. Nhờ thành viên khác review, đợi CI đạt rồi mới merge. Migration được triển khai có kiểm soát, không tự chạy vào database thật để thử.
