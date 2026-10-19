@@ -1,0 +1,38 @@
+@startuml
+title Admin - Thêm khách hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminUserController" as Controller
+control "AdminUserService" as Service
+database "UserRepository" as DB
+control "PasswordEncoder" as Encoder
+
+Admin -> Web: Nhập thông tin khách hàng
+Web -> Controller: POST /api/manager/users
+Controller -> Controller: @Valid CreateCustomer
+Controller -> Service: create(input)
+Service -> Service: Chuẩn hóa email
+Service -> DB: existsByEmailIgnoreCase(email)
+DB --> Service: Chưa tồn tại
+Service -> Encoder: encode(password)
+Encoder --> Service: passwordHash
+Service -> DB: save(User role=CUSTOMER)
+DB --> Service: User mới
+Service -> Service: audit CREATE CUSTOMER
+Service --> Controller: User
+Controller --> Web: 201 Created
+Web --> Admin: Hiển thị thêm thành công
+
+alt Email trùng / mật khẩu không hợp lệ
+  Service --> Controller: 400/409
+  Controller --> Web: Lỗi tạo khách hàng
+  Web --> Admin: Hiển thị lỗi
+end
+note over Controller,Encoder
+  Source: AdminUserController.create(), AdminUserService.create()
+end note
+@enduml

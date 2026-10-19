@@ -1,0 +1,43 @@
+@startuml
+title Admin - Khóa hoặc mở khóa tài khoản khách hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminUserController" as Controller
+control "AdminUserService" as Service
+database "UserRepository" as Users
+database "RefreshTokenRepository" as Tokens
+control "NotificationService" as Notify
+
+Admin -> Web: Chọn khóa hoặc mở khóa
+Web -> Controller: PATCH /api/manager/users/{id}/lock
+Controller -> Service: lock(id, locked, reason)
+Service -> Users: findById(id)
+Users --> Service: User CUSTOMER
+
+alt Khóa tài khoản
+  Service -> Service: Kiểm tra lý do khóa
+  Service -> Users: set locked=true, lockReason; save
+  Service -> Notify: Tạo thông báo ACCOUNT_LOCKED
+  Service -> Tokens: revokeByUserId(id)
+else Mở khóa tài khoản
+  Service -> Users: set locked=false, clear reason; save
+end
+
+Service -> Service: audit LOCK/UNLOCK nếu có thay đổi
+Service --> Controller: User
+Controller --> Web: 200 User
+Web --> Admin: Hiển thị kết quả
+
+alt Sai lý do / đã khóa / không tìm thấy
+  Service --> Controller: 400/404/409
+  Controller --> Web: Lỗi khóa/mở khóa
+  Web --> Admin: Hiển thị lỗi
+end
+note over Controller,Tokens
+  Source: AdminUserController.lock(), AdminUserService.lock()
+end note
+@enduml

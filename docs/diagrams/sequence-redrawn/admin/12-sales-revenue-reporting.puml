@@ -1,0 +1,26 @@
+@startuml
+title Admin - Thống kê và báo cáo doanh thu
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminReportController" as Controller
+control "AdminReportService" as Service
+database "OrderRepository" as Orders
+
+Admin -> Web: Mở báo cáo doanh thu
+Web -> Controller: GET /api/manager/reports/revenue
+Controller -> Service: revenue()
+Service -> Orders: revenue()
+Orders --> Service: totalRevenue
+Service -> Orders: count()
+Orders --> Service: orderCount
+Service --> Controller: Map(totalRevenue, orders)
+Controller --> Web: 200 revenue report
+Web --> Admin: Hiển thị doanh thu và số đơn
+note over Controller,Orders
+  Source: AdminReportController.revenue(), AdminReportService.revenue()
+end note
+@enduml

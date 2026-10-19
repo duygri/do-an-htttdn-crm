@@ -1,0 +1,55 @@
+@startuml
+title Admin - Quản lý sản phẩm và tồn kho
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminProductController" as Controller
+control "AdminProductService" as Service
+database "ProductRepository" as Products
+database "CategoryRepository" as Categories
+
+Admin -> Web: Mở danh sách sản phẩm và lọc
+Web -> Controller: GET /api/manager/products
+Controller -> Service: search(filters)
+Service -> Products: Query product/category/stock
+Products --> Service: Page<Product>
+Service --> Controller: Page<Product>
+Controller --> Web: 200 danh sách sản phẩm
+Web --> Admin: Hiển thị sản phẩm
+
+alt Thêm sản phẩm
+  Admin -> Web: Nhập thông tin sản phẩm
+  Web -> Controller: POST /api/manager/products
+  Controller -> Service: create(request)
+  Service -> Categories: Tìm hoặc tạo category
+  Service -> Products: save(product) + audit CREATE
+  Products --> Service: Product
+  Service --> Controller: Product
+  Controller --> Web: 200 Product
+else Sửa sản phẩm
+  Web -> Controller: PUT /api/manager/products/{id}
+  Controller -> Service: update(id, request)
+  Service -> Products: findById + save + audit UPDATE
+  Products --> Service: Product
+  Service --> Controller: Product
+  Controller --> Web: 200 Product
+else Cập nhật tồn kho
+  Web -> Controller: PATCH /api/manager/products/{id}/stock
+  Controller -> Service: stock(id, quantity)
+  Service -> Products: save stock + audit STOCK
+  Products --> Service: Product
+  Service --> Controller: Product
+  Controller --> Web: 200 Product
+else Lưu trữ sản phẩm
+  Web -> Controller: DELETE /api/manager/products/{id}
+  Controller -> Service: archive(id)
+  Service -> Products: active=false; save + audit ARCHIVE
+  Controller --> Web: 200 OK
+end
+note over Controller,Categories
+  Source: AdminProductController, AdminProductService
+end note
+@enduml

@@ -1,0 +1,42 @@
+@startuml
+title Admin - Tạo và phát hành khảo sát
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminSurveyController" as Controller
+control "AdminSurveyService" as Service
+database "SurveyRepository" as Surveys
+database "UserRepository" as Users
+control "NotificationService" as Notify
+
+Admin -> Web: Nhập tiêu đề, câu hỏi, đối tượng nhận
+Web -> Controller: POST /api/manager/surveys
+Controller -> Service: create(request)
+Service -> Service: Validate audience, reward, dates, questions
+Service -> Users: Kiểm tra khách hàng được chọn
+Service -> Surveys: save(DRAFT)
+Surveys --> Service: Survey
+Service --> Controller: Survey bản nháp
+Controller --> Web: 200 Survey
+
+Admin -> Web: Bấm phát hành
+Web -> Controller: PATCH /api/manager/surveys/{id}/publish?value=true
+Controller -> Service: publish(id, true)
+Service -> Surveys: findForUpdate(id)
+Surveys --> Service: Survey DRAFT
+Service -> Service: Kiểm tra reward và câu hỏi
+Service -> Users: Lấy batch khách hàng hoạt động
+Users --> Service: Danh sách recipients
+Service -> Notify: Tạo thông báo SURVEY_PUBLISHED cho recipients
+Service -> Surveys: save(PUBLISHED) + audit PUBLISH
+Service --> Controller: Survey PUBLISHED
+Controller --> Web: 200 Survey
+Web --> Admin: Hiển thị đã phát hành
+
+note over Controller,Notify
+  Source: AdminSurveyController, AdminSurveyService
+end note
+@enduml

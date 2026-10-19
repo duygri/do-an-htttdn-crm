@@ -1,0 +1,36 @@
+@startuml
+title Admin - Xóa khách hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminUserController" as Controller
+control "AdminUserService" as Service
+database "UserRepository" as Users
+database "RefreshTokenRepository" as Tokens
+
+Admin -> Web: Xác nhận xóa khách hàng
+Web -> Controller: DELETE /api/manager/users/{id}
+Controller -> Service: delete(id)
+Service -> Users: findById(id)
+Users --> Service: User CUSTOMER
+Service -> Service: set deletedAt=now, locked=true
+Service -> Users: save(user)
+Service -> Tokens: revokeByUserId(id)
+Service -> Service: audit DELETE CUSTOMER
+Service --> Controller: Hoàn tất
+Controller --> Web: 204 No Content
+Web --> Admin: Cập nhật danh sách
+
+alt Không tìm thấy khách hàng
+  Service --> Controller: 404
+  Controller --> Web: Lỗi xóa
+  Web --> Admin: Hiển thị thông báo
+end
+note over Controller,Tokens
+  Đây là xóa mềm; dữ liệu User không bị DELETE vật lý.
+  Source: AdminUserController.delete(), AdminUserService.delete()
+end note
+@enduml

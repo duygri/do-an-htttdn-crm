@@ -1,0 +1,42 @@
+@startuml
+title Admin - Tiếp nhận và xử lý phản hồi khách hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminFeedbackController" as Controller
+control "AdminFeedbackService" as Service
+database "FeedbackRepository" as DB
+
+Admin -> Web: Mở danh sách phản hồi
+Web -> Controller: GET /api/manager/feedback?status&page&size
+Controller -> Service: list(status, page, size)
+Service -> DB: findByStatusAndDeletedAtIsNull(...)
+DB --> Service: Page<Feedback>
+Service --> Controller: Page<Feedback>
+Controller --> Web: 200 danh sách phản hồi
+Web --> Admin: Hiển thị phản hồi
+
+Admin -> Web: Cập nhật trạng thái / trả lời / ẩn phản hồi
+Web -> Controller: PATCH /api/manager/feedback/{id}
+Controller -> Service: update(id, request)
+Service -> DB: findForModeration(id)
+DB --> Service: Feedback
+Service -> Service: Kiểm tra status, nội dung trả lời
+Service -> DB: save(item) + audit UPDATE
+DB --> Service: Feedback đã xử lý
+Service --> Controller: Feedback
+Controller --> Web: 200 Feedback
+Web --> Admin: Cập nhật thành công
+
+alt Dữ liệu sai hoặc không tìm thấy
+  Service --> Controller: 400/404
+  Controller --> Web: Lỗi xử lý
+  Web --> Admin: Hiển thị lỗi
+end
+note over Controller,DB
+  Source: AdminFeedbackController, AdminFeedbackService
+end note
+@enduml

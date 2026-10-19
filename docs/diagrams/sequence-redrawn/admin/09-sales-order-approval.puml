@@ -1,0 +1,53 @@
+@startuml
+title Admin - Quản lý và cập nhật trạng thái đơn hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminOrderController" as Controller
+control "AdminOrderService" as Service
+control "ManagerOrderQuery" as Query
+database "OrderRepository" as Orders
+control "Stock / Voucher / Refund / Notification" as SideEffects
+
+Admin -> Web: Mở danh sách đơn hàng
+Web -> Controller: GET /api/manager/orders
+Controller -> Query: list(filter)
+Query -> Orders: Truy vấn theo trạng thái, thanh toán, thời gian
+Orders --> Query: Page đơn hàng
+Query --> Controller: Page<View>
+Controller --> Web: 200 danh sách
+Web --> Admin: Hiển thị đơn hàng
+
+Admin -> Web: Chọn trạng thái mới
+Web -> Controller: PATCH /api/manager/orders/{id}/status
+Controller -> Service: updateStatus(id, request)
+Service -> Orders: findForStatusUpdate(id)
+Orders --> Service: Order
+Service -> Service: Validate transition và lý do hủy
+
+alt Hủy đơn
+  Service -> SideEffects: release stock/voucher; xử lý payment; request refund; notify
+else Chuyển trạng thái tiến trình
+  Service -> Service: Kiểm tra thứ tự trạng thái
+end
+
+Service -> Orders: save(order) + audit ORDER_STATUS
+Service --> Controller: updateStatus hoàn tất
+Controller -> Query: detail(id)
+Query -> Orders: Load chi tiết mới
+Orders --> Query: View mới
+Query --> Controller: View
+Controller --> Web: 200 đơn hàng đã cập nhật
+Web --> Admin: Hiển thị trạng thái mới
+
+alt Transition không hợp lệ / đang đổi trả / cần đối chiếu thanh toán
+  Service --> Controller: 400/409
+  Controller --> Web: Lỗi cập nhật
+end
+note over Controller,SideEffects
+  Source: AdminOrderController, AdminOrderService
+end note
+@enduml
