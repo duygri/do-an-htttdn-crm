@@ -21,9 +21,11 @@ export default function CustomerVouchers({ onSelect, subtotal }) {
       <h3>{v.discountType==='PERCENTAGE'?`${v.discountValue}%`:money(v.discountValue)}</h3><b>{v.code}</b>
       <p>{v.description}</p><p>Đơn tối thiểu {money(v.minOrderAmount)}{v.maxDiscountAmount?` · Giảm tối đa ${money(v.maxDiscountAmount)}`:''}</p>
       <p>Hạn dùng: {v.expiresAt?new Date(v.expiresAt).toLocaleString('vi-VN'):'Không giới hạn'} · {states[v.state]||v.state}</p>
+      {v.perCustomerLimit!=null&&<p>Mỗi tài khoản: {v.customerUses??0} / {v.perCustomerLimit} lượt · Còn {v.customerRemaining??0} lượt</p>}
+      {v.unavailableReason==='VOUCHER_PER_CUSTOMER_LIMIT'&&<p className="shop-field-error">Bạn đã dùng hết lượt của mã này.</p>}
       {subtotal!==undefined && subtotal<Number(v.minOrderAmount||0) && <p className="shop-field-error">Cần thêm {money(Number(v.minOrderAmount)-subtotal)} để đạt đơn tối thiểu.</p>}
       <button className="button button-light" type="button" onClick={()=>copy(v.code)}>Sao chép mã</button>
-      {onSelect&&<button className="button button-light" type="button" disabled={v.state!=='ACTIVE'} onClick={()=>onSelect(v.code)}>Chọn mã</button>}
+      {onSelect&&<button className="button button-light" type="button" disabled={v.state!=='ACTIVE'||v.selectable===false} onClick={()=>onSelect(v.code)}>Chọn mã</button>}
     </article>)}
     <div className="order-actions"><button type="button" disabled={page===0} onClick={()=>setPage(p=>p-1)}>Trang trước</button><span>Trang {page+1} / {Math.max(1,data.totalPages||0)}</span><button type="button" disabled={page+1>=(data.totalPages||0)} onClick={()=>setPage(p=>p+1)}>Trang sau</button></div></>}
   </section>;

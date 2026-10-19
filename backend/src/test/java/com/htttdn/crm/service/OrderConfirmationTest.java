@@ -58,7 +58,10 @@ class OrderConfirmationTest {
     final PayosService payos = mock(PayosService.class);
     final FeedbackRepository feedback = mock(FeedbackRepository.class);
     final AuditTrail audit = mock(AuditTrail.class);
-    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,new StockService(products,mock(jakarta.persistence.EntityManager.class)));
+    final RefundService refunds = mock(RefundService.class);
+    final StockService stock = new StockService(products,mock(jakarta.persistence.EntityManager.class));
+    final PaymentReconciliationService reconciliation = new PaymentReconciliationService(payos,attempts,payments,notifications,refunds);
+    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,stock,refunds,reconciliation);
 
     @Test void completedReviewedOrderCannotRequestReturn() {
         User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);
@@ -151,7 +154,8 @@ class OrderConfirmationTest {
     }
     @Test void expiryOnlyChangesPaymentStateAndIsIdempotent() {
         Order order = paymentOrder("PENDING"); order.setExpiresAt(java.time.Instant.now().minusSeconds(60));
-        when(orders.findExpiredPending(any())).thenReturn(List.of(order)); when(orders.findForStatusUpdate(9L)).thenReturn(Optional.of(order));
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"expiryWorker",new AbandonedOrderWorker(orders,payments,attempts,stock,vouchers,notifications,reconciliation));
+        when(orders.expiredPendingIds(eq(0L),any(),any())).thenReturn(List.of(9L)); when(orders.findForStatusUpdate(9L)).thenReturn(Optional.of(order));
         service.cleanupExpired(); service.cleanupExpired();
         assertEquals("PENDING",order.getStatus()); assertEquals("EXPIRED",order.getPaymentStatus()); assertFalse(order.isStockReleased());
         verify(orders,times(1)).save(order); verifyNoInteractions(products);

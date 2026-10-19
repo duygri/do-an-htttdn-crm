@@ -4,6 +4,7 @@ import { useManagerReadPause } from './useManagerResource';
 import { showReturn, displayOrderLabel, deliveryLabel, returnLabels } from './order-display';
 import './order-display.css';
 import SourceCareCreator from './SourceCareCreator';
+const OrderFinancePanel=React.lazy(()=>import('./ManagerRefunds').then(module=>({default:module.OrderFinancePanel})));
 export { returnLabels } from './order-display';
 import { X, User, Calendar, CreditCard, MapPin, RotateCcw, AlertTriangle } from 'lucide-react';
 
@@ -17,13 +18,14 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
   const [action, setAction] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [financeEditing,setFinanceEditing]=useState(false);
   const [failure, setFailure] = useState('');
   const detail = processed || sourceDetail;
   useManagerReadPause(!!action);
   useEffect(() => { setProcessed(null); }, [sourceDetail]);
   const actionLabels={APPROVED:'Chấp thuận đổi trả',REJECTED:'Từ chối đổi trả',COMPLETED:'Hoàn tất đổi trả'};
   const openAction = value => { setAction(value);setNote('');setFailure(''); };
-  const close = () => { if(busy)return; if(action){setAction('');setFailure('');}else onClose(); };
+  const close = () => { if(busy||financeEditing)return; if(action){setAction('');setFailure('');}else onClose(); };
   const process = async event => {
     event.preventDefault();if(busy)return;
     if(action!=='APPROVED' && !note.trim()){setFailure('Vui lòng nhập lý do hoặc ghi chú xử lý.');return;}
@@ -57,7 +59,7 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
       <div ref={dialog} onKeyDown={keyboard} className="admin-dialog admin-order-detail" role="dialog" aria-modal="true" aria-labelledby="admin-order-detail-title">
         <div className="admin-section-heading">
           <h2 id="admin-order-detail-title">Đơn hàng #{detail.orderCode || detail.id}</h2>
-          <button aria-label="Đóng chi tiết" className="admin-action" disabled={busy} onClick={close}><X size={18}/></button>
+          <button aria-label="Đóng chi tiết" className="admin-action" disabled={busy||financeEditing} onClick={close}><X size={18}/></button>
         </div>
         {loading ? (
           <p role="status">Đang tải chi tiết...</p>
@@ -107,6 +109,7 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
                 </div>
               )}
             </div>
+            {detail.finance&&<React.Suspense fallback={<p role="status">Đang tải sổ hoàn tiền…</p>}><OrderFinancePanel key={detail.id} order={detail} onUpdated={setProcessed} onEditingChange={setFinanceEditing}/></React.Suspense>}
             {showReturn(detail) && <section className="admin-return-management" aria-label="Xử lý đổi trả">
               <h3>Theo dõi đổi trả</h3>
               <p>Yêu cầu lúc: {date(detail.returnRequestedAt)}</p>

@@ -3,6 +3,8 @@ package com.htttdn.crm.entity;
 import jakarta.persistence.*; import java.math.BigDecimal; import java.time.Instant;
 @Entity @Table(name="store_vouchers",uniqueConstraints=@UniqueConstraint(columnNames={"reward_survey_id","owner_customer_id"}))
 public class StoreVoucher {
+    @Column(name="per_customer_limit") private Integer perCustomerLimit;
+    public Integer getPerCustomerLimit(){return perCustomerLimit;} public void setPerCustomerLimit(Integer v){perCustomerLimit=v;}
     private Long ownerCustomerId;
     private Long rewardSurveyId;
     public Long getOwnerCustomerId(){return ownerCustomerId;} public void setOwnerCustomerId(Long v){ownerCustomerId=v;}

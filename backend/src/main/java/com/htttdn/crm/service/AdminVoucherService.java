@@ -19,7 +19,7 @@ public class AdminVoucherService extends AdminServiceSupport {
     private final StoreVoucherRepository vouchers;
     private final OrderRepository orders;
     private final ObjectMapper mapper;
-    private static final Set<String> FIELDS=Set.of("code","description","discountType","discountValue","minOrderAmount","maxDiscountAmount","usageLimit","startsAt","expiresAt","active");
+    private static final Set<String> FIELDS=Set.of("code","description","discountType","discountValue","minOrderAmount","maxDiscountAmount","usageLimit","startsAt","expiresAt","active","perCustomerLimit");
     public AdminVoucherService(StoreVoucherRepository vouchers,OrderRepository orders,ObjectMapper mapper){
         this.vouchers=vouchers;this.orders=orders;this.mapper=mapper;
     }
@@ -54,11 +54,19 @@ public class AdminVoucherService extends AdminServiceSupport {
             throw new ApiException(HttpStatus.CONFLICT,"VOUCHER_DUPLICATE","Mã giảm giá đã tồn tại.");
         vouchers.saveAndFlush(v);audit("CREATE","VOUCHER",v.getId(),Map.of(),v); return view(v,Instant.now());
     }
+    @Transactional public View createFromJson(JsonNode input){
+        if(input==null||!input.isObject())throw invalid("Dữ liệu tạo mã không hợp lệ.");
+        validateCustomerLimit(input);
+        ObjectNode value=input.deepCopy();if(!value.has("perCustomerLimit"))value.put("perCustomerLimit",1);
+        Input parsed;try{parsed=mapper.treeToValue(value,Input.class);}catch(Exception ex){throw invalid("Định dạng dữ liệu không hợp lệ.");}
+        return create(parsed);
+    }
     @Transactional public View update(Long id,JsonNode patch) {
         StoreVoucher v=vouchers.lockById(id).orElseThrow(VoucherService::notFound);
         var before=snapshot(v);
         if(v.getOwnerCustomerId()!=null) throw invalid("Không được sửa mã thưởng đã cấp cho khách hàng.");
         if(patch==null||!patch.isObject()) throw invalid("Dữ liệu cập nhật không hợp lệ.");
+        validateCustomerLimit(patch);
         ObjectNode merged=mapper.valueToTree(input(v));
         patch.fields().forEachRemaining(entry->{
             if(!FIELDS.contains(entry.getKey())) throw invalid("Trường không hợp lệ: "+entry.getKey());
@@ -84,16 +92,21 @@ public class AdminVoucherService extends AdminServiceSupport {
         if(r.usageLimit()!=null&&(r.usageLimit()<1||r.usageLimit()<v.getUsedCount())) throw invalid("Giới hạn lượt phải dương và không thấp hơn lượt đang tính.");
         if(r.startsAt()!=null&&r.expiresAt()!=null&&!r.expiresAt().isAfter(r.startsAt())) throw invalid("Ngày kết thúc phải sau ngày bắt đầu.");
         if(r.description()!=null&&r.description().length()>1000) throw invalid("Mô tả tối đa 1.000 ký tự.");
+        if(r.perCustomerLimit()!=null&&r.perCustomerLimit()<1)throw invalid("Giới hạn mỗi khách phải là số nguyên dương hoặc để trống.");
         if(r.active()==null) throw invalid("Vui lòng chọn trạng thái bật/tắt.");
         v.setCode(code);v.setDescription(r.description()==null?null:r.description().trim());v.setDiscountType(r.discountType());
         v.setDiscountValue(r.discountValue());v.setMinOrderAmount(minimum);
         v.setMaxDiscountAmount("PERCENTAGE".equals(r.discountType())?r.maxDiscountAmount():null);
         v.setUsageLimit(r.usageLimit());v.setStartsAt(r.startsAt());v.setExpiresAt(r.expiresAt());v.setActive(r.active());
+        v.setPerCustomerLimit(r.perCustomerLimit());
     }
     private static boolean positive(BigDecimal value){return value!=null&&value.signum()>0&&value.compareTo(new BigDecimal("9999999999.99"))<=0&&value.stripTrailingZeros().scale()<=2;}
+    private static void validateCustomerLimit(JsonNode input){var value=input.get("perCustomerLimit");if(value!=null&&!value.isNull()&&(!value.isIntegralNumber()||!value.canConvertToInt()||value.intValue()<1))throw invalid("Giới hạn mỗi khách phải là số nguyên dương hoặc null.");}
     private static ApiException invalid(String message){return VoucherService.bad("VOUCHER_VALIDATION",message);}
-    private Input input(StoreVoucher v){return new Input(v.getCode(),v.getDescription(),v.getDiscountType(),v.getDiscountValue(),v.getMinOrderAmount(),v.getMaxDiscountAmount(),v.getUsageLimit(),v.getStartsAt(),v.getExpiresAt(),v.isActive());}
-    private View view(StoreVoucher v,Instant now){return new View(v.getId(),v.getCode(),v.getDescription(),v.getDiscountType(),v.getDiscountValue(),v.getMinOrderAmount(),v.getMaxDiscountAmount(),v.getUsageLimit(),v.getUsedCount(),v.getStartsAt(),v.getExpiresAt(),v.isActive(),VoucherService.state(v,now),orders.voucherSavings(v.getCode()));}
-    public record Input(String code,String description,String discountType,BigDecimal discountValue,BigDecimal minOrderAmount,BigDecimal maxDiscountAmount,Integer usageLimit,Instant startsAt,Instant expiresAt,Boolean active){}
-    public record View(Long id,String code,String description,String discountType,BigDecimal discountValue,BigDecimal minOrderAmount,BigDecimal maxDiscountAmount,Integer usageLimit,int usedCount,Instant startsAt,Instant expiresAt,boolean active,String state,BigDecimal totalDiscount){}
+    private Input input(StoreVoucher v){return new Input(v.getCode(),v.getDescription(),v.getDiscountType(),v.getDiscountValue(),v.getMinOrderAmount(),v.getMaxDiscountAmount(),v.getUsageLimit(),v.getStartsAt(),v.getExpiresAt(),v.isActive(),v.getPerCustomerLimit());}
+    private View view(StoreVoucher v,Instant now){return new View(v.getId(),v.getCode(),v.getDescription(),v.getDiscountType(),v.getDiscountValue(),v.getMinOrderAmount(),v.getMaxDiscountAmount(),v.getUsageLimit(),v.getUsedCount(),v.getStartsAt(),v.getExpiresAt(),v.isActive(),VoucherService.state(v,now),orders.voucherSavings(v.getCode()),v.getPerCustomerLimit());}
+    public record Input(String code,String description,String discountType,BigDecimal discountValue,BigDecimal minOrderAmount,BigDecimal maxDiscountAmount,Integer usageLimit,Instant startsAt,Instant expiresAt,Boolean active,Integer perCustomerLimit){
+        public Input(String code,String description,String discountType,BigDecimal discountValue,BigDecimal minOrderAmount,BigDecimal maxDiscountAmount,Integer usageLimit,Instant startsAt,Instant expiresAt,Boolean active){this(code,description,discountType,discountValue,minOrderAmount,maxDiscountAmount,usageLimit,startsAt,expiresAt,active,null);}
+    }
+    public record View(Long id,String code,String description,String discountType,BigDecimal discountValue,BigDecimal minOrderAmount,BigDecimal maxDiscountAmount,Integer usageLimit,int usedCount,Instant startsAt,Instant expiresAt,boolean active,String state,BigDecimal totalDiscount,Integer perCustomerLimit){}
 }

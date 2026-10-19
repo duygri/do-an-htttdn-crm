@@ -8,6 +8,10 @@ public interface OrderRepository extends JpaRepository<Order,Long>, org.springfr
     @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id=:id")
     Optional<Order> findForStatusUpdate(@Param("id") Long id);
+    @Query("select o.id from Order o where o.id>:after and o.paymentMethod='PAYOS' and o.status in ('PENDING','PENDING_PAYMENT') and o.paymentStatus in ('PENDING','EXPIRED','FAILED','CANCELLED') and o.expiresAt<=:cutoff order by o.id")
+    List<Long> abandonedIds(@Param("after")Long after,@Param("cutoff")java.time.Instant cutoff,Pageable page);
+    @Query("select o.id from Order o where o.id>:after and o.paymentMethod='PAYOS' and o.paymentStatus='PENDING' and o.status<>'CANCELLED' and o.expiresAt<:now order by o.id")
+    List<Long> expiredPendingIds(@Param("after")Long after,@Param("now")java.time.Instant now,Pageable page);
     @Query("select o.id from Order o where o.orderCode=:code")
     Optional<Long> findIdByOrderCode(@Param("code") Long code);
     Page<Order> findByStatus(String status,Pageable p); long countByStatus(String status);

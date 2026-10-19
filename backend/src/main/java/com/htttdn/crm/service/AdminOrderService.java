@@ -34,7 +34,8 @@ public class AdminOrderService extends AdminServiceSupport {
     private final NotificationService notifications;
     private final VoucherService vouchers;
     private final StockService stock;
-    public AdminOrderService(OrderRepository orders, NotificationService notifications, VoucherService vouchers, PaymentRepository payments, StockService stock) { this.orders = orders; this.notifications = notifications; this.vouchers=vouchers; this.payments=payments; this.stock=stock; }
+    private final RefundService refunds;
+    public AdminOrderService(OrderRepository orders, NotificationService notifications, VoucherService vouchers, PaymentRepository payments, StockService stock, RefundService refunds) { this.orders = orders; this.notifications = notifications; this.vouchers=vouchers; this.payments=payments; this.stock=stock; this.refunds=refunds; }
     public Page<Order> list(String status, int page, int size) {
         if (status != null && (status.equals("RETURN") || status.startsWith("RETURN_"))) {
             String returnStatus=status.equals("RETURN")?null:status.substring(7);
@@ -52,6 +53,7 @@ public class AdminOrderService extends AdminServiceSupport {
             throw new ApiException(HttpStatus.BAD_REQUEST, "CANCEL_REASON_REQUIRED", "Vui lòng nhập lý do hủy đơn từ 1 đến 1.000 ký tự.");
         }
         Order order = orders.findForStatusUpdate(id).orElseThrow();
+        if("CANCELLED".equals(request.status())&&order.paymentReviewRequired)throw new ApiException(HttpStatus.CONFLICT,"PAYMENT_NEEDS_REVIEW","Cần đối chiếu thanh toán trước khi hủy đơn.");
         var before=snapshot(order);
         if (order.getReturnStatus()!=null && !"NONE".equals(order.getReturnStatus()))
             throw new ApiException(HttpStatus.CONFLICT,"RETURN_IN_PROGRESS","Đơn có yêu cầu đổi trả; hãy dùng chức năng xử lý đổi trả.");
@@ -74,6 +76,7 @@ public class AdminOrderService extends AdminServiceSupport {
                 + ("PAID".equals(order.getPaymentStatus()) ? " Vui lòng liên hệ cửa hàng để xử lý hoàn tiền thủ công." : ""), "ORDER_CANCELLED", order.getId());
         }
         order.setStatus(request.status());
+        if("CANCELLED".equals(order.getStatus()))refunds.requestCancellation(order);
         order.setUpdatedAt(Instant.now());
         audit("ORDER_STATUS","ORDER",id,before,order);
         return orders.save(order);

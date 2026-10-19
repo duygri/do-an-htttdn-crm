@@ -20,6 +20,8 @@ const CareDashboard = React.lazy(() => import('./CareDashboard'));
 const RetentionReport = React.lazy(() => import('./RetentionReport'));
 const AuditLogs = React.lazy(() => import('./AuditLogs'));
 const SupportTickets = React.lazy(()=>import('./SupportTickets'));
+const ManagerRefunds = React.lazy(()=>import('./ManagerRefunds'));
+const CashflowReport = React.lazy(()=>import('./CashflowReport'));
 import {
   Activity,
   LayoutDashboard,
@@ -73,6 +75,7 @@ const navItems = [
   ["care-dashboard", "Hiệu quả chăm sóc"],
   ["products", "Sản phẩm"],
   ["orders", "Đơn hàng"],
+  ["refunds", "Hoàn tiền"],
   ["feedback", "Phản hồi"],
   ["support-tickets", "Phiếu hỗ trợ"],
   ["surveys", "Khảo sát"],
@@ -89,6 +92,7 @@ const navIcons = {
   'care-dashboard': Activity,
   products: Package,
   orders: ShoppingCart,
+  refunds: DollarSign,
   feedback: MessageSquare,
   'support-tickets': MessageSquare,
   surveys: ClipboardList,
@@ -115,7 +119,7 @@ const statusColors = {
   CANCELLED: "#ef4444",
 };
 const orderStatuses = Object.entries(statusLabels);
-const orderStatusOptions = (current) => [
+const orderStatusOptions = (current,order) => [
   [
     current,
     statusLabels[current] ||
@@ -127,7 +131,7 @@ const orderStatusOptions = (current) => [
       current,
   ],
   ...orderStatuses.filter(
-    ([value]) => value !== current && canAdvanceOrder(current, value)
+    ([value]) => value !== current && canAdvanceOrder(current, value) && !(value==='CANCELLED'&&order?.finance?.reviewRequired)
   ),
 ];
 const paymentMethodLabels = {
@@ -359,6 +363,7 @@ export default function ManagerApp() {
         {section === "users" && (profileMatch ? <CustomerProfile key={profileMatch[1]} customerId={profileMatch[1]} location={path} go={go} /> : <Users notify={notify} location={path} go={go} />)}{" "}
         {section === "products" && <Products notify={notify} />}{" "}
         {section === "orders" && <Orders notify={notify} />}{" "}
+        {section === "refunds" && <ManagerRefunds/>}
         {section === "feedback" && <Feedback notify={notify} />}{" "}
         {section==='support-tickets'&&<SupportTickets manager location={path} navigate={go}/>}
         {section === "surveys" && <Surveys notify={notify} location={path} go={go} />}
@@ -772,10 +777,14 @@ function RecentOrders({ go }) {
 }
 function OrderBadge({ status, order }) {
   return (
+    <>
     <span className="admin-badge" style={{ color: showReturn(order) ? "var(--order-return-color, #c2410c)" : statusColors[status] }}>
       <span className="admin-badge-dot" />
       {order ? displayOrderLabel(order, statusLabels) : statusLabels[status] || status}
     </span>
+    {order?.finance?.reviewRequired&&<small className="refund-warning">Thanh toán cần kiểm tra</small>}
+    {Number(order?.finance?.refund?.pendingAmount)>0&&<small>Còn khoản chờ hoàn tiền</small>}
+    </>
   );
 }
 function Stat({ label, value, icon: Icon, color, detail, onClick }) {
@@ -1545,12 +1554,12 @@ function Products({ notify }) {
 }
 
 function Orders({ notify }) {
-  const [filters,changeFilters]=useManagerFilters({status:'',q:'',paymentStatus:'',fromDate:'',toDate:'',sort:'createdAt',direction:'DESC',page:'0'});
+  const [filters,changeFilters]=useManagerFilters({status:'',q:'',paymentStatus:'',refundStatus:'',paymentReview:'',fromDate:'',toDate:'',sort:'createdAt',direction:'DESC',page:'0'});
   const page=Number(filters.page)||0,setPage=value=>changeFilters({page:String(value)});
   const status=filters.status,setStatus=value=>changeFilters({status:value});
   const search=filters.q,setSearch=value=>changeFilters({q:value});
-  const query=useMemo(()=>({status:filters.status,q:filters.q,paymentStatus:filters.paymentStatus,sort:filters.sort,direction:filters.direction,page,...vietnamDateRange(filters.fromDate,filters.toDate)}),[filters,page]);
-  const summaryEndpoint=useCallback(()=>'/api/manager/orders/summary?'+managerQuery({q:query.q,paymentStatus:query.paymentStatus,from:query.from,to:query.to}),[query.q,query.paymentStatus,query.from,query.to]);
+  const query=useMemo(()=>({status:filters.status,q:filters.q,paymentStatus:filters.paymentStatus,refundStatus:filters.refundStatus,paymentReview:filters.paymentReview,sort:filters.sort,direction:filters.direction,page,...vietnamDateRange(filters.fromDate,filters.toDate)}),[filters,page]);
+  const summaryEndpoint=useCallback(()=>'/api/manager/orders/summary?'+managerQuery({q:query.q,paymentStatus:query.paymentStatus,refundStatus:query.refundStatus,paymentReview:query.paymentReview,from:query.from,to:query.to}),[query.q,query.paymentStatus,query.refundStatus,query.paymentReview,query.from,query.to]);
   const {data:counts}=useManagerList(summaryEndpoint);
   const [detailId, setDetailId] = useState(null);
   const detailEndpoint = useCallback(() => adminEndpoints.order(detailId), [detailId]);
@@ -1697,6 +1706,8 @@ function Orders({ notify }) {
       </div>
       <div className="manager-advanced-filters">
         <label>Thanh toán<select value={filters.paymentStatus} onChange={e=>changeFilters({paymentStatus:e.target.value})}><option value="">Tất cả</option><option value="COD">COD</option><option value="PENDING">Chờ thanh toán</option><option value="PAID">Đã thanh toán</option><option value="EXPIRED">Hết hạn</option><option value="FAILED">Thất bại</option><option value="CANCELLED">Đã hủy thanh toán</option></select></label>
+        <label>Hoàn tiền<select value={filters.refundStatus} onChange={e=>changeFilters({refundStatus:e.target.value})}><option value="">Tất cả</option><option value="NONE">Chưa có khoản hoàn</option><option value="PENDING">Chờ hoàn</option><option value="PARTIAL">Đã hoàn một phần</option><option value="FULL">Đã hoàn đủ</option></select></label>
+        <label>Đối soát PayOS<select value={filters.paymentReview} onChange={e=>changeFilters({paymentReview:e.target.value})}><option value="">Tất cả</option><option value="true">Thanh toán cần kiểm tra</option><option value="false">Không có cảnh báo</option></select></label>
         <label>Từ ngày<input type="date" value={filters.fromDate} onChange={e=>changeFilters({fromDate:e.target.value})}/></label>
         <label>Đến ngày<input type="date" value={filters.toDate} onChange={e=>changeFilters({toDate:e.target.value})}/></label>
         <label>Sắp xếp<select value={filters.sort} onChange={e=>changeFilters({sort:e.target.value})}><option value="createdAt">Ngày đặt</option><option value="totalAmount">Tổng tiền</option><option value="orderCode">Mã đơn</option></select></label>
@@ -1776,7 +1787,7 @@ function Orders({ notify }) {
                       changeStatus(order, event.target.value)
                     }
                   >
-                    {(showReturn(order) ? [[order.status, ['REJECTED','COMPLETED'].includes(order.returnStatus) ? returnLabel(order.returnStatus) : "Đang đổi trả"]] : orderStatusOptions(order.status)).map(([value, label]) => (
+                    {(showReturn(order) ? [[order.status, ['REJECTED','COMPLETED'].includes(order.returnStatus) ? returnLabel(order.returnStatus) : "Đang đổi trả"]] : orderStatusOptions(order.status,order)).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
@@ -1820,7 +1831,7 @@ function Orders({ notify }) {
                   value={order.status}
                   onChange={(event) => changeStatus(order, event.target.value)}
                 >
-                  {(showReturn(order) ? [[order.status, ['REJECTED','COMPLETED'].includes(order.returnStatus) ? returnLabel(order.returnStatus) : "Đang đổi trả"]] : orderStatusOptions(order.status)).map(([value, label]) => (
+                  {(showReturn(order) ? [[order.status, ['REJECTED','COMPLETED'].includes(order.returnStatus) ? returnLabel(order.returnStatus) : "Đang đổi trả"]] : orderStatusOptions(order.status,order)).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -2943,13 +2954,13 @@ function SurveyReports() {
 
 export function Reports({go}) {
   const [filters, change] = useManagerFilters({tab:'customers'});
-  const tab = ['customers','surveys','retention'].includes(filters.tab) ? filters.tab : 'customers';
+  const tab = ['customers','surveys','retention','cashflow'].includes(filters.tab) ? filters.tab : 'customers';
   const setTab = next => change({tab:next,page:''});
   return (
     <div className="admin-panel">
       <PanelTitle
         title="Báo cáo"
-        subtitle="Dữ liệu tổng hợp toàn bộ thời gian."
+        subtitle={tab==='cashflow'?'Khoản thu và hoàn đã xác nhận theo kỳ.':'Dữ liệu tổng hợp toàn bộ thời gian.'}
       />
       <div className="admin-report-tabs">
         <button
@@ -2971,8 +2982,9 @@ export function Reports({go}) {
         <button className={tab === 'retention' ? 'admin-primary' : 'admin-action'} aria-pressed={tab === 'retention'} onClick={() => setTab('retention')}>
           <TrendingUp size={15} aria-hidden="true" />Giữ chân khách hàng
         </button>
+        <button className={tab==='cashflow'?'admin-primary':'admin-action'} aria-pressed={tab==='cashflow'} onClick={()=>setTab('cashflow')}><DollarSign size={15} aria-hidden="true"/>Thu – hoàn tiền</button>
       </div>
-      {tab === 'customers' ? <CustomerReport /> : tab === 'surveys' ? <SurveyReports /> : <React.Suspense fallback={<PanelLoading />}><RetentionReport go={go} /></React.Suspense>}
+      {tab === 'cashflow' ? <React.Suspense fallback={<PanelLoading/>}><CashflowReport/></React.Suspense> : tab === 'customers' ? <CustomerReport /> : tab === 'surveys' ? <SurveyReports /> : <React.Suspense fallback={<PanelLoading />}><RetentionReport go={go} /></React.Suspense>}
     </div>
   );
 }

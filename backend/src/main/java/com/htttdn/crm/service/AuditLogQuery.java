@@ -14,7 +14,7 @@ import java.util.*;
 @Service @Transactional(readOnly=true)
 public class AuditLogQuery {
     public static final Set<String> TYPES=Set.of("ORDER","CUSTOMER","ACCOUNT","PRODUCT","VOUCHER","FEEDBACK","SURVEY","CARE_TASK","CARE_NOTE","SUPPORT_TICKET");
-    public static final Set<String> ACTIONS=Set.of("CREATE","UPDATE","DELETE","LOCK","UNLOCK","ORDER_STATUS","RETURN_PROCESS","STOCK","ARCHIVE","REWARD","PUBLISH","UNPUBLISH","CUSTOMER_CANCEL","CUSTOMER_RECEIPT");
+    public static final Set<String> ACTIONS=Set.of("CREATE","UPDATE","DELETE","LOCK","UNLOCK","ORDER_STATUS","RETURN_PROCESS","STOCK","ARCHIVE","REWARD","PUBLISH","UNPUBLISH","CUSTOMER_CANCEL","CUSTOMER_RECEIPT","REFUND_REQUEST","REFUND_COMPLETE","REFUND_REJECT","COD_COLLECTED");
     private final AuditLogRepository logs;private final ObjectMapper mapper;
     public AuditLogQuery(AuditLogRepository logs,ObjectMapper mapper){this.logs=logs;this.mapper=mapper;}
     public record View(Long id,Long actorId,String actorName,String actorRole,String action,String entityType,Long targetId,JsonNode beforeData,JsonNode afterData,Instant createdAt) {}

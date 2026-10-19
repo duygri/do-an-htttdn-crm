@@ -6,7 +6,7 @@ import "./admin-vouchers.css";
 
 const labels = { ACTIVE: "Đang áp dụng", SCHEDULED: "Sắp bắt đầu", EXPIRED: "Đã hết hạn", EXHAUSTED: "Hết lượt", DISABLED: "Đã tắt" };
 const money = value => Number(value || 0).toLocaleString("vi-VN") + " đ";
-const empty = () => ({ code: "", description: "", discountType: "PERCENTAGE", discountValue: "", minOrderAmount: "0", maxDiscountAmount: "", usageLimit: "", startsAt: "", expiresAt: "", active: true });
+const empty = () => ({ code: "", description: "", discountType: "PERCENTAGE", discountValue: "", minOrderAmount: "0", maxDiscountAmount: "", usageLimit: "", perCustomerLimit: "1", startsAt: "", expiresAt: "", active: true });
 const localDate = value => {
   if (!value) return "";
   const date = new Date(value);
@@ -36,14 +36,14 @@ export default function AdminVouchers() {
 
   const start = voucher => {
     setEditing(voucher || null); setFormError(""); setNotice("");
-    setForm(voucher ? { ...empty(), ...voucher, maxDiscountAmount: voucher.maxDiscountAmount ?? "", usageLimit: voucher.usageLimit ?? "", startsAt: localDate(voucher.startsAt), expiresAt: localDate(voucher.expiresAt) } : empty());
+    setForm(voucher ? { ...empty(), ...voucher, maxDiscountAmount: voucher.maxDiscountAmount ?? "", usageLimit: voucher.usageLimit ?? "", perCustomerLimit: voucher.perCustomerLimit ?? "", startsAt: localDate(voucher.startsAt), expiresAt: localDate(voucher.expiresAt) } : empty());
   };
   const change = (key, value) => setForm(current => ({ ...current, [key]: value }));
   const save = async event => {
     event.preventDefault(); if (lock.current) return;
     lock.current = true; setBusy(true); setFormError("");
     try {
-      const payload = { code: form.code.trim().toUpperCase(), description: form.description, discountType: form.discountType, discountValue: Number(form.discountValue), minOrderAmount: Number(form.minOrderAmount), maxDiscountAmount: form.discountType === "PERCENTAGE" && form.maxDiscountAmount !== "" ? Number(form.maxDiscountAmount) : null, usageLimit: form.usageLimit === "" ? null : Number(form.usageLimit), startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null, expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null, active: form.active };
+      const payload = { code: form.code.trim().toUpperCase(), description: form.description, discountType: form.discountType, discountValue: Number(form.discountValue), minOrderAmount: Number(form.minOrderAmount), maxDiscountAmount: form.discountType === "PERCENTAGE" && form.maxDiscountAmount !== "" ? Number(form.maxDiscountAmount) : null, usageLimit: form.usageLimit === "" ? null : Number(form.usageLimit), startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null, expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null, perCustomerLimit: form.perCustomerLimit === "" ? null : Number(form.perCustomerLimit), active: form.active };
       await adminApi("/api/manager/vouchers" + (editing ? "/" + editing.id : ""), { method: editing ? "PATCH" : "POST", body: payload });
       setForm(null); setNotice("Đã lưu mã giảm giá."); setRevision(value => value + 1);
     } catch (err) { setFormError(err.message); }
@@ -157,6 +157,11 @@ export default function AdminVouchers() {
                   />
                 </label>
                 <label>
+                  Tối đa mỗi khách
+                  <input type="number" min="1" max="2147483647" step="1" placeholder="Không giới hạn" value={form.perCustomerLimit} onChange={e=>change('perCustomerLimit',e.target.value)}/>
+                </label>
+                {editing&&editing.usedCount>0&&form.perCustomerLimit!==''&&(editing.perCustomerLimit==null||Number(form.perCustomerLimit)<editing.perCustomerLimit)&&<p role="status">Giảm giới hạn chỉ áp dụng cho lượt đặt mới. Khách đã dùng đến/vượt giới hạn mới không dùng thêm được; đơn đã tạo giữ nguyên.</p>}
+                <label>
                   Bắt đầu (giờ địa phương)
                   <input
                     type="datetime-local"
@@ -218,7 +223,7 @@ export default function AdminVouchers() {
         <td data-label="Mã / Ưu đãi"><strong>{v.code}</strong><span>{v.discountType === "PERCENTAGE" ? v.discountValue + "%" : money(v.discountValue)}</span><small>{v.description}</small></td>
         <td data-label="Điều kiện"><span>Đơn từ {money(v.minOrderAmount)}</span>{v.maxDiscountAmount != null && <small>Giảm tối đa {money(v.maxDiscountAmount)}</small>}</td>
         <td data-label="Thời gian"><small>Từ: {v.startsAt ? displayDate(v.startsAt) : "Ngay khi bật"}</small><small>Đến: {displayDate(v.expiresAt)}</small></td>
-        <td data-label="Lượt / Tiền giảm"><span>{v.usedCount} / {v.usageLimit ?? "∞"} lượt</span><small>{money(v.totalDiscount)} đã giảm*</small></td>
+        <td data-label="Lượt / Tiền giảm"><span>{v.usedCount} / {v.usageLimit ?? "∞"} lượt</span><small>Mỗi khách: {v.perCustomerLimit ?? "Không giới hạn"} lượt</small><small>{money(v.totalDiscount)} đã giảm*</small></td>
         <td data-label="Trạng thái"><span className={"admin-voucher-badge " + (v.state === "ACTIVE" ? "is-active" : "")}>{labels[v.state] || v.state}</span></td>
         <td data-label="Thao tác"><div className="admin-voucher-actions"><button className="admin-action" disabled={busy} onClick={() => start(v)}><Pencil size={15} /> Sửa</button><button className="admin-action" disabled={busy} onClick={() => toggle(v)}><Power size={15} /> {v.active ? "Tắt" : "Bật"}</button></div></td>
       </tr>)}</tbody></table></div><p className="admin-voucher-note">* Tổng tiền giảm trên đơn chưa hủy; lượt được hoàn khi hủy đơn có lịch sử sử dụng voucher mới.</p>

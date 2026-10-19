@@ -93,6 +93,7 @@ Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang 
 - Mỗi sản phẩm trong mỗi đơn hoàn thành chỉ đánh giá một lần; nhiều màu/size của cùng sản phẩm trong đơn dùng chung đánh giá. Bình luận tối đa 4.000 ký tự.
 - Đơn đã xác nhận nhận hàng và đã có đánh giá không được gửi yêu cầu đổi trả mới.
 - QR mặc định có hạn 15 phút. Trạng thái trả tiền do backend xác nhận qua PayOS; không tin tham số trên URL trình duyệt. Thử lại QR không tạo đơn mới hoặc trừ tồn kho lần nữa.
+- Có sổ hoàn tiền thủ công, xác nhận thu toàn bộ COD và cảnh báo đối soát PayOS. Tự hủy đơn PayOS bỏ dở sau hạn QR 24 giờ mặc định tắt; đọc [hướng dẫn migration, hoàn tiền và tự hủy](docs/refunds-auto-cancellation.md) trước khi bật. Không tự chuyển tiền hoặc xác nhận thu COD từ trạng thái giao hàng.
 - Mỗi đơn dùng một voucher. Voucher thưởng khảo sát thuộc đúng tài khoản, có giới hạn lượt; điều kiện được kiểm tra lại khi đặt hàng.
 - Xử lý đổi trả không tự hoàn tiền, cộng tồn kho hoặc thay trạng thái thanh toán. Việc xử lý thực tế bên ngoài cần được ghi nhận đúng nghiệp vụ.
 
@@ -303,6 +304,7 @@ GitHub Actions phân loại thay đổi để chạy backend `mvn verify`, front
 | Khảo sát theo nhóm | [Chốt người nhận từ bộ lọc](docs/survey-recipient-groups.md), [lọc theo khảo sát cụ thể](docs/customer-survey-filters.md) |
 | Hỗ trợ và đổi trả | [Phiếu hỗ trợ](docs/support-tickets.md), [xử lý đổi trả](docs/return-management.md) |
 | Voucher và đánh giá | [Voucher](database/VOUCHERS.md), [đánh giá và thưởng khảo sát](database/REVIEWS_REWARDS.md) |
+| Thu – hoàn tiền và giới hạn cá nhân | [Báo cáo, quy tắc voucher và migration](docs/cashflow-voucher-limits.md) |
 | Nhật ký và kiểm tra nghiệp vụ | [Audit log](docs/audit-logs.md), [ma trận QA](docs/crm-workflow-qa.md) |
 | Sơ đồ | [Thư mục sơ đồ](docs/diagrams/) |
 
