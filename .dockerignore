@@ -1,0 +1,16 @@
+**
+!frontend/
+!frontend/**
+!backend/
+!backend/pom.xml
+!backend/src/
+!backend/src/main/
+!backend/src/main/java/
+!backend/src/main/java/**
+!deploy/
+!deploy/application.yml
+frontend/node_modules
+frontend/dist
+frontend/.env*
+backend/src/main/resources
+**/*.log

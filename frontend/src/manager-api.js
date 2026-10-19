@@ -1,6 +1,6 @@
 import { beginManagerMutation } from './manager-sync';
 import {managerQuery} from './useManagerFilters';
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+const API_BASE = (import.meta.env.VITE_SAME_ORIGIN === 'true' ? '' : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080')).replace(/\/$/, '');
 async function request(url, options) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);

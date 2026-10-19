@@ -152,7 +152,7 @@ const formatDate = (value) =>
         timeStyle: "short",
       })
     : "—";
-const userOrigin = import.meta.env.VITE_USER_ORIGIN || "http://localhost:5173";
+const userOrigin = import.meta.env.VITE_SAME_ORIGIN === 'true' ? window.location.origin : (import.meta.env.VITE_USER_ORIGIN || "http://localhost:5173");
 const normalizeAdminPath = (value) => {
   if (value === "/manager/login") return value;
   if (/^\/manager\/users\/[^/]+$/.test(value)) return value;

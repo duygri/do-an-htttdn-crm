@@ -1,0 +1,38 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+server:
+  port: ${PORT:10000}
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-stacktrace: never
+app:
+  auth:
+    jwt-secret: ${JWT_SECRET}
+    access-minutes: 15
+    refresh-days: 30
+    secure-cookie: true
+  payos:
+    client-id: ''
+    api-key: ''
+    checksum-key: ''
+    return-url: ${PUBLIC_ORIGIN}/thanh-toan
+    cancel-url: ${PUBLIC_ORIGIN}/thanh-toan
+PAYOS_AUTO_CANCEL_ENABLED: false
+DEV_PASSWORD_RESET_ENABLED: false
+CORS_ORIGINS: ${PUBLIC_ORIGIN}
+deployment:
+  bootstrap-admin:
+    enabled: ${BOOTSTRAP_ADMIN_ENABLED:false}

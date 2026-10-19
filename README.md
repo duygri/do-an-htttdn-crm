@@ -294,6 +294,8 @@ GitHub Actions phân loại thay đổi để chạy backend `mvn verify`, front
 
 ## Tài liệu chi tiết
 
+Triển khai demo web miễn phí (Render + Neon, chung HTTPS cho ba portal): xem [hướng dẫn deploy](docs/deploy-free-demo.md). Không dùng cấu hình bí mật local hoặc tài khoản seed khi đưa lên mạng.
+
 | Nội dung | Tài liệu |
 | --- | --- |
 | Yêu cầu và phạm vi | [PRD](docs/prd-htttdn-crm.md), [yêu cầu hệ thống](docs/requirements.md) |

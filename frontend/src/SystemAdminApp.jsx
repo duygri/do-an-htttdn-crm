@@ -38,8 +38,8 @@ const menuIcons = {
 };
 
 export default function SystemAdminApp() {
-  const managerUrl = `${(import.meta.env.VITE_MANAGER_ORIGIN || 'http://localhost:5175').replace(/\/+$/, '')}/manager`;
-  const storefrontUrl = `${(import.meta.env.VITE_USER_ORIGIN || 'http://localhost:5173').replace(/\/+$/, '')}/`;
+  const managerUrl = `${(import.meta.env.VITE_SAME_ORIGIN === 'true' ? window.location.origin : (import.meta.env.VITE_MANAGER_ORIGIN || 'http://localhost:5175')).replace(/\/+$/, '')}/manager`;
+  const storefrontUrl = `${(import.meta.env.VITE_SAME_ORIGIN === 'true' ? window.location.origin : (import.meta.env.VITE_USER_ORIGIN || 'http://localhost:5173')).replace(/\/+$/, '')}/`;
   const [path, setPath] = useState(window.location.pathname);
   const [session, setSession] = useState(null);
   const [checking, setChecking] = useState(true);

@@ -6,6 +6,17 @@ import SystemAdminApp from './SystemAdminApp';
 import {adminApi,adminRefreshSession} from './api';
 vi.mock('./api',()=>({adminApi:vi.fn(),adminRefreshSession:vi.fn(),adminSignIn:vi.fn(),adminSignOut:vi.fn()}));
 afterEach(()=>{cleanup();vi.resetAllMocks();vi.unstubAllEnvs()});
+it('combined deployment links stay on the current HTTPS origin', async () => {
+ vi.stubEnv('VITE_SAME_ORIGIN', 'true');
+ vi.stubEnv('VITE_MANAGER_ORIGIN', 'http://localhost:5175');
+ vi.stubEnv('VITE_USER_ORIGIN', 'http://localhost:5173');
+ window.history.replaceState({}, '', '/admin');
+ adminRefreshSession.mockResolvedValue({admin:{email:'admin@test.vn'}});
+ adminApi.mockResolvedValue({accounts:2,products:3});
+ render(<SystemAdminApp/>);
+ expect((await screen.findByRole('link',{name:'Cổng quản lý (Manager)'})).getAttribute('href')).toBe(`${window.location.origin}/manager`);
+ expect(screen.getByRole('link',{name:'Xem trang bán hàng'}).getAttribute('href')).toBe(`${window.location.origin}/`);
+});
 it.each([
  ['', '', 'http://localhost:5175/manager', 'http://localhost:5173/'],
  ['https://manager.example.test/', 'https://shop.example.test/', 'https://manager.example.test/manager', 'https://shop.example.test/'],
