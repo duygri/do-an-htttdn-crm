@@ -1,0 +1,26 @@
+@startuml
+title Admin - Thống kê kết quả khảo sát
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminSurveyStatsController" as Controller
+control "AdminReportService" as Service
+database "SurveyRepository" as DB
+
+Admin -> Web: Mở thống kê khảo sát
+Web -> Controller: GET /api/manager/surveys/stats
+Controller -> Service: surveyStats()
+Service -> DB: countByDeletedAtIsNull()
+Service -> DB: countByStatusAndDeletedAtIsNull(DRAFT)
+Service -> DB: countByStatusAndDeletedAtIsNull(PUBLISHED)
+DB --> Service: Tổng, bản nháp, đã phát hành
+Service --> Controller: Map thống kê
+Controller --> Web: 200 stats
+Web --> Admin: Hiển thị số liệu khảo sát
+note over Controller,DB
+  Source: AdminSurveyStatsController, AdminReportService.surveyStats()
+end note
+@enduml

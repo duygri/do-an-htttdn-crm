@@ -1,0 +1,31 @@
+@startuml
+title Admin - Xem thông tin khách hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminUserController" as Controller
+control "AdminUserService" as Service
+database "UserRepository" as DB
+
+Admin -> Web: Mở hồ sơ khách hàng
+Web -> Controller: GET /api/manager/users/{id}
+Controller -> Service: get(id)
+Service -> DB: findById(id)
+DB --> Service: User CUSTOMER, chưa bị xóa
+Service --> Controller: User
+Controller --> Web: 200 User
+Web --> Admin: Hiển thị thông tin khách hàng
+
+alt Không tìm thấy / không phải CUSTOMER / đã xóa
+  DB --> Service: Không có bản ghi hợp lệ
+  Service --> Controller: 404
+  Controller --> Web: Lỗi không tìm thấy
+  Web --> Admin: Hiển thị thông báo lỗi
+end
+note over Controller,DB
+  Source: AdminUserController.get(), AdminUserService.get()
+end note
+@enduml

@@ -1,0 +1,33 @@
+@startuml
+title Admin - Cập nhật thông tin khách hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminUserController" as Controller
+control "AdminUserService" as Service
+database "UserRepository" as DB
+
+Admin -> Web: Sửa họ tên, số điện thoại, sở thích
+Web -> Controller: PUT /api/manager/users/{id}
+Controller -> Controller: @Valid UserRequest
+Controller -> Service: update(id, request)
+Service -> DB: findById(id)
+DB --> Service: User CUSTOMER
+Service -> Service: Cập nhật profile fields
+Service -> DB: save(user)
+DB --> Service: User đã cập nhật
+Service --> Controller: User
+Controller --> Web: 200 User
+Web --> Admin: Hiển thị dữ liệu mới
+
+alt Dữ liệu không hợp lệ hoặc không tìm thấy
+  Controller --> Web: 400/404
+  Web --> Admin: Hiển thị lỗi cập nhật
+end
+note over Controller,DB
+  Source: AdminUserController.update(), AdminUserService.update()
+end note
+@enduml

@@ -1,0 +1,27 @@
+@startuml
+title Admin - Báo cáo khách hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Portal" as Web
+control "AdminAnalyticsController" as Controller
+control "AnalyticsService" as Service
+database "User / Order / Feedback / Survey repositories" as DB
+
+Admin -> Web: Chọn bộ lọc khách hàng
+Web -> Controller: GET /api/manager/reports/customers
+Controller -> Service: customers()
+Service -> DB: Truy vấn dữ liệu khách hàng và chỉ số CRM
+DB --> Service: Dữ liệu tổng hợp
+Service -> Service: Gom nhóm / tính các chỉ số
+Service --> Controller: Map báo cáo
+Controller --> Web: 200 báo cáo khách hàng
+Web --> Admin: Hiển thị bảng và biểu đồ
+
+note over Controller,DB
+  Source endpoint: AdminAnalyticsController.customers()
+  Bộ lọc chi tiết khách hàng: AdminUserController.list() -> CustomerLifecycleQuery
+end note
+@enduml
