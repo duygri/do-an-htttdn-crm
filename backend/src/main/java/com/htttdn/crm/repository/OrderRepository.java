@@ -8,6 +8,8 @@ public interface OrderRepository extends JpaRepository<Order,Long>, org.springfr
     @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id=:id")
     Optional<Order> findForStatusUpdate(@Param("id") Long id);
+    @Query("select o.id from Order o where o.orderCode=:code")
+    Optional<Long> findIdByOrderCode(@Param("code") Long code);
     Page<Order> findByStatus(String status,Pageable p); long countByStatus(String status);
     Page<Order> findByCustomerIdOrderByCreatedAtDesc(Long customerId,Pageable p);
     Optional<Order> findByIdAndCustomerId(Long id,Long customerId); Optional<Order> findByOrderCode(Long orderCode);

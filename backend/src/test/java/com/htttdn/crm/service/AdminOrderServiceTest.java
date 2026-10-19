@@ -13,6 +13,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class AdminOrderServiceTest {
+    @Test void shippedOrdersCannotBeCancelledAndStockIsNotTouched() {
+        for(String state : new String[]{"SHIPPED","DELIVERING"}) {
+            order(state);
+            assertThrows(ApiException.class,()->service.updateStatus(9L,new StatusRequest("CANCELLED","Test")));
+        }
+        verifyNoInteractions(stock,notifications);
+    }
     @Test void adminCannotCompleteCancelDeliveredOrSkipShipping() {
         for (String[] pair : new String[][]{{"DELIVERED","COMPLETED"},{"DELIVERED","CANCELLED"},{"CONFIRMED","DELIVERED"},{"PREPARING","DELIVERED"},{"COMPLETED","COMPLETED"}}) {
             Order order = order(pair[0]);
@@ -26,7 +33,8 @@ class AdminOrderServiceTest {
     final OrderRepository orders = mock(OrderRepository.class);
     final NotificationService notifications = mock(NotificationService.class);
     final PaymentRepository payments = mock(PaymentRepository.class);
-    final AdminOrderService service = new AdminOrderService(orders, notifications, mock(VoucherService.class), payments);
+    final StockService stock = mock(StockService.class);
+    final AdminOrderService service = new AdminOrderService(orders, notifications, mock(VoucherService.class), payments, stock);
 
     Order order(String status) {
         Order order = new Order(); order.setOrderCode(9009L); order.setCustomer(new User()); order.setStatus(status);
@@ -50,6 +58,7 @@ class AdminOrderServiceTest {
         assertEquals("CANCELLED", order.getStatus()); assertEquals("Hết hàng", order.getCancelReason());
         verify(notifications, times(1)).create(order.getCustomer(), "Đơn hàng đã bị hủy", "Đơn hàng #9009 đã bị hủy. Lý do: Hết hàng", "ORDER_CANCELLED", order.getId());
         verify(orders, times(1)).save(order);
+        verify(stock,times(1)).release(order);
     }
 
     @Test void cancellingUnpaidPayosStopsPaymentWithoutChangingAlreadyPaidOrders() {

@@ -28,6 +28,71 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:voucherTests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000","spring.datasource.driver-class-name=org.h2.Driver","spring.datasource.username=sa","spring.datasource.password=","spring.jpa.database-platform=org.hibernate.dialect.H2Dialect","spring.jpa.hibernate.ddl-auto=create-drop"})
 @AutoConfigureMockMvc
 class VoucherIntegrationTest {
+    @Test void paymentWebhookRacingCancellationNeverLosesPaidEvidenceOrDoubleRestocks() throws Exception {
+        long id=orders.create(customer,new OrderService.CheckoutRequest("Address","PAYOS",null,List.of(new OrderService.RequestedItem(product.getId(),1,null,null)))).order().id();
+        var attempt=attemptRepo.findFirstByOrderIdOrderByIdDesc(id).orElseThrow();
+        when(payos.verifyWebhook(any(),any())).thenReturn(true);
+        when(payos.getPayment("TEST-LINK")).thenReturn(new PayosService.ProviderPayment(attempt.getProviderOrderCode(),100000L,0L,"PENDING","TEST-LINK"));
+        var payload=mapper.readTree("{\"success\":true,\"data\":{\"orderCode\":"+attempt.getProviderOrderCode()+",\"amount\":100000,\"code\":\"00\",\"paymentLinkId\":\"TEST-LINK\"}}");
+        CountDownLatch start=new CountDownLatch(1);
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var a=pool.submit(()->{start.await();return orders.cancel(customer,id,"Test");});
+            var b=pool.submit(()->{start.await();return orders.webhook(payload,"test-signature");});
+            start.countDown();a.get(20,TimeUnit.SECONDS);b.get(20,TimeUnit.SECONDS);
+        }
+        orders.cancel(customer,id,"Test");orders.webhook(payload,"test-signature");
+        assertEquals("CANCELLED",orderRepo.findById(id).orElseThrow().getStatus());
+        assertEquals("PAID",orderRepo.findById(id).orElseThrow().getPaymentStatus());
+        assertEquals("PAID",paymentRepo.findByOrderId(id).orElseThrow().getStatus());
+        assertEquals("PAID",attemptRepo.findFirstByOrderIdOrderByIdDesc(id).orElseThrow().getStatus());
+        assertEquals(20,products.findById(product.getId()).orElseThrow().getStock());
+    }
+    @Test void creationRacingStockReleaseKeepsTheCommittedStock() throws Exception {
+        long id=orders.create(customer,new OrderService.CheckoutRequest("Address","COD",null,List.of(new OrderService.RequestedItem(product.getId(),2,null,null)))).order().id();
+        CountDownLatch start=new CountDownLatch(1);
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var a=pool.submit(()->{start.await();return adminOrders.updateStatus(id,new StatusRequest("CANCELLED","Test"));});
+            var b=pool.submit(()->{start.await();return orders.create(customer,new OrderService.CheckoutRequest("Address","COD",null,List.of(new OrderService.RequestedItem(product.getId(),3,null,null))));});
+            start.countDown();a.get(20,TimeUnit.SECONDS);b.get(20,TimeUnit.SECONDS);
+        }
+        assertEquals(17,products.findById(product.getId()).orElseThrow().getStock());
+    }
+    @Test void paidCustomerCancellationKeepsAllPaymentEvidenceAndReleasesOnce() {
+        var v=admin.create(input(code,"FIXED_AMOUNT","10000",5));
+        var placed=checkout("PAYOS"); long id=placed.order().id();
+        tx.executeWithoutResult(s->{
+            Order o=orderRepo.findById(id).orElseThrow();o.setPaymentStatus("PAID");
+            Payment p=paymentRepo.findByOrderId(id).orElseThrow();p.setStatus("PAID");
+            PaymentAttempt a=attemptRepo.findFirstByOrderIdOrderByIdDesc(id).orElseThrow();a.setStatus("PAID");
+        });
+        orders.cancel(customer,id,"Đổi ý");orders.cancel(customer,id,"Gửi lại");
+        assertEquals("CANCELLED",orderRepo.findById(id).orElseThrow().getStatus());
+        assertEquals("PAID",orderRepo.findById(id).orElseThrow().getPaymentStatus());
+        assertEquals("PAID",paymentRepo.findByOrderId(id).orElseThrow().getStatus());
+        assertEquals("PAID",attemptRepo.findFirstByOrderIdOrderByIdDesc(id).orElseThrow().getStatus());
+        assertEquals(20,products.findById(product.getId()).orElseThrow().getStock());
+        assertEquals(0,voucherRepo.findById(v.id()).orElseThrow().getUsedCount());
+    }
+    @Test void customerAndManagerCancellationRaceReleasesOnlyOnce() throws Exception {
+        var v=admin.create(input(code,"FIXED_AMOUNT","10000",5));
+        long id=checkout("COD").order().id();CountDownLatch start=new CountDownLatch(1);
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            Future<?> a=pool.submit(()->{try{start.await();orders.cancel(customer,id,"Test");}catch(InterruptedException e){throw new RuntimeException(e);}});
+            Future<?> b=pool.submit(()->{try{start.await();adminOrders.updateStatus(id,new StatusRequest("CANCELLED","Test"));}catch(InterruptedException e){throw new RuntimeException(e);}});
+            start.countDown();a.get(20,TimeUnit.SECONDS);b.get(20,TimeUnit.SECONDS);
+        }
+        assertEquals(20,products.findById(product.getId()).orElseThrow().getStock());
+        assertTrue(orderRepo.findById(id).orElseThrow().isStockReleased());
+        assertEquals(0,voucherRepo.findById(v.id()).orElseThrow().getUsedCount());
+    }
+    @Test void stockFailureRollsBackCancellationAndVoucherRelease() {
+        var v=admin.create(input(code,"FIXED_AMOUNT","10000",5));long id=checkout("COD").order().id();
+        tx.executeWithoutResult(s->products.findById(product.getId()).orElseThrow().setStock(Integer.MAX_VALUE));
+        assertThrows(ArithmeticException.class,()->adminOrders.updateStatus(id,new StatusRequest("CANCELLED","Test")));
+        Order o=orderRepo.findById(id).orElseThrow();assertEquals("PENDING",o.getStatus());assertFalse(o.isStockReleased());
+        assertEquals(Integer.MAX_VALUE,products.findById(product.getId()).orElseThrow().getStock());
+        assertEquals(1,voucherRepo.findById(v.id()).orElseThrow().getUsedCount());
+    }
     @Autowired AdminVoucherService admin;
     @Autowired InternalAccountService accounts;
     @Autowired ManagerAuthService managerAuth;
@@ -354,6 +419,7 @@ class VoucherIntegrationTest {
             start.countDown();a.get(10,TimeUnit.SECONDS);b.get(10,TimeUnit.SECONDS);
         }
         assertEquals(0,voucherRepo.findById(v.id()).orElseThrow().getUsedCount());
+        assertEquals(20,products.findById(product.getId()).orElseThrow().getStock());
     }
     @Test void dateAndLimitFiltersMatchTheirDisplayedStates() throws Exception {
         var v=admin.create(input(code,"PERCENTAGE","10",1));

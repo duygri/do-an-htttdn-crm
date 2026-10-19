@@ -1,5 +1,11 @@
 import { it, expect } from 'vitest';
 import { canAdvanceOrder, isFinalOrder } from './order-transitions';
+it('does not cancel an order already with the carrier', () => {
+  for (const status of ['SHIPPED', 'DELIVERING']) {
+    expect(canAdvanceOrder(status, 'CANCELLED')).toBe(false);
+    expect(canAdvanceOrder(status, 'DELIVERED')).toBe(true);
+  }
+});
 it('never reopens cancelled or completed orders', () => {
   for (const current of ['CANCELLED','COMPLETED']) {
     expect(isFinalOrder(current)).toBe(true);
