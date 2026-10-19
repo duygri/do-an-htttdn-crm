@@ -11,6 +11,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class OrderConfirmationTest {
+    @Test void lateSuccessfulWebhookAfterCancellationNotifiesOnlyOnce() throws Exception {
+        Order order=paymentOrder("CANCELLED");Payment payment=new Payment();payment.setOrder(order);payment.setStatus("CANCELLED");
+        when(orders.findIdByOrderCode(9009L)).thenReturn(Optional.of(9L));
+        when(orders.findForStatusUpdate(9L)).thenReturn(Optional.of(order));
+        when(payments.findByOrderId(9L)).thenReturn(Optional.of(payment));when(payos.verifyWebhook(any(),any())).thenReturn(true);
+        var payload=new ObjectMapper().readTree("{\"success\":true,\"data\":{\"orderCode\":9009,\"amount\":10,\"code\":\"00\"}}");
+        service.webhook(payload,"test");service.webhook(payload,"test");
+        assertEquals("CANCELLED",order.getStatus());assertEquals("PAID",order.getPaymentStatus());assertEquals("PAID",payment.getStatus());
+        verify(notifications,times(1)).create(any(),anyString(),anyString(),eq("PAYMENT_AFTER_CANCEL"),eq(9L));
+        verifyNoInteractions(vouchers,products);
+    }
     @Test void customerReceiptIsOwnedIdempotentAndDoesNotChangePayment() {
         User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);
         User stranger = new User(); org.springframework.test.util.ReflectionTestUtils.setField(stranger,"id",3L);
@@ -47,7 +58,7 @@ class OrderConfirmationTest {
     final PayosService payos = mock(PayosService.class);
     final FeedbackRepository feedback = mock(FeedbackRepository.class);
     final AuditTrail audit = mock(AuditTrail.class);
-    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit);
+    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,new StockService(products,mock(jakarta.persistence.EntityManager.class)));
 
     @Test void completedReviewedOrderCannotRequestReturn() {
         User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);
@@ -83,7 +94,7 @@ class OrderConfirmationTest {
     @Test void successfulPaymentWaitsForAdminAndLateWebhookDoesNotRegress() throws Exception {
         Order order = new Order(); org.springframework.test.util.ReflectionTestUtils.setField(order,"id",9L); order.setOrderCode(9009L); order.setStatus("PENDING"); order.setPaymentMethod("PAYOS"); order.setPaymentStatus("PENDING"); order.setTotalAmount(BigDecimal.TEN); order.setCustomer(new User());
         Payment payment = new Payment(); payment.setOrder(order);
-        when(orders.findByOrderCode(9009L)).thenReturn(Optional.of(order));
+        when(orders.findIdByOrderCode(9009L)).thenReturn(Optional.of(9L));
         when(orders.findForStatusUpdate(9L)).thenReturn(Optional.of(order));
         when(payments.findByOrderId(9L)).thenReturn(Optional.of(payment));
         when(payos.verifyWebhook(any(),any())).thenReturn(true);
@@ -110,7 +121,7 @@ class OrderConfirmationTest {
             for (boolean success : List.of(true,false)) {
                 reset(orders,payments,events,payos,notifications);
                 Order order = paymentOrder(current); Payment payment = new Payment(); payment.setOrder(order);
-                when(orders.findByOrderCode(9009L)).thenReturn(Optional.of(order)); when(orders.findForStatusUpdate(9L)).thenReturn(Optional.of(order));
+                when(orders.findIdByOrderCode(9009L)).thenReturn(Optional.of(9L)); when(orders.findForStatusUpdate(9L)).thenReturn(Optional.of(order));
                 when(payments.findByOrderId(9L)).thenReturn(Optional.of(payment)); when(payos.verifyWebhook(any(),any())).thenReturn(true);
                 var payload = new ObjectMapper().readTree("{\"success\":" + success + ",\"data\":{\"orderCode\":9009,\"amount\":10,\"code\":\"" + (success ? "00" : "01") + "\"}}");
                 service.webhook(payload,"signature");

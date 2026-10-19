@@ -32,15 +32,17 @@ public class OrderService {
     private final PayosService payos;
     private final FeedbackRepository feedback;
     private final AuditTrail audit;
+    private final StockService stock;
 
     public OrderService(OrderRepository orders, ProductRepository products, CartItemRepository carts,
                         PaymentRepository payments, PaymentAttemptRepository attempts, PaymentWebhookEventRepository webhookEvents,
-                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit) {
+                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit, StockService stock) {
         this.orders = orders; this.products = products; this.carts = carts; this.payments = payments;
         this.attempts = attempts;
         this.webhookEvents = webhookEvents; this.vouchers = vouchers; this.notifications = notifications; this.payos = payos;
         this.feedback = feedback;
         this.audit = audit;
+        this.stock = stock;
     }
 
     @Transactional
@@ -59,12 +61,12 @@ public class OrderService {
             if (quantity > Integer.MAX_VALUE) throw invalidCart();
             grouped.put(key, new RequestedItem(key.productId(), (int) quantity, key.size(), key.color()));
         }
-        requested = new ArrayList<>(grouped.values());
+        requested = grouped.values().stream().sorted(Comparator.comparing(RequestedItem::productId)).toList();
         Instant now = Instant.now(); Order order = new Order(); order.setCustomer(customer); order.setOrderCode(nextCode()); order.setDeliveryAddress(request.deliveryAddress().trim()); order.setPaymentMethod(method); order.setCreatedAt(now); order.setUpdatedAt(now); order.setStatus("PENDING"); order.setPaymentStatus("COD".equals(method) ? "COD" : "PENDING"); order.setExpiresAt("COD".equals(method) ? null : now.plus(Duration.ofMinutes(15)));
         BigDecimal subtotal = BigDecimal.ZERO;
         for (RequestedItem line : requested) {
             if (line == null || line.productId() == null || line.quantity() < 1) throw invalidCart();
-            Product product = products.findLockedById(line.productId()).filter(Product::isActive).orElseThrow(this::invalidCart); validateVariant(product, line.size(), line.color());
+            Product product = stock.lockProduct(line.productId()).filter(Product::isActive).orElseThrow(this::invalidCart); validateVariant(product, line.size(), line.color());
             if (line.quantity() > product.getStock()) throw new ApiException(HttpStatus.CONFLICT, "OUT_OF_STOCK", "Sản phẩm " + product.getName() + " không đủ số lượng.");
             product.setStock(product.getStock() - line.quantity()); product.setUpdatedAt(now); products.save(product);
             OrderItem item = new OrderItem(); item.setOrder(order); item.setProduct(product); item.setQuantity(line.quantity()); item.setSize(clean(line.size())); item.setColor(clean(line.color())); item.setUnitPrice(CartService.price(product)); order.getItems().add(item);
@@ -268,7 +270,16 @@ public class OrderService {
             }
         }
         var before = AuditTrail.snapshot(order);
-        order.setStatus("CANCELLED"); order.setPaymentStatus("CANCELLED"); order.setCancelReason(clean(reason) == null ? "Khách hàng yêu cầu hủy đơn." : clean(reason)); payments.findByOrderId(order.getId()).ifPresent(payment -> { payment.setStatus("CANCELLED"); payments.save(payment); }); releaseStock(order); vouchers.release(order); order.setUpdatedAt(Instant.now()); orders.save(order); notifications.create(customer, "Đã hủy đơn hàng", "Đơn hàng #" + order.getOrderCode() + " đã được hủy.", "ORDER_CANCELLED", order.getId());
+        boolean paid = "PAID".equals(order.getPaymentStatus());
+        order.setStatus("CANCELLED");
+        if (!paid) {
+            order.setPaymentStatus("CANCELLED");
+            payments.findByOrderId(order.getId()).ifPresent(payment -> { payment.setStatus("CANCELLED"); payment.setUpdatedAt(Instant.now()); payments.save(payment); });
+        }
+        order.setCancelReason(clean(reason) == null ? "Khách hàng yêu cầu hủy đơn." : clean(reason));
+        stock.release(order); vouchers.release(order); order.setUpdatedAt(Instant.now()); orders.save(order);
+        notifications.create(customer, "Đã hủy đơn hàng", "Đơn hàng #" + order.getOrderCode() + " đã được hủy."
+            + (paid ? " Vui lòng liên hệ cửa hàng để xử lý hoàn tiền thủ công." : ""), "ORDER_CANCELLED", order.getId());
         recordCustomerAction(customer, "CUSTOMER_CANCEL", order, before);
         return view(order);
     }
@@ -307,9 +318,10 @@ public class OrderService {
         JsonNode data = payload == null ? null : payload.path("data"); if (data == null || data.isMissingNode()) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Webhook không có dữ liệu thanh toán."); if (!payos.verifyWebhook(data, signature)) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Chữ ký webhook không hợp lệ.");
         long code = data.path("orderCode").asLong(0); String providerCode = data.path("code").asText(payload.path("code").asText("")); boolean success = payload.path("success").asBoolean(false);
         PaymentAttempt attempt = attempts.findByProviderOrderCode(code).orElse(null);
-        Order order = attempt == null ? orders.findByOrderCode(code).orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Không tìm thấy đơn hàng tương ứng.")) : attempt.getOrder();
+        Long orderId = attempt == null ? orders.findIdByOrderCode(code).orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Không tìm thấy đơn hàng tương ứng.")) : attempt.getOrder().getId();
+        // Load order state only after acquiring the lock, including legacy links without attempts.
+        Order order = orders.findForStatusUpdate(orderId).orElseThrow();
         BigDecimal amount = BigDecimal.valueOf(data.path("amount").asLong(-1)); if (code == 0 || amount.compareTo(order.getTotalAmount()) != 0) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Thông tin đơn hàng hoặc số tiền không khớp.");
-        order = orders.findForStatusUpdate(order.getId()).orElseThrow();
         if (attempt != null && !data.path("paymentLinkId").asText("").isBlank() && !data.path("paymentLinkId").asText().equals(attempt.getPaymentLinkId()))
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Mã giao dịch không khớp.");
         if ("PAID".equals(order.getPaymentStatus()) || !"PAYOS".equals(order.getPaymentMethod())) return true;
@@ -362,7 +374,6 @@ public class OrderService {
     private void validateVariant(Product product, String size, String color) { if (!hasOption(product.getSizes(), size) || !hasOption(product.getColors(), color)) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_VARIANT", "Size hoặc màu sản phẩm không hợp lệ."); }
     private boolean hasOption(String csv, String value) { return value == null || value.isBlank() || Arrays.stream(String.valueOf(csv == null ? "" : csv).split(",")).map(String::trim).anyMatch(value.trim()::equalsIgnoreCase); }
     private String clean(String value) { return value == null || value.isBlank() ? null : value.trim(); }
-    private void releaseStock(Order order) { if (order.isStockReleased()) return; for (OrderItem item : order.getItems()) products.findById(item.getProduct().getId()).ifPresent(p -> { p.setStock(p.getStock() + item.getQuantity()); p.setUpdatedAt(Instant.now()); products.save(p); }); order.setStockReleased(true); }
     private ApiException invalidCart() { return new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CART", "Sản phẩm trong giỏ không còn hợp lệ."); }
     private long nextCode() { long code = 100000000000L + (System.currentTimeMillis() % 89999999999L); while (orders.findByOrderCode(code).isPresent()) code++; return code; }
 

@@ -2,10 +2,10 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/htttdn}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:Dakvip24@}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
@@ -15,10 +15,8 @@ server:
   error:
     include-message: always
 app:
-  admin:
-    guard-enabled: ${ADMIN_GUARD_ENABLED:false}
   auth:
-    jwt-secret: ${JWT_SECRET:dev-only-change-this-secret-to-a-long-random-value}
+    jwt-secret: ${JWT_SECRET}
     access-minutes: ${ACCESS_TOKEN_MINUTES:15}
     refresh-days: ${REFRESH_TOKEN_DAYS:30}
     secure-cookie: ${SECURE_REFRESH_COOKIE:false}
