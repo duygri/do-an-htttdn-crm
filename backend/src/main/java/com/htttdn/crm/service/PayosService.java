@@ -17,6 +17,7 @@ import java.util.*;
 
 @Service
 public class PayosService {
+    private RestClient client(){var factory=new org.springframework.http.client.SimpleClientHttpRequestFactory();factory.setConnectTimeout(java.time.Duration.ofSeconds(5));factory.setReadTimeout(java.time.Duration.ofSeconds(10));return RestClient.builder().baseUrl("https://api-merchant.payos.vn").requestFactory(factory).build();}
     @Value("${app.payos.client-id:}") private String clientId;
     @Value("${app.payos.api-key:}") private String apiKey;
     @Value("${app.payos.checksum-key:}") private String checksumKey;
@@ -36,7 +37,7 @@ public class PayosService {
         requireConfigured();
         Map<String, Object> body = paymentRequest(order, providerOrderCode);
         try {
-            JsonNode result = RestClient.builder().baseUrl("https://api-merchant.payos.vn").build()
+            JsonNode result = client()
                 .post().uri("/v2/payment-requests")
                 .header("x-client-id", clientId).header("x-api-key", apiKey)
                 .contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JsonNode.class);
@@ -49,14 +50,14 @@ public class PayosService {
     public ProviderPayment getPayment(String paymentLinkId) {
         requireConfigured();
         try {
-            JsonNode result = RestClient.builder().baseUrl("https://api-merchant.payos.vn").build()
+            JsonNode result = client()
                 .get().uri("/v2/payment-requests/{id}", paymentLinkId)
                 .header("x-client-id", clientId).header("x-api-key", apiKey).retrieve().body(JsonNode.class);
             JsonNode data = result == null ? null : result.path("data");
             if (data == null || !"00".equals(result.path("code").asText()) || data.isMissingNode())
                 throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_PROVIDER_ERROR", "Không xác minh được trạng thái PayOS.");
             return new ProviderPayment(data.path("orderCode").asLong(0), data.path("amount").asLong(-1),
-                data.path("amountPaid").asLong(0), data.path("status").asText(""), data.path("id").asText(""));
+                data.path("amountPaid").asLong(-1), data.path("status").asText(""), data.path("id").asText(""));
         } catch (RestClientException ex) {
             throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_PROVIDER_ERROR", "Không kết nối được PayOS để kiểm tra thanh toán.");
         }
@@ -65,7 +66,7 @@ public class PayosService {
     public void cancelPaymentLink(String paymentLinkId) {
         requireConfigured();
         try {
-            JsonNode result = RestClient.builder().baseUrl("https://api-merchant.payos.vn").build()
+            JsonNode result = client()
                 .post().uri("/v2/payment-requests/{id}/cancel", paymentLinkId)
                 .header("x-client-id", clientId).header("x-api-key", apiKey)
                 .contentType(MediaType.APPLICATION_JSON).body(Map.of("cancellationReason", "Tao ma thanh toan moi"))

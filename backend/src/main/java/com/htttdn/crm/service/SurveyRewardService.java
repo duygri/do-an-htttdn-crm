@@ -23,7 +23,7 @@ public class SurveyRewardService {
         SurveyReward r=survey.getReward();if(r==null||!r.isEnabled())return null;
         validate(r);StoreVoucher v=new StoreVoucher();
         AdminVoucherService.apply(v,input(r,"KS-"+UUID.randomUUID().toString().replace("-","").toUpperCase(),Instant.now()));
-        v.setOwnerCustomerId(customer.getId());v.setRewardSurveyId(survey.getId());vouchers.saveAndFlush(v);
+        v.setOwnerCustomerId(customer.getId());v.setRewardSurveyId(survey.getId());v.setPerCustomerLimit(1);vouchers.saveAndFlush(v);
         notifications.create(customer,"Bạn nhận được voucher khảo sát","Mã "+v.getCode()+" đã được thêm vào Voucher của tôi.","SURVEY_REWARD",survey.getId());
         return v;
     }

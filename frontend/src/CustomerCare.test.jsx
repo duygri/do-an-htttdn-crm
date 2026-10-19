@@ -64,7 +64,7 @@ it('restores outcome/completion filters and keeps them distinct from deadline fi
 it('places Manager navigation directly after the brand and the account/logout at the bottom',async()=>{
  render(<ManagerApp/>);await flush();
  const sidebar=document.querySelector('.manager-shell .admin-sidebar');const nav=within(sidebar).getByRole('navigation',{name:'Chức năng quản lý'});const footer=sidebar.querySelector('.manager-sidebar-footer');
- expect(sidebar.querySelector('.admin-brand').nextElementSibling).toBe(nav);expect(nav.nextElementSibling).toBe(footer);expect(footer.querySelector('.admin-profile')).toBeTruthy();expect(within(footer).getByRole('button',{name:'Đăng xuất'})).toBeTruthy();expect(within(nav).getAllByRole('button')).toHaveLength(13);expect(within(nav).getByRole('button',{name:'Việc của tôi'})).toBeTruthy();
+ expect(sidebar.querySelector('.admin-brand').nextElementSibling).toBe(nav);expect(nav.nextElementSibling).toBe(footer);expect(footer.querySelector('.admin-profile')).toBeTruthy();expect(within(footer).getByRole('button',{name:'Đăng xuất'})).toBeTruthy();expect(within(nav).getAllByRole('button')).toHaveLength(14);expect(within(nav).getByRole('button',{name:'Việc của tôi'})).toBeTruthy();
  fireEvent.click(screen.getByRole('button',{name:'Mở menu quản lý'}));expect(sidebar.classList.contains('is-open')).toBe(true);fireEvent.click(within(nav).getByRole('button',{name:'Chăm sóc khách hàng'}));await flush();expect(sidebar.classList.contains('is-open')).toBe(false);expect(window.location.pathname).toBe('/manager/care');
 });
 it('requires an outcome on completion and retains outcome/note after a failed save',async()=>{

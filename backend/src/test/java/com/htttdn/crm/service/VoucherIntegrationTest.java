@@ -28,6 +28,35 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:voucherTests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000","spring.datasource.driver-class-name=org.h2.Driver","spring.datasource.username=sa","spring.datasource.password=","spring.jpa.database-platform=org.hibernate.dialect.H2Dialect","spring.jpa.hibernate.ddl-auto=create-drop"})
 @AutoConfigureMockMvc
 class VoucherIntegrationTest {
+    @Test void newApiDefaultsToOneButExplicitNullAndOldCodesRemainUnlimited()throws Exception{
+        var v=admin.createFromJson(mapper.readTree("{\"code\":\""+code+"\",\"discountType\":\"PERCENTAGE\",\"discountValue\":10,\"minOrderAmount\":0,\"active\":true}"));assertEquals(1,v.perCustomerLimit());
+        admin.update(v.id(),mapper.readTree("{\"active\":false}"));assertEquals(1,voucherRepo.findById(v.id()).orElseThrow().getPerCustomerLimit());
+        var open=admin.createFromJson(mapper.readTree("{\"code\":\""+code+"OPEN\",\"discountType\":\"PERCENTAGE\",\"discountValue\":10,\"minOrderAmount\":0,\"active\":true,\"perCustomerLimit\":null}"));assertNull(open.perCustomerLimit());
+    }
+    @Test void limitTwoAndFailedPayosCreationDoNotConsumeAnExtraCustomerSlot()throws Exception{
+        var v=admin.create(input(code,"PERCENTAGE","10",20));admin.update(v.id(),mapper.readTree("{\"perCustomerLimit\":2}"));
+        when(payos.createPaymentLink(any())).thenThrow(new IllegalStateException("Test"));assertThrows(IllegalStateException.class,()->checkout("PAYOS"));assertNotNull(vouchers.preview(code,new BigDecimal("100000"),customer.getId()));
+        checkout("COD");checkout("COD");assertThrows(ApiException.class,()->checkout("COD"));assertEquals(2,voucherRepo.findById(v.id()).orElseThrow().getUsedCount());
+    }
+    @Test void personalLimitBlocksPendingOrdersAndCancellationReleasesIt()throws Exception{
+        var v=admin.create(input(code,"PERCENTAGE","10",20));admin.update(v.id(),mapper.readTree("{\"perCustomerLimit\":1}"));
+        assertThrows(ApiException.class,()->vouchers.preview(code,new BigDecimal("100000")));
+        var first=checkout("PAYOS");assertEquals("VOUCHER_PER_CUSTOMER_LIMIT",assertThrows(ApiException.class,()->checkout("COD")).code());
+        assertEquals("VOUCHER_PER_CUSTOMER_LIMIT",assertThrows(ApiException.class,()->vouchers.preview(code,new BigDecimal("100000"),customer.getId())).code());
+        mvc.perform(get("/api/customers/me/vouchers").header("Authorization","Bearer "+jwt.issue(customer.getId(),"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.content[?(@.code=='"+code+"')].selectable").value(org.hamcrest.Matchers.hasItem(false)));
+        User other=new User();other.setEmail(UUID.randomUUID()+"@limit.test");other.setFullName("Other");other.setPasswordHash("test");users.save(other);assertNotNull(vouchers.preview(code,new BigDecimal("100000"),other.getId()));
+        when(payos.getPayment("TEST-LINK")).thenReturn(new PayosService.ProviderPayment(first.order().orderCode(),90000,0,"CANCELLED","TEST-LINK"));orders.cancel(customer,first.order().id(),"Test");orders.cancel(customer,first.order().id(),"Test");assertNotNull(vouchers.preview(code,new BigDecimal("100000"),customer.getId()));checkout("COD");
+    }
+    @Test void simultaneousOrdersCannotExceedCustomerLimit()throws Exception{
+        var v=admin.create(input(code,"PERCENTAGE","10",20));admin.update(v.id(),mapper.readTree("{\"perCustomerLimit\":1}"));CountDownLatch start=new CountDownLatch(1);
+        try(var pool=Executors.newFixedThreadPool(2)){var a=pool.submit(()->{start.await();try{checkout("COD");return true;}catch(ApiException e){assertEquals("VOUCHER_PER_CUSTOMER_LIMIT",e.code());return false;}});var b=pool.submit(()->{start.await();try{checkout("COD");return true;}catch(ApiException e){assertEquals("VOUCHER_PER_CUSTOMER_LIMIT",e.code());return false;}});start.countDown();assertNotEquals(a.get(20,TimeUnit.SECONDS),b.get(20,TimeUnit.SECONDS));}
+        assertEquals(1,voucherRepo.findById(v.id()).orElseThrow().getUsedCount());
+    }
+    @Test void loweringLimitKeepsOrdersAndNullMeansUnlimited()throws Exception{
+        var v=admin.create(input(code,"PERCENTAGE","10",20));var first=checkout("COD");checkout("COD");admin.update(v.id(),mapper.readTree("{\"perCustomerLimit\":1}"));assertThrows(ApiException.class,()->checkout("COD"));assertEquals("PENDING",orderRepo.findById(first.order().id()).orElseThrow().getStatus());
+        admin.update(v.id(),mapper.readTree("{\"perCustomerLimit\":null}"));assertNotNull(vouchers.preview(code,new BigDecimal("100000")));checkout("COD");
+        for(String invalid:List.of("0","-1","1.5","2147483648","\"1\""))assertThrows(ApiException.class,()->admin.update(v.id(),mapper.readTree("{\"perCustomerLimit\":"+invalid+"}")));
+    }
     @Test void paymentWebhookRacingCancellationNeverLosesPaidEvidenceOrDoubleRestocks() throws Exception {
         long id=orders.create(customer,new OrderService.CheckoutRequest("Address","PAYOS",null,List.of(new OrderService.RequestedItem(product.getId(),1,null,null)))).order().id();
         var attempt=attemptRepo.findFirstByOrderIdOrderByIdDesc(id).orElseThrow();

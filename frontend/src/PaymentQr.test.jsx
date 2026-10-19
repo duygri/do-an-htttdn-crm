@@ -9,6 +9,10 @@ vi.mock("./api", async original => ({ ...await original(), api: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 const pending = { orderCode: 1001, amount: 249000, paymentStatus: "PENDING", qrCode: "000201010212", paymentUrl: "https://pay.payos.vn/web/test", expiresAt: new Date(Date.now() + 600000).toISOString() };
+it('hides QR and retry when payment needs manual reconciliation',async()=>{
+ api.mockResolvedValue({...pending,reviewRequired:true,retryable:false,qrCode:null,paymentUrl:null});render(<PaymentQr orderId={5}/>);
+ await screen.findByText('Thanh toán cần đối chiếu — vui lòng liên hệ cửa hàng');expect(screen.queryByTitle('Mã QR thanh toán đơn 1001')).toBeNull();expect(screen.queryByText('Tạo mã QR mới')).toBeNull();
+});
 
 it("shows a scannable QR immediately and removes it when payment is confirmed", async () => {
   let confirm;

@@ -33,16 +33,20 @@ public class OrderService {
     private final FeedbackRepository feedback;
     private final AuditTrail audit;
     private final StockService stock;
+    private final RefundService refunds;
+    private final PaymentReconciliationService reconciliation;
+    @org.springframework.beans.factory.annotation.Autowired private AbandonedOrderWorker expiryWorker;
 
     public OrderService(OrderRepository orders, ProductRepository products, CartItemRepository carts,
                         PaymentRepository payments, PaymentAttemptRepository attempts, PaymentWebhookEventRepository webhookEvents,
-                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit, StockService stock) {
+                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit, StockService stock, RefundService refunds, PaymentReconciliationService reconciliation) {
         this.orders = orders; this.products = products; this.carts = carts; this.payments = payments;
         this.attempts = attempts;
         this.webhookEvents = webhookEvents; this.vouchers = vouchers; this.notifications = notifications; this.payos = payos;
         this.feedback = feedback;
         this.audit = audit;
         this.stock = stock;
+        this.refunds=refunds;this.reconciliation=reconciliation;
     }
 
     @Transactional
@@ -159,12 +163,12 @@ public class OrderService {
 
     private PaymentView paymentView(Order order, Payment payment) {
         boolean expired = order.getExpiresAt() != null && !order.getExpiresAt().isAfter(Instant.now());
-        boolean available = "PENDING".equals(order.getPaymentStatus()) && !"CANCELLED".equals(order.getStatus()) && !expired;
+        boolean available = "PENDING".equals(order.getPaymentStatus()) && !"CANCELLED".equals(order.getStatus()) && !expired && !order.paymentReviewRequired;
         String status = "CANCELLED".equals(order.getStatus()) && "PENDING".equals(order.getPaymentStatus()) ? "CANCELLED" :
             expired && "PENDING".equals(order.getPaymentStatus()) ? "EXPIRED" : order.getPaymentStatus();
         return new PaymentView(order.getId(), order.getOrderCode(), status, order.getTotalAmount(), order.getExpiresAt(),
             available ? payment.getQrCode() : null, available ? payment.getCheckoutUrl() : null,
-            !"PAID".equals(order.getPaymentStatus()) && !Set.of("CANCELLED", "SHIPPED", "DELIVERING", "DELIVERED", "COMPLETED").contains(order.getStatus()));
+            !order.paymentReviewRequired && !"PAID".equals(order.getPaymentStatus()) && !Set.of("CANCELLED", "SHIPPED", "DELIVERING", "DELIVERED", "COMPLETED").contains(order.getStatus()),order.paymentReviewRequired);
     }
 
     @Transactional public PaymentView syncPayment(User customer, Long id) {
@@ -172,7 +176,7 @@ public class OrderService {
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Không tìm thấy đơn hàng."));
         if (!"PAYOS".equals(order.getPaymentMethod())) throw new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "Đơn hàng không dùng PayOS.");
         Payment payment = payments.findByOrderId(id).orElseThrow();
-        if (!"PAID".equals(order.getPaymentStatus()) && !"CANCELLED".equals(order.getStatus()) && payment.getPaymentLinkId() != null) {
+        if (!"PAID".equals(order.getPaymentStatus()) && payment.getPaymentLinkId() != null) {
             PaymentAttempt attempt = attempts.findFirstByOrderIdOrderByIdDesc(id).orElse(null);
             if (attempt != null) {
                 PayosService.ProviderPayment result = payos.getPayment(attempt.getPaymentLinkId());
@@ -186,6 +190,7 @@ public class OrderService {
     @Transactional public PaymentView retryPayment(User customer, Long id) {
         Order order = orders.findForStatusUpdate(id).filter(o -> Objects.equals(o.getCustomer().getId(), customer.getId()))
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Không tìm thấy đơn hàng."));
+        if(order.paymentReviewRequired)throw new ApiException(HttpStatus.CONFLICT,"PAYMENT_NEEDS_REVIEW","Thanh toán cần cửa hàng đối chiếu trước khi tạo mã mới.");
         if (!"PAYOS".equals(order.getPaymentMethod()) || order.getTotalAmount().signum() <= 0)
             throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_NOT_RETRYABLE", "Đơn hàng không cần thanh toán qua PayOS.");
         if ("CANCELLED".equals(order.getStatus()) || Set.of("SHIPPED", "DELIVERING", "DELIVERED", "COMPLETED").contains(order.getStatus()) || "PAID".equals(order.getPaymentStatus()))
@@ -196,6 +201,7 @@ public class OrderService {
             PayosService.ProviderPayment current = payos.getPayment(previous.getPaymentLinkId());
             validateProvider(previous, order, current);
             applyProviderStatus(order, payment, previous, current.status(), current.amountPaid());
+            if(order.paymentReviewRequired)return paymentView(order,payment);
             if ("PAID".equals(order.getPaymentStatus())) return paymentView(order, payment);
             if ("PENDING".equals(order.getPaymentStatus()) && order.getExpiresAt() != null && order.getExpiresAt().isAfter(Instant.now()))
                 return paymentView(order, payment);
@@ -229,20 +235,19 @@ public class OrderService {
 
     private void validateProvider(PaymentAttempt attempt, Order order, PayosService.ProviderPayment result) {
         if (result.orderCode() != attempt.getProviderOrderCode() || result.amount() != order.getTotalAmount().longValueExact() ||
-            (!result.paymentLinkId().isBlank() && !result.paymentLinkId().equals(attempt.getPaymentLinkId())))
+            !Objects.equals(result.paymentLinkId(),attempt.getPaymentLinkId()))
             throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_PROVIDER_ERROR", "PayOS trả thông tin giao dịch không khớp.");
     }
 
     private void applyProviderStatus(Order order, Payment payment, PaymentAttempt attempt, String status, long amountPaid) {
         String normalized = status == null ? "" : status.toUpperCase(Locale.ROOT);
+        if(amountPaid<0){PaymentReconciliationService.review(order,"PROVIDER_MISMATCH");orders.save(order);return;}
+        if(amountPaid>0&&(!"PAID".equals(normalized)||amountPaid!=order.getTotalAmount().longValueExact())){
+            PaymentReconciliationService.review(order,amountPaid>order.getTotalAmount().longValueExact()?"OVERPAYMENT":"PARTIAL_PAYMENT");orders.save(order);return;
+        }
         if ("PAID".equals(normalized)) {
-            if (amountPaid < order.getTotalAmount().longValueExact())
-                throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_PROVIDER_ERROR", "Số tiền thanh toán không khớp.");
-            attempt.setStatus("PAID");
-            if (!"PAID".equals(order.getPaymentStatus()) && !"CANCELLED".equals(order.getStatus())) {
-                order.setPaymentStatus("PAID"); payment.setStatus("PAID");
-                notifications.create(order.getCustomer(), "Thanh toán thành công", "Đơn hàng #" + order.getOrderCode() + " đã thanh toán thành công.", "PAYMENT_CONFIRMED", order.getId());
-            }
+            if (amountPaid != order.getTotalAmount().longValueExact()) { PaymentReconciliationService.review(order,"PROVIDER_MISMATCH");orders.save(order);return; }
+            reconciliation.paid(order,payment,attempt);
         } else if (Set.of("CANCELLED", "EXPIRED").contains(normalized)) {
             attempt.setStatus(normalized);
             if (!"PAID".equals(order.getPaymentStatus())) {
@@ -254,7 +259,7 @@ public class OrderService {
     }
 
     @Transactional public OrderView cancel(User customer, Long id, String reason) {
-        Order order = orders.findForStatusUpdate(id).filter(o -> Objects.equals(o.getCustomer().getId(), customer.getId())).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,"ORDER_NOT_FOUND","Không tìm thấy đơn hàng.")); if ("CANCELLED".equals(order.getStatus())) return view(order); if (!CUSTOMER_CANCELLABLE_STATUSES.contains(order.getStatus())) throw new ApiException(HttpStatus.CONFLICT, "ORDER_CANNOT_CANCEL", "Đơn hàng đã chuyển sang giao hàng hoặc đã hoàn tất nên không thể hủy.");
+        Order order = orders.findForStatusUpdate(id).filter(o -> Objects.equals(o.getCustomer().getId(), customer.getId())).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,"ORDER_NOT_FOUND","Không tìm thấy đơn hàng.")); if ("CANCELLED".equals(order.getStatus())) return view(order); if(order.paymentReviewRequired)throw new ApiException(HttpStatus.CONFLICT,"PAYMENT_NEEDS_REVIEW","Cần cửa hàng đối chiếu thanh toán trước khi hủy đơn."); if (!CUSTOMER_CANCELLABLE_STATUSES.contains(order.getStatus())) throw new ApiException(HttpStatus.CONFLICT, "ORDER_CANNOT_CANCEL", "Đơn hàng đã chuyển sang giao hàng hoặc đã hoàn tất nên không thể hủy.");
         if ("PAYOS".equals(order.getPaymentMethod()) && !"PAID".equals(order.getPaymentStatus())) {
             Payment payment = payments.findByOrderId(order.getId()).orElse(null);
             PaymentAttempt latest = attempts.findFirstByOrderIdOrderByIdDesc(order.getId()).orElse(null);
@@ -262,6 +267,7 @@ public class OrderService {
                 PayosService.ProviderPayment current = payos.getPayment(latest.getPaymentLinkId());
                 validateProvider(latest, order, current);
                 applyProviderStatus(order, payment, latest, current.status(), current.amountPaid());
+                if(order.paymentReviewRequired)return view(order);
                 if ("PAID".equals(order.getPaymentStatus())) return view(order);
                 if ("PENDING".equalsIgnoreCase(current.status()) || "PROCESSING".equalsIgnoreCase(current.status())) {
                     payos.cancelPaymentLink(latest.getPaymentLinkId());
@@ -277,7 +283,7 @@ public class OrderService {
             payments.findByOrderId(order.getId()).ifPresent(payment -> { payment.setStatus("CANCELLED"); payment.setUpdatedAt(Instant.now()); payments.save(payment); });
         }
         order.setCancelReason(clean(reason) == null ? "Khách hàng yêu cầu hủy đơn." : clean(reason));
-        stock.release(order); vouchers.release(order); order.setUpdatedAt(Instant.now()); orders.save(order);
+        stock.release(order); vouchers.release(order); refunds.requestCancellation(order); order.setUpdatedAt(Instant.now()); orders.save(order);
         notifications.create(customer, "Đã hủy đơn hàng", "Đơn hàng #" + order.getOrderCode() + " đã được hủy."
             + (paid ? " Vui lòng liên hệ cửa hàng để xử lý hoàn tiền thủ công." : ""), "ORDER_CANCELLED", order.getId());
         recordCustomerAction(customer, "CUSTOMER_CANCEL", order, before);
@@ -324,15 +330,19 @@ public class OrderService {
         BigDecimal amount = BigDecimal.valueOf(data.path("amount").asLong(-1)); if (code == 0 || amount.compareTo(order.getTotalAmount()) != 0) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Thông tin đơn hàng hoặc số tiền không khớp.");
         if (attempt != null && !data.path("paymentLinkId").asText("").isBlank() && !data.path("paymentLinkId").asText().equals(attempt.getPaymentLinkId()))
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WEBHOOK", "Mã giao dịch không khớp.");
-        if ("PAID".equals(order.getPaymentStatus()) || !"PAYOS".equals(order.getPaymentMethod())) return true;
+        if (!"PAYOS".equals(order.getPaymentMethod())) return true;
+        if ("PAID".equals(order.getPaymentStatus())) {
+            if(success&&"00".equals(providerCode)&&attempt!=null&&!"PAID".equals(attempt.getStatus())){
+                reconciliation.paid(order,payments.findByOrderId(order.getId()).orElseThrow(),attempt);
+                PaymentReconciliationService.review(order,"MULTIPLE_PAYMENTS");
+            }
+            return true;
+        }
         if ("CANCELLED".equals(order.getStatus())) {
             if (success && "00".equals(providerCode)) {
                 Payment canceledPayment = payments.findByOrderId(order.getId()).orElseThrow();
-                canceledPayment.setStatus("PAID"); canceledPayment.setUpdatedAt(Instant.now());
-                order.setPaymentStatus("PAID"); order.setUpdatedAt(Instant.now());
-                if (attempt != null) { attempt.setStatus("PAID"); attempt.setUpdatedAt(Instant.now()); attempts.save(attempt); }
+                reconciliation.paid(order,canceledPayment,attempt);
                 payments.save(canceledPayment); orders.save(order);
-                notifications.create(order.getCustomer(), "Thanh toán sau khi hủy đơn", "PayOS báo đã thanh toán đơn #" + order.getOrderCode() + " sau khi đơn bị hủy. Vui lòng liên hệ cửa hàng để xử lý hoàn tiền.", "PAYMENT_AFTER_CANCEL", order.getId());
                 log.error("PayOS payment succeeded after cancellation for order {}", order.getId());
             }
             return true;
@@ -344,9 +354,7 @@ public class OrderService {
                 try { payos.cancelPaymentLink(payment.getPaymentLinkId()); }
                 catch (ApiException ex) { log.error("Could not cancel newer PayOS link for already-paid order {}", order.getId(), ex); }
             }
-            payment.setStatus("PAID"); order.setPaymentStatus("PAID");
-            if (attempt != null) { attempt.setStatus("PAID"); attempt.setUpdatedAt(Instant.now()); attempts.save(attempt); }
-            notifications.create(order.getCustomer(), "Thanh toán thành công", "Đơn hàng #" + order.getOrderCode() + " đã thanh toán thành công. Trạng thái xử lý đơn do cửa hàng cập nhật.", "PAYMENT_CONFIRMED", order.getId());
+            reconciliation.paid(order,payment,attempt);
         } else {
             String desc = data.path("desc").asText("").toLowerCase(Locale.ROOT); String failedStatus = desc.contains("expire") ? "EXPIRED" : "CANCELLED";
             if (attempt != null) { attempt.setStatus(failedStatus); attempt.setUpdatedAt(Instant.now()); attempts.save(attempt); }
@@ -358,14 +366,10 @@ public class OrderService {
         payment.setUpdatedAt(Instant.now()); order.setUpdatedAt(Instant.now()); payments.save(payment); orders.save(order); return false;
     }
 
-    @Scheduled(fixedDelayString = "${app.payment-cleanup-ms:300000}") @Transactional public void cleanupExpired() {
-        for (Order candidate : orders.findExpiredPending(Instant.now())) {
-            Order order = orders.findForStatusUpdate(candidate.getId()).orElseThrow();
-            if (!"PAYOS".equals(order.getPaymentMethod()) || !"PENDING".equals(order.getPaymentStatus()) || "CANCELLED".equals(order.getStatus()) || order.getExpiresAt() == null || !order.getExpiresAt().isBefore(Instant.now())) continue;
-            payments.findByOrderId(order.getId()).ifPresent(p -> { p.setStatus("EXPIRED"); p.setUpdatedAt(Instant.now()); payments.save(p); });
-            attempts.findFirstByOrderIdOrderByIdDesc(order.getId()).ifPresent(a -> { if ("PENDING".equals(a.getStatus())) { a.setStatus("EXPIRED"); a.setUpdatedAt(Instant.now()); attempts.save(a); } });
-            order.setPaymentStatus("EXPIRED"); order.setUpdatedAt(Instant.now()); orders.save(order);
-            notifications.create(order.getCustomer(), "Hết hạn thanh toán", "Liên kết thanh toán đơn #" + order.getOrderCode() + " đã hết hạn. Bạn có thể tạo mã mới hoặc hủy đơn.", "PAYMENT_EXPIRED", order.getId());
+    @Scheduled(fixedDelayString = "${app.payment-cleanup-ms:300000}") public void cleanupExpired() {
+        Instant now=Instant.now();long after=0;
+        while(true){var ids=orders.expiredPendingIds(after,now,PageRequest.of(0,100));if(ids.isEmpty())return;
+            for(Long id:ids){after=id;try{expiryWorker.expire(id,now);}catch(Exception ex){log.warn("Payment expiry failed for order {} ({})",id,ex.getClass().getSimpleName());}}
         }
     }
 
@@ -377,14 +381,14 @@ public class OrderService {
     private ApiException invalidCart() { return new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CART", "Sản phẩm trong giỏ không còn hợp lệ."); }
     private long nextCode() { long code = 100000000000L + (System.currentTimeMillis() % 89999999999L); while (orders.findByOrderCode(code).isPresent()) code++; return code; }
 
-    public OrderView view(Order o) { List<OrderLineView> lines = o.getItems().stream().map(i -> new OrderLineView(i.getProduct().getId(), i.getProduct().getName(), i.getProduct().getImageUrl(), i.getQuantity(), i.getUnitPrice(), i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())), i.getSize(), i.getColor())).toList(); return new OrderView(o.getId(), o.getOrderCode(), o.getStatus(), o.getPaymentStatus(), o.getPaymentMethod(), o.getDeliveryAddress(), o.getTrackingCode(), o.getCancelReason(), o.getReturnStatus(), o.getReturnReason(), o.getVoucherCode(), o.getDiscountAmount(), o.getTotalAmount(), o.getCreatedAt(), o.getUpdatedAt(), lines, o.getReturnRequestedAt(), o.getReturnHistory().stream().map(e->new ReturnEventView(e.getStatus(),e.getNote(),e.getCreatedAt())).toList()); }
+    public OrderView view(Order o) { List<OrderLineView> lines = o.getItems().stream().map(i -> new OrderLineView(i.getProduct().getId(), i.getProduct().getName(), i.getProduct().getImageUrl(), i.getQuantity(), i.getUnitPrice(), i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())), i.getSize(), i.getColor())).toList(); return new OrderView(o.getId(), o.getOrderCode(), o.getStatus(), o.getPaymentStatus(), o.getPaymentMethod(), o.getDeliveryAddress(), o.getTrackingCode(), o.getCancelReason(), o.getReturnStatus(), o.getReturnReason(), o.getVoucherCode(), o.getDiscountAmount(), o.getTotalAmount(), o.getCreatedAt(), o.getUpdatedAt(), lines, o.getReturnRequestedAt(), o.getReturnHistory().stream().map(e->new ReturnEventView(e.getStatus(),e.getNote(),e.getCreatedAt())).toList(), RefundService.summary(o)); }
 
     public record RequestedItem(Long productId, int quantity, String size, String color) {}
     private record CartLineKey(Long productId, String size, String color) {}
     public record CheckoutRequest(String deliveryAddress, String paymentMethod, String voucherCode, List<RequestedItem> items) {}
     public record Checkout(OrderView order, String paymentUrl, String paymentLinkId, String qrCode, Instant expiresAt) {}
-    public record PaymentView(Long orderId, Long orderCode, String paymentStatus, BigDecimal amount, Instant expiresAt, String qrCode, String paymentUrl, boolean retryable) {}
+    public record PaymentView(Long orderId, Long orderCode, String paymentStatus, BigDecimal amount, Instant expiresAt, String qrCode, String paymentUrl, boolean retryable, boolean reviewRequired) {}
     public record ReturnEventView(String status,String note,Instant createdAt) {}
-    public record OrderView(Long id, Long orderCode, String status, String paymentStatus, String paymentMethod, String deliveryAddress, String trackingCode, String cancelReason, String returnStatus, String returnReason, String voucherCode, BigDecimal discountAmount, BigDecimal totalAmount, Instant createdAt, Instant updatedAt, List<OrderLineView> items, Instant returnRequestedAt, List<ReturnEventView> returnHistory) {}
+    public record OrderView(Long id, Long orderCode, String status, String paymentStatus, String paymentMethod, String deliveryAddress, String trackingCode, String cancelReason, String returnStatus, String returnReason, String voucherCode, BigDecimal discountAmount, BigDecimal totalAmount, Instant createdAt, Instant updatedAt, List<OrderLineView> items, Instant returnRequestedAt, List<ReturnEventView> returnHistory, RefundService.Summary refund) {}
     public record OrderLineView(Long productId, String name, String imageUrl, int quantity, BigDecimal unitPrice, BigDecimal lineTotal, String size, String color) {}
 }

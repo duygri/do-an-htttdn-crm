@@ -9,6 +9,9 @@ vi.mock("./manager-api",async original=>({...await original(),adminApi:vi.fn(),a
 const voucher={id:1,code:"SHOP10",description:"Khuyến mãi",discountType:"PERCENTAGE",discountValue:10,minOrderAmount:0,usedCount:1,usageLimit:10,active:true,state:"ACTIVE",totalDiscount:10000};
 beforeEach(()=>{vi.resetAllMocks();adminApi.mockResolvedValue({content:[voucher],totalPages:2});adminRefreshSession.mockResolvedValue({manager:{fullName:"Admin"}});});
 afterEach(cleanup);
+it('defaults new vouchers to one use per customer but preserves old unlimited settings',async()=>{
+ render(<AdminVouchers/>);await screen.findByText('SHOP10');fireEvent.click(screen.getByText('Tạo mã'));expect(screen.getByLabelText('Tối đa mỗi khách').value).toBe('1');fireEvent.click(screen.getByText('Đóng'));fireEvent.click(screen.getByText('Sửa'));expect(screen.getByLabelText('Tối đa mỗi khách').value).toBe('');fireEvent.change(screen.getByLabelText('Tối đa mỗi khách'),{target:{value:'1'}});expect(screen.getByText(/Giảm giới hạn chỉ áp dụng/)).toBeTruthy();
+});
 it("renders via direct admin route, filters, searches and paginates",async()=>{
   window.history.replaceState({},"","/manager/vouchers");render(<AdminApp/>);
   await screen.findByText("SHOP10");

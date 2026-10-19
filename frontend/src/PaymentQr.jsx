@@ -57,8 +57,8 @@ export default function PaymentQr({ orderId, initial = null, onPaid }) {
   };
 
   const expired = payment?.expiresAt && Date.parse(payment.expiresAt) <= now;
-  const pending = payment?.paymentStatus === "PENDING" && !expired;
-  const status = payment?.paymentStatus === "PAID" ? "Thanh toán thành công" : payment?.paymentStatus === "CANCELLED" ? payment?.retryable ? "Thanh toán chưa thành công" : "Đơn hàng đã hủy" : expired || payment?.paymentStatus === "EXPIRED" ? "Mã thanh toán đã hết hạn" : "Chưa thanh toán";
+  const pending = payment?.paymentStatus === "PENDING" && !expired && !payment?.reviewRequired;
+  const status = payment?.reviewRequired ? "Thanh toán cần đối chiếu — vui lòng liên hệ cửa hàng" : payment?.paymentStatus === "PAID" ? "Thanh toán thành công" : payment?.paymentStatus === "CANCELLED" ? payment?.retryable ? "Thanh toán chưa thành công" : "Đơn hàng đã hủy" : expired || payment?.paymentStatus === "EXPIRED" ? "Mã thanh toán đã hết hạn" : "Chưa thanh toán";
   return <section className="shop-payment-qr" aria-label="Thanh toán PayOS">
     <div className="shop-payment-qr-head"><div><h3>Quét mã QR thanh toán</h3><p>Đơn #{payment?.orderCode || initial?.orderCode}</p></div><button type="button" onClick={() => load(true)} aria-label="Cập nhật trạng thái thanh toán"><RefreshCw size={16}/></button></div>
     {loading && !payment ? <p role="status">Đang tải mã QR...</p> : payment && <>
