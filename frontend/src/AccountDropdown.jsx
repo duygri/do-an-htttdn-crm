@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { UserRound, Package, Heart, Bell, MapPin, ClipboardList, KeyRound, LogOut, LogIn, UserPlus, ChevronRight } from 'lucide-react';
 
 export default function AccountDropdown({ user, unreadCount = 0, onAction }) {
+  const accountName = user?.fullName?.trim().split(/\s+/).pop() || 'Tài khoản';
   const [open, setOpen] = useState(false);
   const root = useRef(null);
   const trigger = useRef(null);
@@ -54,11 +55,10 @@ export default function AccountDropdown({ user, unreadCount = 0, onAction }) {
           else setOpen(true);
         }
       }}>
-      <UserRound size={20} strokeWidth={1.8}/>
+      {!user && <UserRound size={20} strokeWidth={1.8}/>}
       <span className="account-btn-label">
-        {user ? (user.fullName ? user.fullName.split(' ').slice(-1)[0] : 'Tài khoản') : 'Tài khoản'}
+        {user ? accountName : 'Tài khoản'}
       </span>
-      {user && <span className="account-status-dot" aria-hidden="true"/>}
     </button>
     {open && <div className="shop-account-panel" id="shop-account-panel" aria-label="Chức năng tài khoản">
       <div className="shop-account-heading"><span className="shop-account-avatar">{user?.fullName?.slice(0, 1).toUpperCase() || <UserRound size={22}/>}</span><div><small>{user ? 'Xin chào,' : 'Chào mừng đến với'}</small><strong>{user?.fullName || 'ANH LỚN SHOP'}</strong><p>{user?.email || 'Đăng nhập để mua sắm thuận tiện hơn'}</p></div></div>

@@ -9,6 +9,20 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+it.each([
+  ['Trần Min Pha', 'Pha'],
+  ['  Nguyễn   Văn Kiệt  ', 'Kiệt'],
+  ['An', 'An'],
+  ['', 'Tài khoản'],
+  ['   ', 'Tài khoản'],
+  [undefined, 'Tài khoản'],
+])('shows only the last name without an icon or status dot: %s', (fullName, expected) => {
+  const {container}=render(<AccountDropdown user={{fullName}} onAction={vi.fn()}/>);
+  const button=screen.getByLabelText('Tài khoản');
+  expect(button.textContent.trim()).toBe(expected);
+  expect(button.querySelector('svg')).toBeNull();
+  expect(container.querySelector('.account-status-dot')).toBeNull();
+});
 it('opens customer shortcuts on hover and closes after an action', () => {
   const action=vi.fn(); const {container}=render(<AccountDropdown user={{fullName:'Khách thử',email:'test@example.com'}} onAction={action}/>);
   fireEvent.pointerEnter(container.firstChild,{pointerType:'mouse'});
