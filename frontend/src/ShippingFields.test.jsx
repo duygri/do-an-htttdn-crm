@@ -30,13 +30,17 @@ it('keeps leading zero, removes pasted letters and rejects invalid lengths', () 
 });
 it('resets ward on province change and disables it until province is selected', () => {
   function Form(){ const [form,setForm]=useState({}); return <ShippingFields form={form} onChange={next=>setForm({...form,...next})}/>; }
-  render(<Form/>);
+  const {container}=render(<Form/>);
+  expect(container.querySelectorAll('select')).toHaveLength(0);
   expect(screen.getByLabelText('PHƯỜNG/XÃ').disabled).toBe(true);
-  fireEvent.change(screen.getByLabelText('TỈNH/THÀNH PHỐ'),{target:{value:'01'}});
-  fireEvent.change(screen.getByLabelText('PHƯỜNG/XÃ'),{target:{value:'00004'}});
-  expect(screen.getByLabelText('PHƯỜNG/XÃ').value).toBe('00004');
-  fireEvent.change(screen.getByLabelText('TỈNH/THÀNH PHỐ'),{target:{value:'04'}});
-  expect(screen.getByLabelText('PHƯỜNG/XÃ').value).toBe('');
+  fireEvent.click(screen.getByLabelText('TỈNH/THÀNH PHỐ'));
+  fireEvent.click(screen.getByRole('option',{name:'Thành phố Hà Nội'}));
+  fireEvent.click(screen.getByLabelText('PHƯỜNG/XÃ'));
+  fireEvent.click(screen.getByRole('option',{name:'Phường Ba Đình'}));
+  expect(screen.getByLabelText('PHƯỜNG/XÃ').textContent).toContain('Phường Ba Đình');
+  fireEvent.click(screen.getByLabelText('TỈNH/THÀNH PHỐ'));
+  fireEvent.click(screen.getByRole('option',{name:provinces.find(p=>p.code==='04').name}));
+  expect(screen.getByLabelText('PHƯỜNG/XÃ').textContent).toContain('Chọn Phường/Xã');
 });
 it('matches exact normalized names only and preserves old recipient data', () => {
   expect(prepareAddress(saved)).toMatchObject({...saved,district:''});
@@ -112,4 +116,38 @@ it('shows empty message when search yields no match and can clear search query',
   fireEvent.click(screen.getByLabelText('Xóa tìm kiếm'));
   expect(searchInput.value).toBe('');
   expect(screen.getAllByText('Thành phố Hà Nội').length).toBeGreaterThan(0);
+});
+
+it('supports keyboard selection, Escape focus return and no duplicate selects', () => {
+  function Form(){const [form,setForm]=useState({}); return <ShippingFields form={form} onChange={next=>setForm(current=>({...current,...next}))}/>;}
+  const {container}=render(<Form/>);
+  const province=screen.getByLabelText('TỈNH/THÀNH PHỐ');
+  fireEvent.keyDown(province,{key:'ArrowDown'});
+  const search=screen.getByRole('combobox',{name:'Tìm kiếm tỉnh, thành phố...'});
+  expect(document.activeElement).toBe(search);
+  fireEvent.change(search,{target:{value:'ha noi'}});
+  fireEvent.keyDown(search,{key:'Enter'});
+  expect(province.textContent).toContain('Thành phố Hà Nội'); expect(document.activeElement).toBe(province);
+  fireEvent.click(screen.getByLabelText('PHƯỜNG/XÃ'));
+  const wardSearch=screen.getByRole('combobox',{name:'Tìm kiếm phường, xã...'});
+  fireEvent.change(wardSearch,{target:{value:'ba dinh'}});
+  fireEvent.keyDown(wardSearch,{key:'Enter'});
+  const ward=screen.getByLabelText('PHƯỜNG/XÃ');
+  expect(ward.textContent).toContain('Phường Ba Đình'); expect(document.activeElement).toBe(ward);
+  fireEvent.click(ward); fireEvent.keyDown(screen.getByPlaceholderText('Tìm kiếm phường, xã...'),{key:'Escape'});
+  expect(screen.queryByRole('listbox')).toBeNull(); expect(document.activeElement).toBe(ward);
+  expect(container.querySelectorAll('select')).toHaveLength(0);
+});
+
+it('moves the active option with arrows and closes on outside click or focus leaving', () => {
+  const change=vi.fn(); render(<ShippingFields form={{}} onChange={change}/>);
+  const province=screen.getByLabelText('TỈNH/THÀNH PHỐ');
+  fireEvent.click(province);
+  const search=screen.getByPlaceholderText('Tìm kiếm tỉnh, thành phố...');
+  fireEvent.keyDown(search,{key:'ArrowDown'}); fireEvent.keyDown(search,{key:'Enter'});
+  expect(change).toHaveBeenCalledWith({province:provinces[1].name,ward:'',district:''});
+  fireEvent.click(province); fireEvent.pointerDown(document.body);
+  expect(screen.queryByRole('listbox')).toBeNull();
+  fireEvent.click(province); fireEvent.blur(screen.getByPlaceholderText('Tìm kiếm tỉnh, thành phố...'),{relatedTarget:document.body});
+  expect(screen.queryByRole('listbox')).toBeNull();
 });

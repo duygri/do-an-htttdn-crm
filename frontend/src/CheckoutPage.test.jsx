@@ -109,8 +109,10 @@ it("only opens the first-address form on request and saves before allowing selec
   fireEvent.change(screen.getByLabelText("NGƯỜI NHẬN"),{target:{value:home.recipientName}});
   fireEvent.change(screen.getByLabelText("SỐ ĐIỆN THOẠI"),{target:{value:"09a12 345678"}});
   fireEvent.change(screen.getByLabelText("ĐỊA CHỈ"),{target:{value:home.addressLine}});
-  fireEvent.change(screen.getByLabelText("TỈNH/THÀNH PHỐ"),{target:{value:"01"}});
-  fireEvent.change(screen.getByLabelText("PHƯỜNG/XÃ"),{target:{value:"00004"}});
+  fireEvent.click(screen.getByLabelText("TỈNH/THÀNH PHỐ"));
+  fireEvent.click(screen.getByRole('option',{name:'Thành phố Hà Nội'}));
+  fireEvent.click(screen.getByLabelText("PHƯỜNG/XÃ"));
+  fireEvent.click(screen.getByRole('option',{name:'Phường Ba Đình'}));
   expect(writes()).toHaveLength(0);
   api.mockResolvedValue(home);fireEvent.click(screen.getByText("LƯU ĐỊA CHỈ"));
   await screen.findByText("Giao đến địa chỉ này");

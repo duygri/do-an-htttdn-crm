@@ -39,6 +39,9 @@ export function PhoneField({ value, onChange, error, disabled }) {
 }
 
 function SearchableSelect({
+  id,
+  error,
+  describedBy,
   placeholder,
   searchPlaceholder,
   items = [],
@@ -48,8 +51,15 @@ function SearchableSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
+  const triggerRef = useRef(null);
+  const close = (restoreFocus = false) => {
+    setOpen(false);
+    if (restoreFocus) triggerRef.current?.focus();
+  };
+  const choose = item => { if (item) { onSelect(item); close(true); } };
 
   const selectedItem = items.find(item => String(item.code) === String(selectedCode));
 
@@ -58,63 +68,85 @@ function SearchableSelect({
       setSearchQuery('');
       return;
     }
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 50);
+    inputRef.current?.focus();
 
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false);
       }
     };
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handleClickOutside);
     return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handleClickOutside);
     };
   }, [open]);
+  useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
 
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return items;
     const query = normalizeSearchText(searchQuery);
     return items.filter(item => normalizeSearchText(item.name).includes(query));
   }, [items, searchQuery]);
+  useEffect(() => {
+    if (open) document.getElementById(`${id}-option-${activeIndex}`)?.scrollIntoView?.({ block: 'nearest' });
+  }, [open, activeIndex, id, filteredItems]);
 
   return (
     <div
       className={`shop-searchable-select ${disabled ? 'disabled' : ''} ${open ? 'is-open' : ''}`}
       ref={containerRef}
+      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) close(); }}
+      onKeyDown={event => {
+        if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); close(true); }
+      }}
     >
       <button
         type="button"
+        id={id}
+        ref={triggerRef}
         className="shop-searchable-trigger"
         disabled={disabled}
-        onClick={() => setOpen(prev => !prev)}
+        onClick={() => { setActiveIndex(0); setOpen(prev => !prev); }}
+        onKeyDown={event => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault(); setActiveIndex(event.key === 'ArrowUp' ? items.length - 1 : 0); setOpen(true);
+          }
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={`${id}-list`}
+        aria-labelledby={`${id}-label ${id}-value`}
+        aria-invalid={!!error}
+        aria-describedby={describedBy}
       >
-        <span className={selectedItem ? 'shop-searchable-val' : 'shop-searchable-ph'}>
+        <span id={`${id}-value`} className={selectedItem ? 'shop-searchable-val' : 'shop-searchable-ph'}>
           {selectedItem ? selectedItem.name : placeholder}
         </span>
         <ChevronDown size={17} className={`shop-searchable-arrow ${open ? 'rotated' : ''}`} />
       </button>
 
       {open && !disabled && (
-        <div className="shop-searchable-dropdown" role="listbox">
+        <div className="shop-searchable-popover">
           <div className="shop-searchable-search-wrap">
             <Search size={15} className="shop-searchable-search-icon" />
             <input
               ref={inputRef}
               type="text"
+              role="combobox"
+              aria-label={searchPlaceholder}
+              aria-expanded="true"
+              aria-autocomplete="list"
+              aria-controls={`${id}-list`}
+              aria-activedescendant={filteredItems[activeIndex] ? `${id}-option-${activeIndex}` : undefined}
               className="shop-searchable-input"
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={e => { setSearchQuery(e.target.value); setActiveIndex(0); }}
+              onKeyDown={event => {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setActiveIndex(current => filteredItems.length ? (current + (event.key === 'ArrowDown' ? 1 : -1) + filteredItems.length) % filteredItems.length : 0);
+                } else if (event.key === 'Enter') { event.preventDefault(); choose(filteredItems[activeIndex]); }
+              }}
               placeholder={searchPlaceholder}
               onClick={e => e.stopPropagation()}
             />
@@ -125,6 +157,7 @@ function SearchableSelect({
                 onClick={(e) => {
                   e.stopPropagation();
                   setSearchQuery('');
+                  setActiveIndex(0);
                   inputRef.current?.focus();
                 }}
                 aria-label="Xóa tìm kiếm"
@@ -134,23 +167,23 @@ function SearchableSelect({
             )}
           </div>
 
-          <div className="shop-searchable-options">
+          <div className="shop-searchable-options" role="listbox" id={`${id}-list`} aria-labelledby={`${id}-label`}>
             {filteredItems.length === 0 ? (
-              <div className="shop-searchable-empty">
+              <div className="shop-searchable-empty" role="status">
                 Không tìm thấy kết quả phù hợp
               </div>
             ) : (
-              filteredItems.map(item => {
+              filteredItems.map((item, index) => {
                 const isSelected = String(item.code) === String(selectedCode);
                 return (
                   <button
                     key={item.code}
                     type="button"
-                    className={`shop-searchable-option ${isSelected ? 'is-selected' : ''}`}
-                    onClick={() => {
-                      onSelect(item);
-                      setOpen(false);
-                    }}
+                    id={`${id}-option-${index}`}
+                    tabIndex={-1}
+                    className={`shop-searchable-option ${isSelected ? 'is-selected' : ''} ${index === activeIndex ? 'is-active' : ''}`}
+                    onPointerDown={event => event.preventDefault()}
+                    onClick={() => choose(item)}
                     role="option"
                     aria-selected={isSelected}
                   >
@@ -173,24 +206,12 @@ export default function ShippingFields({ form, onChange, error, legacy, disabled
   return <div className="shop-shipping-location">
     {legacy && <p className="shop-address-note">Địa chỉ đã lưu: {legacy}. Vui lòng kiểm tra và chọn lại tỉnh/phường theo danh mục mới; địa chỉ đã lưu chỉ thay đổi khi anh/chị bấm lưu.</p>}
     <div className="form-two-columns">
-      <label htmlFor={`${id}-province`}>
-        TỈNH/THÀNH PHỐ
-        <select
-          id={`${id}-province`}
-          required
-          disabled={disabled}
-          value={province?.code || ''}
-          aria-invalid={!!error}
-          onChange={event => {
-            const selected = provinces.find(p => String(p.code) === event.target.value);
-            onChange({ province: selected?.name || '', ward: '', district: '' });
-          }}
-          className="shop-address-hidden-select"
-        >
-          <option value="">Chọn Tỉnh/Thành phố</option>
-          {provinces.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
-        </select>
+      <div className="shop-shipping-field">
+        <label id={`${id}-province-label`} htmlFor={`${id}-province`}>TỈNH/THÀNH PHỐ</label>
         <SearchableSelect
+          id={`${id}-province`}
+          error={error}
+          describedBy={error ? `${id}-error` : undefined}
           placeholder="Chọn Tỉnh/Thành phố"
           searchPlaceholder="Tìm kiếm tỉnh, thành phố..."
           items={provinces}
@@ -200,25 +221,13 @@ export default function ShippingFields({ form, onChange, error, legacy, disabled
             onChange({ province: selected?.name || '', ward: '', district: '' });
           }}
         />
-      </label>
-      <label htmlFor={`${id}-ward`}>
-        PHƯỜNG/XÃ
-        <select
-          id={`${id}-ward`}
-          required
-          disabled={disabled || !province}
-          value={ward?.code || ''}
-          aria-invalid={!!error}
-          onChange={event => {
-            const selected = province?.wards.find(w => String(w.code) === event.target.value);
-            onChange({ ward: selected?.name || '', district: '' });
-          }}
-          className="shop-address-hidden-select"
-        >
-          <option value="">{province ? 'Chọn Phường/Xã' : 'Chọn tỉnh trước'}</option>
-          {province?.wards.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
-        </select>
+      </div>
+      <div className="shop-shipping-field">
+        <label id={`${id}-ward-label`} htmlFor={`${id}-ward`}>PHƯỜNG/XÃ</label>
         <SearchableSelect
+          id={`${id}-ward`}
+          error={error}
+          describedBy={error ? `${id}-error` : undefined}
           placeholder={province ? 'Chọn Phường/Xã' : 'Chọn tỉnh trước'}
           searchPlaceholder="Tìm kiếm phường, xã..."
           items={province?.wards || []}
@@ -228,8 +237,8 @@ export default function ShippingFields({ form, onChange, error, legacy, disabled
             onChange({ ward: selected?.name || '', district: '' });
           }}
         />
-      </label>
+      </div>
     </div>
-    {error && <p className="shop-field-error" role="alert">{error}</p>}
+    {error && <p className="shop-field-error" id={`${id}-error`} role="alert">{error}</p>}
   </div>;
 }

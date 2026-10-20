@@ -418,6 +418,14 @@
   z-index: 60;
   animation: modalPop 0.2s var(--ease-spring);
 }
+.site-shell .shop-account-panel::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  height: 12px;
+}
 .site-shell .shop-account-heading {
   display: flex;
   align-items: center;
