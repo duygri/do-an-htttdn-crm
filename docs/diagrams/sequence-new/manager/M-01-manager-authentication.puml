@@ -1,0 +1,45 @@
+@startuml
+title M-01 - Manager đăng nhập, refresh phiên và đăng xuất
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Manager Portal" as Web
+control "Manager Auth API" as API
+database "Auth Database" as DB
+
+Manager -> Web: Nhập email và mật khẩu
+Web -> API: POST /api/manager/auth/login
+API -> DB: Tìm tài khoản Manager
+API -> API: Kiểm tra mật khẩu và trạng thái
+
+alt Sai thông tin hoặc tài khoản bị khóa
+  API --> Web: 401/423 Authentication error
+  Web --> Manager: Hiển thị lỗi đăng nhập
+else Đăng nhập thành công
+  API -> API: Tạo access JWT và refresh token
+  API -> DB: Lưu hash refresh token
+  API --> Web: accessToken + HttpOnly refresh cookie
+  Web --> Manager: Mở trang Manager
+end
+
+Manager -> Web: Phiên access token hết hạn
+Web -> API: POST /api/manager/auth/refresh
+API -> DB: Khóa và đọc refresh token
+alt Refresh token hợp lệ
+  API -> DB: Revoke token cũ, tạo token mới
+  API --> Web: accessToken mới + refresh cookie mới
+else Token không hợp lệ hoặc đã bị revoke
+  API --> Web: 401 INVALID_REFRESH_TOKEN
+  Web --> Manager: Yêu cầu đăng nhập lại
+end
+
+Manager -> Web: Nhấn đăng xuất
+Web -> API: POST /api/manager/auth/logout
+API -> DB: Revoke refresh token hiện tại
+API --> Web: 204 + xóa cookie
+Web --> Manager: Quay về màn hình đăng nhập
+@enduml

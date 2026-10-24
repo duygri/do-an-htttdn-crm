@@ -1,0 +1,42 @@
+@startuml
+title III-06 - Customer product catalog search and filter
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Customer
+boundary "Customer Portal" as Web
+control "Catalog API" as API
+database "CRM Database" as DB
+
+Customer -> Web: Enter keyword, category, price range and page
+Web -> API: GET /api/products?keyword&category&minPrice&maxPrice&page
+API -> API: Validate and normalize filters
+
+alt Invalid filter values
+    API --> Web: 400 INVALID_FILTER
+    Web --> Customer: Show filter error
+else Valid filters
+    API -> DB: Query products with filters and pagination
+    DB --> API: Matching products and total count
+    API --> Web: 200 ProductPage
+    Web --> Customer: Display product list and pagination
+
+    Customer -> Web: Select a product
+    Web -> API: GET /api/products/{productId}
+    API -> DB: Find product detail
+
+    alt Product not found
+        API --> Web: 404 PRODUCT_NOT_FOUND
+        Web --> Customer: Show not-found message
+    else Product found
+        DB --> API: Product detail
+        API --> Web: 200 ProductDetail
+        Web --> Customer: Display product detail
+    end
+end
+
+@enduml

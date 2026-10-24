@@ -1,0 +1,41 @@
+@startuml
+title M-08 - Manager tạo, chọn đối tượng, phát hành khảo sát và cấu hình voucher thưởng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Survey Management Page" as Web
+control "Survey API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Nhập tiêu đề, câu hỏi và bộ lọc người nhận
+Web -> API: POST /api/manager/surveys/recipients/preview
+API -> DB: Lọc khách hàng theo recipientFilter
+DB --> API: RecipientPreview
+API --> Web: 200 Preview
+Web --> Manager: Hiển thị danh sách người nhận
+
+Manager -> Web: Lưu khảo sát
+Web -> API: POST /api/manager/surveys
+API -> DB: Lưu survey, questions và recipients
+DB --> API: Survey draft created
+API --> Web: 201 Survey
+
+opt Cấu hình voucher thưởng
+  Manager -> Web: Nhập điều kiện voucher thưởng
+  Web -> API: PATCH /api/manager/surveys/{id}/reward
+  API -> DB: Lưu survey reward
+  DB --> API: Reward updated
+  API --> Web: 200 Survey
+end
+
+Manager -> Web: Phát hành khảo sát
+Web -> API: PATCH /api/manager/surveys/{id}/publish?value=true
+API -> DB: Kiểm tra khảo sát và tạo thông báo người nhận
+DB --> API: Survey published
+API --> Web: 200 Survey
+Web --> Manager: Hiển thị phát hành thành công
+@enduml

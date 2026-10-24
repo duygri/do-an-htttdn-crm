@@ -1,0 +1,50 @@
+@startuml
+title M-03 - Manager thêm, sửa, khóa và xóa mềm khách hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Customer Management Page" as Web
+control "Customer API" as API
+database "CRM Database" as DB
+
+alt Thêm khách hàng
+  Manager -> Web: Nhập thông tin khách hàng
+  Web -> API: POST /api/manager/users
+  API -> API: Validate dữ liệu bắt buộc
+  API -> DB: Kiểm tra email và tạo customer
+  alt Email trùng hoặc dữ liệu sai
+    DB --> API: Constraint/validation error
+    API --> Web: 400/409 Error
+    Web --> Manager: Hiển thị lỗi
+  else Tạo thành công
+    DB --> API: Customer created
+    API --> Web: 201 Customer
+    Web --> Manager: Hiển thị thành công
+  end
+else Cập nhật thông tin
+  Manager -> Web: Sửa thông tin khách hàng
+  Web -> API: PUT /api/manager/users/{id}
+  API -> DB: Lưu thông tin đã cập nhật
+  DB --> API: Customer updated
+  API --> Web: 200 Customer
+  Web --> Manager: Hiển thị kết quả cập nhật
+else Khóa hoặc mở khóa
+  Manager -> Web: Chọn khóa/mở khóa tài khoản
+  Web -> API: PATCH /api/manager/users/{id}/lock
+  API -> DB: Cập nhật trạng thái tài khoản
+  DB --> API: Trạng thái mới
+  API --> Web: 200 Customer
+  Web --> Manager: Hiển thị kết quả khóa/mở
+else Xóa mềm
+  Manager -> Web: Xác nhận xóa khách hàng
+  Web -> API: DELETE /api/manager/users/{id}
+  API -> DB: Kiểm tra ràng buộc và xóa mềm
+  DB --> API: Xóa thành công hoặc lỗi ràng buộc
+  API --> Web: 204 hoặc 409 Error
+  Web --> Manager: Hiển thị kết quả
+end
+@enduml

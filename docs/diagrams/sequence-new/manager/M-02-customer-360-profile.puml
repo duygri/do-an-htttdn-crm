@@ -1,0 +1,42 @@
+@startuml
+title M-02 - Manager tra cứu khách hàng và hồ sơ 360 độ
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Manager Portal" as Web
+control "Customer API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Mở danh sách khách hàng và nhập bộ lọc
+Web -> API: GET /api/manager/users?q&stage&dormant&page&size
+API -> DB: Truy vấn khách hàng theo bộ lọc và phân trang
+DB --> API: Danh sách khách hàng và tổng số bản ghi
+API --> Web: 200 CustomerPage
+Web --> Manager: Hiển thị danh sách khách hàng
+
+Manager -> Web: Chọn một khách hàng
+Web -> API: GET /api/manager/users/{id}
+API -> DB: Đọc thông tin tài khoản
+DB --> API: Customer
+API --> Web: 200 Customer
+
+Web -> API: GET /api/manager/users/{id}/profile
+API -> DB: Đọc hồ sơ, liên hệ và phân nhóm
+DB --> API: CustomerProfile
+API --> Web: 200 Profile
+
+Web -> API: GET /api/manager/users/{id}/profile/orders
+API -> DB: Đọc lịch sử đơn hàng
+DB --> API: OrderPage
+API --> Web: 200 Orders
+
+Web -> API: GET /api/manager/users/{id}/profile/activities
+API -> DB: Đọc timeline hoạt động đã ghi nhận
+DB --> API: ActivityPage
+API --> Web: 200 Activities
+Web --> Manager: Hiển thị hồ sơ 360 độ
+@enduml

@@ -1,0 +1,46 @@
+@startuml
+title M-12 - Manager tạo việc chăm sóc, ghi chú và tạo follow-up
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Customer Care Page" as Web
+control "Customer Care API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Mở hồ sơ khách hàng hoặc nguồn chăm sóc
+Web -> API: GET /api/manager/care/sources/{type}/{id}
+API -> DB: Đọc đơn đổi trả/phản hồi hoặc nguồn liên quan
+DB --> API: CareSource
+API --> Web: 200 CareSource
+
+Manager -> Web: Nhập ghi chú chăm sóc
+Web -> API: POST /api/manager/users/{id}/care/notes
+API -> DB: Lưu note kèm người ghi và thời gian
+DB --> API: Note created
+API --> Web: 201 Note
+
+Manager -> Web: Tạo công việc chăm sóc và giao người phụ trách
+Web -> API: POST /api/manager/care/tasks
+API -> DB: Lưu task với hạn xử lý
+DB --> API: Task created
+API --> Web: 201 Task
+
+Manager -> Web: Cập nhật trạng thái hoặc kết quả
+Web -> API: PATCH /api/manager/care/tasks/{id}
+API -> DB: Cập nhật task và outcome
+DB --> API: Task updated
+API --> Web: 200 Task
+
+opt Cần chăm sóc tiếp
+  Manager -> Web: Tạo việc follow-up
+  Web -> API: POST /api/manager/care/tasks/{id}/follow-up
+  API -> DB: Tạo task kế tiếp liên kết task hiện tại
+  DB --> API: Follow-up created
+  API --> Web: 201 Task
+end
+Web --> Manager: Hiển thị tiến độ chăm sóc
+@enduml

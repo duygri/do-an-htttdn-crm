@@ -1,0 +1,51 @@
+@startuml
+title M-06 - Manager xử lý đổi trả, hoàn tiền và đối soát thanh toán
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Order Detail Page" as Web
+control "Manager Order API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Mở danh sách yêu cầu đổi trả/hoàn tiền
+Web -> API: GET /api/manager/refunds?status&q&page
+API -> DB: Đọc sổ hoàn tiền
+DB --> API: RefundPage
+API --> Web: 200 RefundPage
+
+Manager -> Web: Mở chi tiết đơn hàng
+Web -> API: GET /api/manager/orders/{id}
+API -> DB: Đọc đơn và payment ledger
+DB --> API: OrderDetail
+API --> Web: 200 OrderDetail
+
+alt Chấp thuận hoặc từ chối đổi trả
+  Manager -> Web: Nhập lý do và quyết định
+  Web -> API: PATCH /api/manager/orders/{id}/return
+  API -> DB: Kiểm tra điều kiện và cập nhật return status
+  DB --> API: Return updated
+  API --> Web: 200 OrderDetail
+else Tạo yêu cầu hoàn tiền
+  Manager -> Web: Nhập số tiền và lý do hoàn
+  Web -> API: POST /api/manager/orders/{id}/refunds
+  API -> DB: Ghi sổ hoàn tiền theo requestKey
+  DB --> API: Refund created
+  API --> Web: 201 Refund
+else Hoàn tất hoặc từ chối refund
+  Manager -> Web: Xác nhận xử lý refund
+  Web -> API: POST /api/manager/refunds/{id}/complete hoặc /reject
+  API -> DB: Cập nhật refund ledger
+  DB --> API: Refund processed
+  API --> Web: 200 Refund
+else Xác nhận thu COD hoặc đối soát
+  Manager -> Web: Xác nhận thu COD / đối soát PayOS
+  Web -> API: PATCH /api/manager/orders/{id}/cod-collection hoặc POST /payment/reconcile
+  API -> DB: Cập nhật payment ledger
+  DB --> API: Payment updated
+  API --> Web: 200 OrderDetail
+end
+@enduml

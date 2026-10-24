@@ -1,0 +1,39 @@
+@startuml
+title M-05 - Manager xem và cập nhật trạng thái đơn hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Order Management Page" as Web
+control "Order API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Chọn bộ lọc đơn hàng
+Web -> API: GET /api/manager/orders?status&paymentStatus&page&size
+API -> DB: Truy vấn đơn hàng và thanh toán
+DB --> API: OrderPage
+API --> Web: 200 OrderPage
+Web --> Manager: Hiển thị danh sách đơn hàng
+
+Manager -> Web: Mở chi tiết đơn hàng
+Web -> API: GET /api/manager/orders/{id}
+API -> DB: Đọc đơn, sản phẩm, thanh toán và đổi trả
+DB --> API: OrderDetail
+API --> Web: 200 OrderDetail
+
+Manager -> Web: Chọn trạng thái mới
+Web -> API: PATCH /api/manager/orders/{id}/status
+API -> API: Kiểm tra chuyển trạng thái hợp lệ
+alt Trạng thái không hợp lệ
+  API --> Web: 409 INVALID_ORDER_TRANSITION
+  Web --> Manager: Hiển thị lỗi
+else Trạng thái hợp lệ
+  API -> DB: Cập nhật trạng thái đơn hàng
+  DB --> API: Order updated
+  API --> Web: 200 OrderDetail
+  Web --> Manager: Hiển thị trạng thái mới
+end
+@enduml
