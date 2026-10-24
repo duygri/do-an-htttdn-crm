@@ -11,14 +11,14 @@ boundary "Trang thống kê báo cáo" as Boundary
 control "Control thống kê doanh thu" as Control
 entity "e_doanh_thu" as Entity
 
-Admin -> Boundary: 1 Truy cập trang thống kê báo cáo
-Admin -> Boundary: 2 Chọn mốc thời gian và tiêu chí thống kê
-Boundary -> Control: 2.1 Gửi yêu cầu tổng hợp dữ liệu thống kê
-Control -> Entity: 2.1.1 Truy vấn dữ liệu hóa đơn, sản phẩm bán chạy và lợi nhuận
-Entity --> Control: 2.1.1.1 Trả về dữ liệu thô
-Control -> Control: 2.1.1.1.1 Tính toán và gom nhóm dữ liệu biểu đồ
-Control -> Boundary: 2.1.1.1.2 Truyền kết quả báo cáo hiển thị
-Boundary --> Admin: 2.1.1.1.2.1 Hiển thị bảng số liệu và biểu đồ
+Admin -> Boundary: Truy cập trang thống kê báo cáo
+Admin -> Boundary: Chọn mốc thời gian và tiêu chí thống kê
+Boundary -> Control: Gửi yêu cầu tổng hợp dữ liệu thống kê
+Control -> Entity: Truy vấn dữ liệu hóa đơn, sản phẩm bán chạy và lợi nhuận
+Entity --> Control: Trả về dữ liệu thô
+Control -> Control: Tính toán và gom nhóm dữ liệu biểu đồ
+Control -> Boundary: Truyền kết quả báo cáo hiển thị
+Boundary --> Admin: Hiển thị bảng số liệu và biểu đồ
 
 note right of Control
   Tiêu chí báo cáo:
