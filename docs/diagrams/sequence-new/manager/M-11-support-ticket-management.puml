@@ -1,0 +1,41 @@
+@startuml
+title M-11 - Manager tiếp nhận và xử lý phiếu hỗ trợ khách hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Support Ticket Page" as Web
+control "Support Ticket API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Chọn bộ lọc phiếu hỗ trợ
+Web -> API: GET /api/manager/support-tickets?q&status&customerId&page
+API -> DB: Truy vấn ticket và quyền Manager
+DB --> API: TicketPage
+API --> Web: 200 TicketPage
+Web --> Manager: Hiển thị danh sách phiếu
+
+Manager -> Web: Mở một phiếu
+Web -> API: GET /api/manager/support-tickets/{id}
+API -> DB: Đọc ticket, trao đổi và ghi chú
+DB --> API: TicketDetail
+API --> Web: 200 TicketDetail
+
+alt Cập nhật trạng thái/phân công
+  Manager -> Web: Chọn trạng thái hoặc người phụ trách
+  Web -> API: PATCH /api/manager/support-tickets/{id}
+  API -> DB: Cập nhật ticket và thông báo liên quan
+  DB --> API: Ticket updated
+  API --> Web: 200 TicketDetail
+else Trả lời khách hàng
+  Manager -> Web: Nhập nội dung phản hồi
+  Web -> API: POST /api/manager/support-tickets/{id}/messages
+  API -> DB: Lưu trao đổi công khai
+  DB --> API: Message created
+  API --> Web: 200 TicketDetail
+end
+Web --> Manager: Hiển thị kết quả xử lý
+@enduml

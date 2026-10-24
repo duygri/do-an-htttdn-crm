@@ -1,0 +1,33 @@
+@startuml
+title M-09 - Manager xem thống kê và phân tích khảo sát
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Survey Analytics Page" as Web
+control "Analytics API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Mở trang thống kê khảo sát
+Web -> API: GET /api/manager/surveys/stats
+API -> DB: Tổng hợp response và answer
+DB --> API: Survey summary
+API --> Web: 200 SurveyStats
+Web --> Manager: Hiển thị chỉ số tổng quan
+
+Manager -> Web: Chọn một khảo sát
+Web -> API: GET /api/manager/reports/surveys/{id}/results
+API -> DB: Truy vấn kết quả theo câu hỏi
+DB --> API: Result dataset
+API --> Web: 200 Results
+
+Manager -> Web: Xem câu trả lời dạng văn bản
+Web -> API: GET /api/manager/reports/surveys/{id}/questions/{questionId}/answers
+API -> DB: Truy vấn text answers có phân trang
+DB --> API: AnswerPage
+API --> Web: 200 AnswerPage
+Web --> Manager: Hiển thị bảng và biểu đồ
+@enduml

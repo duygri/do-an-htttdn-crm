@@ -1,0 +1,20 @@
+@startuml
+title M-15 - Manager tra cứu nhật ký nghiệp vụ
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Audit Log Page" as Web
+control "Audit Log API" as API
+database "Audit Log Database" as DB
+
+Manager -> Web: Nhập bộ lọc nhật ký
+Web -> API: GET /api/manager/audit-logs?from&to&actor&action&page
+API -> DB: Truy vấn audit logs theo quyền Manager
+DB --> API: AuditLogPage
+API --> Web: 200 AuditLogPage
+Web --> Manager: Hiển thị nhật ký nghiệp vụ
+@enduml

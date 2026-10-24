@@ -1,0 +1,43 @@
+@startuml
+title M-13 - Manager xem việc của tôi và xử lý thông báo nhắc hạn
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Manager Cockpit" as Web
+control "Care Inbox API" as API
+database "CRM Database" as DB
+participant "Reminder Scheduler" as Job
+
+Manager -> Web: Mở Việc của tôi
+Web -> API: GET /api/manager/care/my-tasks/summary
+API -> DB: Đếm việc mở, đến hạn và quá hạn
+DB --> API: TaskSummary
+API --> Web: 200 Summary
+
+Web -> API: GET /api/manager/care/my-tasks?group&q&page
+API -> DB: Truy vấn task theo Manager hiện tại
+DB --> API: TaskPage
+API --> Web: 200 TaskPage
+Web --> Manager: Hiển thị danh sách việc
+
+Job -> API: Kiểm tra nhắc hạn định kỳ
+API -> DB: Tìm task đến hạn/quá hạn chưa nhắc
+DB --> API: Reminder candidates
+API -> DB: Tạo customer_notifications chống trùng
+
+Manager -> Web: Mở chuông thông báo
+Web -> API: GET /api/manager/notifications
+API -> DB: Đọc thông báo của Manager
+DB --> API: NotificationPage
+API --> Web: 200 Notifications
+
+Manager -> Web: Đánh dấu đã đọc
+Web -> API: PATCH /api/manager/notifications/{id}/read
+API -> DB: Cập nhật readAt
+DB --> API: Read updated
+API --> Web: 204 No Content
+@enduml
