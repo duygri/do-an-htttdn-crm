@@ -1,0 +1,167 @@
+@startuml Customer_Use_Cases_v2
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+actor "Khách vãng lai" as Guest
+actor Customer
+actor PayOS
+Customer -|> Guest
+
+package "Tài khoản" {
+  usecase "UC-01\nĐăng ký tài khoản" as C01
+  usecase "UC-02\nĐăng nhập Customer" as C02
+  usecase "UC-03\nCập nhật hồ sơ" as C03
+  usecase "UC-09\nĐặt lại mật khẩu" as C09
+  usecase "UC-10\nĐổi mật khẩu" as C10
+  usecase "UC-11\nQuản lý sổ địa chỉ" as C11
+  usecase "UC-13\nXem thông báo" as C13
+}
+package "Sản phẩm" {
+  usecase "UC-06\nTìm kiếm và xem sản phẩm" as C06
+  usecase "UC-04\nGửi đánh giá sản phẩm" as C04
+  usecase "UC-12\nQuản lý wishlist" as C12
+}
+package "Mua hàng và khuyến mãi" {
+  usecase "UC-07\nGiỏ hàng và đặt hàng" as C07
+  usecase "UC-08\nTheo dõi đơn hàng" as C08
+  usecase "UC-15\nHủy đơn hàng" as C15
+  usecase "UC-16\nXác nhận nhận hàng" as C16
+  usecase "UC-17\nYêu cầu đổi trả" as C17
+  usecase "UC-18\nThanh toán lại/đồng bộ" as C18
+  usecase "UC-14\nXem ví voucher" as C14
+  usecase "UC-05\nTrả lời khảo sát" as C05
+}
+package "Hỗ trợ" {
+  usecase "UC-19\nGửi và theo dõi phiếu hỗ trợ" as C19
+}
+Guest --> C06
+Guest --> C01
+Customer --> C02
+Customer --> C03
+Customer --> C04
+Customer --> C05
+Customer --> C07
+Customer --> C08
+Customer --> C09
+Customer --> C10
+Customer --> C11
+Customer --> C12
+Customer --> C13
+Customer --> C14
+Customer --> C15
+Customer --> C16
+Customer --> C17
+Customer --> C18
+Customer --> C19
+PayOS --> C07
+PayOS --> C18
+C16 .> C08 : <<extend>>\n[khi đơn DELIVERED]
+C15 .> C08 : <<extend>>\n[khi đơn đủ điều kiện hủy]
+C17 .> C08 : <<extend>>\n[khi đơn đủ điều kiện đổi trả]
+C18 .> C08 : <<extend>>\n[khi thanh toán cần xử lý lại/đồng bộ]
+note bottom
+UC-07 bao gồm giỏ hàng và đặt hàng trong cùng một Use Case; UC-14 chỉ xem ví voucher.
+Không có Use Case con bắt buộc riêng để tạo quan hệ include.
+UC-15, UC-16, UC-17 và UC-18 mở rộng UC-08 khi có điều kiện tương ứng.
+end note
+@enduml
+
+@startuml Manager_Use_Cases_v2
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+actor Manager
+actor Customer
+actor "PayOS" as PayOSManager
+package "Tài khoản và khách hàng" {
+  usecase "UC-A03\nĐăng nhập cổng Manager" as MA03
+  usecase "UC-A02\nXem thông tin khách hàng" as MA02
+  usecase "UC-A04\nKhóa/mở tài khoản" as MA04
+  usecase "UC-A10\nThêm khách hàng" as MA10
+  usecase "UC-A11\nXóa khách hàng" as MA11
+  usecase "UC-A14\nXem hồ sơ 360°" as MA14
+}
+package "Sản phẩm và khuyến mãi" {
+  usecase "UC-A06\nQuản lý sản phẩm/tồn kho" as MA06
+  usecase "UC-A13\nQuản lý voucher" as MA13
+  usecase "UC-A15\nQuản lý nhà cung cấp" as MA15
+}
+package "Phản hồi, khảo sát và hỗ trợ" {
+  usecase "UC-A01\nXử lý phản hồi" as MA01
+  usecase "UC-A07\nTạo/phát hành khảo sát" as MA07
+  usecase "UC-A08\nPhân tích khảo sát" as MA08
+  usecase "UC-A18\nXử lý phiếu hỗ trợ" as MA18
+}
+package "Đơn hàng và chăm sóc" {
+  usecase "UC-A09\nQuản lý trạng thái đơn" as MA09
+  usecase "UC-A16\nHoàn tiền/thu COD/đối soát" as MA16
+  usecase "UC-A17\nXử lý đổi trả" as MA17
+  usecase "UC-A19\nChăm sóc khách hàng" as MA19
+  usecase "UC-A23\nThông báo công việc nội bộ" as MA23
+}
+package "Báo cáo" {
+  usecase "UC-A05\nBáo cáo khách hàng" as MA05
+  usecase "UC-A12\nBáo cáo doanh thu" as MA12
+  usecase "UC-A20\nKết quả chăm sóc" as MA20
+  usecase "UC-A21\nBáo cáo giữ chân" as MA21
+  usecase "UC-A22\nBáo cáo dòng tiền" as MA22
+}
+Manager --> MA01
+Manager --> MA02
+Manager --> MA03
+Manager --> MA04
+Manager --> MA05
+Manager --> MA06
+Manager --> MA07
+Manager --> MA08
+Manager --> MA09
+Manager --> MA10
+Manager --> MA11
+Manager --> MA12
+Manager --> MA13
+Manager --> MA14
+Manager --> MA15
+Manager --> MA16
+Manager --> MA17
+Manager --> MA18
+Manager --> MA19
+Manager --> MA20
+Manager --> MA21
+Manager --> MA22
+Manager --> MA23
+PayOSManager --> MA16
+Customer --> MA01
+Customer --> MA16
+Customer --> MA17
+Customer --> MA18
+MA17 .> MA09 : <<extend>>\n[khi đơn có yêu cầu đổi trả]
+note bottom
+UC-A03 ở sơ đồ Manager chỉ mô tả đăng nhập Manager.
+Đăng nhập Admin được đặc tả riêng bằng UC-ADM01.
+end note
+@enduml
+
+@startuml Admin_Use_Cases_v2
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+actor Admin
+package "Tài khoản nội bộ" {
+  usecase "UC-ADM01\nĐăng nhập Admin Portal" as ADM01
+  usecase "UC-ADM02\nQuản lý tài khoản nội bộ" as ADM02
+}
+package "Quản trị và giám sát" {
+  usecase "UC-ADM03\nXem audit log" as ADM03
+  usecase "UC-ADM04\nXem tổng quan hệ thống" as ADM04
+  usecase "UC-ADM05\nXem danh mục được phép đọc" as ADM05
+}
+Admin --> ADM01
+Admin --> ADM02
+Admin --> ADM03
+Admin --> ADM04
+Admin --> ADM05
+note bottom of ADM05
+PRD mục 5.2 cho phép Admin xem danh mục được phép đọc.
+Chỉ đọc; phạm vi endpoint phải theo quyền được cấp.
+end note
+@enduml
