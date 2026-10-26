@@ -81,10 +81,10 @@ class AdminOrderServiceTest {
         verify(notifications, times(1)).create(any(), anyString(), anyString(), eq("ORDER_CANCELLED"), isNull());
     }
 
-    @Test void otherStatusesDoNotRequireReasonOrNotify() {
+    @Test void otherStatusesDoNotRequireReasonAndNotifyCustomer() {
         Order order = order("CONFIRMED");
         service.updateStatus(9L, new StatusRequest("SHIPPED", null));
-        assertEquals("SHIPPED", order.getStatus()); verifyNoInteractions(notifications);
+        assertEquals("SHIPPED", order.getStatus()); verify(notifications).create(any(),anyString(),contains("Đang giao"),eq("ORDER_STATUS"),isNull());
     }
     @Test void rejectsBackwardAndTerminalTransitionsWithoutSideEffects() {
         for (String[] pair : new String[][]{{"CANCELLED","CONFIRMED"},{"CANCELLED","PENDING_PAYMENT"},{"COMPLETED","SHIPPED"},{"COMPLETED","CANCELLED"},{"SHIPPED","CONFIRMED"},{"DELIVERED","SHIPPED"},{"CONFIRMED","PENDING_PAYMENT"}}) {
@@ -101,7 +101,7 @@ class AdminOrderServiceTest {
         service.updateStatus(9L, new StatusRequest("CONFIRMED", null));
         service.updateStatus(9L, new StatusRequest("CONFIRMED", null));
         assertEquals("CONFIRMED", order.getStatus());
-        verify(orders, times(1)).save(order); verifyNoInteractions(notifications);
+        verify(orders, times(1)).save(order); verify(notifications,times(1)).create(any(),anyString(),anyString(),eq("ORDER_STATUS"),isNull());
     }
     @Test void cannotSkipConfirmationOrConfirmUnpaidOrder() {
         for (String[] pair : new String[][]{{"PENDING","SHIPPED"},{"PENDING","COMPLETED"},{"PENDING_PAYMENT","CONFIRMED"},{"PENDING_PAYMENT","PENDING"}}) {
