@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets; import java.security.*; import java.ti
 @Service
 public class AuthService {
     @org.springframework.beans.factory.annotation.Autowired private TransactionalMail mail;
+    @org.springframework.beans.factory.annotation.Autowired private org.springframework.context.ApplicationEventPublisher events;
+    private final PasswordResetThrottle resetThrottle = new PasswordResetThrottle();
     @org.springframework.beans.factory.annotation.Autowired private org.springframework.core.env.Environment environment;
     @Value("${DEV_PASSWORD_RESET_ENABLED:false}") private boolean developmentResetEnabled;
     private boolean developmentRecovery(){return developmentResetEnabled && environment!=null && environment.acceptsProfiles(org.springframework.core.env.Profiles.of("development"));}
@@ -50,8 +52,22 @@ public class AuthService {
     @Transactional public void changePassword(User user,String currentPassword,String newPassword){if(!encoder.matches(currentPassword==null?"":currentPassword,user.getPasswordHash()))throw new ApiException(HttpStatus.BAD_REQUEST,"CURRENT_PASSWORD_INVALID","Mật khẩu hiện tại không đúng.");validatePassword(newPassword);user.setPasswordHash(encoder.encode(newPassword));users.save(user);refreshTokens.revokeByUserId(user.getId());}
     @Transactional public String requestPasswordReset(String email){
         requirePasswordRecovery();String normalized=email==null?"":email.trim().toLowerCase(Locale.ROOT);
+        if(!resetThrottle.permits(normalized)) return null;
         boolean deliver=mail!=null && mail.available();
-        if(deliver && !mail.permits(normalized)) return null;
+        if(deliver){
+            if(mail.permits(normalized)) events.publishEvent(new PasswordResetRequested(normalized));
+            return null;
+        }
+        return issuePasswordReset(normalized,false);
+    }
+    public record PasswordResetRequested(String email) {}
+    @org.springframework.scheduling.annotation.Async("transactionalMailExecutor")
+    @org.springframework.context.event.EventListener
+    @Transactional
+    public void deliverPasswordReset(PasswordResetRequested request){
+        if(mail.permits(request.email())) issuePasswordReset(request.email(),true);
+    }
+    private String issuePasswordReset(String normalized,boolean deliver){
         User user=users.findForPasswordReset(normalized).orElse(null);
         if(user==null||!"CUSTOMER".equals(user.getRole())||user.isLocked()||user.getDeletedAt()!=null)return null;
         var previous=resetTokens.findFirstByCustomerIdOrderByCreatedAtDesc(user.getId());

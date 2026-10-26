@@ -88,7 +88,7 @@ public class TransactionalMail {
         ThreadPoolTaskExecutor executor() {
             var executor=new ThreadPoolTaskExecutor(); executor.setCorePoolSize(1); executor.setMaxPoolSize(1);
             executor.setQueueCapacity(100); executor.setThreadNamePrefix("transactional-mail-");
-            executor.setRejectedExecutionHandler((task,pool)->org.slf4j.LoggerFactory.getLogger(TransactionalMail.class).warn("Order email queue full; in-app notification retained"));
+            executor.setRejectedExecutionHandler((task,pool)->org.slf4j.LoggerFactory.getLogger(TransactionalMail.class).warn("Email queue full; delivery skipped"));
             return executor;
         }
     }
