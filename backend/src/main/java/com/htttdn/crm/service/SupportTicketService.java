@@ -1,5 +1,6 @@
 package com.htttdn.crm.service;
 
+import jakarta.validation.constraints.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.htttdn.crm.entity.*;
@@ -18,9 +19,9 @@ public class SupportTicketService {
     public SupportTicketService(EntityManager em,JdbcTemplate db,ObjectMapper json,NotificationService notifications,AuditTrail audit){this.em=em;this.db=db;this.json=json;this.notifications=notifications;this.audit=audit;}
     public static final Set<String> STATUSES=Set.of("NEW","IN_PROGRESS","WAITING_CUSTOMER","RESOLVED");
     public record Actor(long id,boolean manager){}
-    public record Create(Long customerId,Long orderId,Long assigneeId,String title,String description,String requestId){}
-    public record Update(Long assigneeId,String status,Long version,String reply,String requestId){}
-    public record Reply(String content,boolean internal,String requestId){}
+    public record Create(Long customerId,Long orderId,Long assigneeId,@NotBlank @Size(max=150) String title,@NotBlank @Size(max=4000) String description,@Pattern(regexp="[0-9a-fA-F-]{36}") String requestId){}
+    public record Update(Long assigneeId,@Size(max=30) String status,Long version,@Size(max=4000) String reply,@Pattern(regexp="[0-9a-fA-F-]{36}") String requestId){}
+    public record Reply(@NotBlank @Size(max=4000) String content,boolean internal,@Pattern(regexp="[0-9a-fA-F-]{36}") String requestId){}
     public record Message(String id,String author,String content,boolean internal,Instant createdAt){}
     public record Row(long id,String title,String status,Long orderId,Long orderCode,Instant createdAt,Instant updatedAt,Instant resolvedAt,long version,Long customerId,String customerName,String customerEmail,Long assigneeId,String assigneeName,boolean assigneeActive){}
     public record Detail(Row ticket,String description,List<Message> messages){}
