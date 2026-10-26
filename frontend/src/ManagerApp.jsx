@@ -171,7 +171,13 @@ export default function ManagerApp() {
   const [notice, setNotice] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => window.localStorage.getItem("manager-sidebar-collapsed") === "true"
+    () => {
+      try {
+        return window.localStorage.getItem("manager-sidebar-collapsed") === "true";
+      } catch {
+        return false;
+      }
+    }
   );
   const [theme, setTheme] = useState(
     () => window.localStorage.getItem("manager-theme") || "light"
@@ -197,10 +203,14 @@ export default function ManagerApp() {
     window.localStorage.setItem("manager-theme", theme);
   }, [theme]);
   useEffect(() => {
-    window.localStorage.setItem(
-      "manager-sidebar-collapsed",
-      String(sidebarCollapsed)
-    );
+    try {
+      window.localStorage.setItem(
+        "manager-sidebar-collapsed",
+        String(sidebarCollapsed)
+      );
+    } catch {
+      // Keep the sidebar usable in memory when persistence is unavailable.
+    }
   }, [sidebarCollapsed]);
   useEffect(() => {
     const onPop = () => {
