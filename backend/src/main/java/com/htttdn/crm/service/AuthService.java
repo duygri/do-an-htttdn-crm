@@ -77,7 +77,7 @@ public class AuthService {
         if(deliver){
             String link=mail.link("/dat-lai-mat-khau#email="+java.net.URLEncoder.encode(normalized,StandardCharsets.UTF_8)+"&code="+code);
             try { mail.send(normalized,"ANH LỚN SHOP — Đặt lại mật khẩu","Mở liên kết để đặt lại mật khẩu:\n"+link+"\n\nLiên kết có hiệu lực "+resetCodeMinutes+" phút, dùng một lần. Nếu không yêu cầu, bạn có thể bỏ qua email này.","password-reset-"+UUID.randomUUID()); }
-            catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Password reset email delivery failed (status={})",e instanceof TransactionalMail.DeliveryFailure f?f.status:0); return null; }
+            catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Password reset email delivery failed (status={}, reason={})",e instanceof TransactionalMail.DeliveryFailure f?f.status:0,e instanceof TransactionalMail.DeliveryFailure f?f.reason:"TRANSPORT_OR_INTERNAL"); return null; }
         }
         resetTokens.deleteByCustomerId(user.getId());resetTokens.flush();
         PasswordResetToken token=new PasswordResetToken();token.setCustomer(user);token.setTokenHash(hash(code));token.setExpiresAt(Instant.now().plus(Duration.ofMinutes(resetCodeMinutes)));resetTokens.save(token);
