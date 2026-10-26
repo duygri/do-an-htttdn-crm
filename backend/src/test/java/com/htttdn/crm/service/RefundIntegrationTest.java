@@ -29,8 +29,8 @@ class RefundIntegrationTest {
     @Autowired UserRepository users;@Autowired OrderRepository orders;@Autowired PaymentRepository payments;@Autowired OrderRefundRepository refunds;@Autowired PaymentAttemptRepository attempts;
     @Autowired AdminOrderService adminOrders;@Autowired AbandonedOrderWorker worker;@Autowired OrderService customerOrders;@Autowired JwtTokenService jwt;@Autowired ObjectMapper mapper;@Autowired MockMvc mvc;@Autowired PlatformTransactionManager tm;
     @MockitoBean PayosService payos;
-    User customer,manager;String token;TransactionTemplate tx;
-    @BeforeEach void setup(){tx=new TransactionTemplate(tm);customer=user("CUSTOMER");manager=user("MANAGER");token="Bearer "+jwt.issue(manager.getId(),"MANAGER");}
+    User customer,manager,admin;String token,adminToken;TransactionTemplate tx;
+    @BeforeEach void setup(){tx=new TransactionTemplate(tm);customer=user("CUSTOMER");manager=user("MANAGER");admin=user("ADMIN");token="Bearer "+jwt.issue(manager.getId(),"MANAGER");adminToken="Bearer "+jwt.issue(admin.getId(),"ADMIN");}
     User user(String role){User u=new User();u.setEmail(UUID.randomUUID()+"@refund.test");u.setFullName(role);u.setRole(role);u.setPasswordHash("test-only");return users.save(u);}
     Order order(String method,String status,String payment){return tx.execute(s->{Order o=new Order();o.setCustomer(customer);o.setOrderCode(Math.abs(UUID.randomUUID().getMostSignificantBits()%900000000000L));o.setTotalAmount(new BigDecimal("100000"));o.setPaymentMethod(method);o.setStatus(status);o.setPaymentStatus(payment);o.setExpiresAt(Instant.now().minus(Duration.ofHours(25)));orders.saveAndFlush(o);Payment p=new Payment();p.setOrder(o);p.setAmount(o.getTotalAmount());p.setStatus(payment);p.setPaymentLinkId("link-"+o.getId());payments.save(p);return o;});}
     String create(Long id,int amount,String key,String type) throws Exception{return mvc.perform(post("/api/manager/orders/"+id+"/refunds").header("Authorization",token).contentType("application/json").content(mapper.writeValueAsString(Map.of("reasonType",type,"amount",amount,"note","Ghi nhận thủ công","requestKey",key)))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();}
@@ -74,7 +74,7 @@ class RefundIntegrationTest {
         for(int i=0;i<2;i++)mvc.perform(post("/api/manager/refunds/"+first+"/complete").header("Authorization",token).contentType("application/json").content(body)).andExpect(status().isOk());
         Order current=orders.findById(o.getId()).orElseThrow();assertEquals("PARTIAL",current.refundStatus);assertEquals(0,new BigDecimal("70000").compareTo(current.refundPendingAmount));
         mvc.perform(get("/api/manager/orders").param("q",o.getOrderCode().toString()).param("refundStatus","PARTIAL").param("paymentReview","false").header("Authorization",token)).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
-        mvc.perform(get("/api/manager/audit-logs").param("action","REFUND_COMPLETE").header("Authorization",token)).andExpect(status().isOk());
+        mvc.perform(get("/api/admin/audit-logs").param("action","REFUND_COMPLETE").header("Authorization",adminToken)).andExpect(status().isOk());
         mvc.perform(post("/api/manager/refunds/"+first+"/complete").header("Authorization",token).contentType("application/json").content("{\"note\":\"Nội bộ bí mật\",\"bankReference\":\"DIFFERENT\"}")).andExpect(status().isConflict());
         String response=mvc.perform(get("/api/orders/"+o.getId()).header("Authorization","Bearer "+jwt.issue(customer.getId(),"CUSTOMER"))).andExpect(status().isOk()).andExpect(jsonPath("$.refund.status").value("PARTIAL")).andReturn().getResponse().getContentAsString();
         assertFalse(response.contains("BANK-PRIVATE"));assertFalse(response.contains("Nội bộ bí mật"));

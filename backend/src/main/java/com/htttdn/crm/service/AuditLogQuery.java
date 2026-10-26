@@ -21,10 +21,9 @@ public class AuditLogQuery {
     public record Result(List<View> content,long totalElements,int totalPages,int number,int size) {}
     public Result list(String q,String type,String action,Instant from,Instant to,int page,int size){
         if(page<0||size<1||size>100||q.length()>150||type!=null&&!TYPES.contains(type)||action!=null&&!ACTIONS.contains(action)||from!=null&&to!=null&&!from.isBefore(to))throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_AUDIT_FILTER","Bộ lọc nhật ký không hợp lệ.");
-        var actor=AuditTrail.actor();if(actor==null)throw new ApiException(HttpStatus.FORBIDDEN,"FORBIDDEN","Không có quyền xem nhật ký.");
+        var actor=AuditTrail.actor();if(actor==null||!"ADMIN".equals(actor.role()))throw new ApiException(HttpStatus.FORBIDDEN,"FORBIDDEN","Không có quyền xem nhật ký.");
         var result=logs.findAll((r,x,c)->{
             var p=new ArrayList<jakarta.persistence.criteria.Predicate>();
-            if(!"ADMIN".equals(actor.role()))p.add(c.equal(r.get("actorRole"),"MANAGER"));
             if(type!=null)p.add(c.equal(r.get("entityType"),type));if(action!=null)p.add(c.equal(r.get("action"),action));
             if(from!=null)p.add(c.greaterThanOrEqualTo(r.get("createdAt"),from));if(to!=null)p.add(c.lessThan(r.get("createdAt"),to));
             if(!q.isBlank()){

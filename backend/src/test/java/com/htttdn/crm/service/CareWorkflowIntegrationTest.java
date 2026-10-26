@@ -35,7 +35,7 @@ class CareWorkflowIntegrationTest {
         return mapper.readTree(mvc.perform(patch("/api/manager/care/tasks/"+task.get("id").asLong()).header("Authorization",token(actor)).contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(body))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
     }
     @Test void customerReturnToCareReminderFollowUpProfileOutcomeAndAudit()throws Exception{
-        var buyer=user("CUSTOMER");var manager=user("MANAGER");var assigned=user("MANAGER");var outsider=user("CUSTOMER");
+        var buyer=user("CUSTOMER");var manager=user("MANAGER");var assigned=user("MANAGER");var outsider=user("CUSTOMER");var admin=user("ADMIN");
         var order=new Order();order.setCustomer(buyer);order.setOrderCode(600016L);order.setStatus("DELIVERED");order.setPaymentMethod("COD");order.setPaymentStatus("COD");order.setTotalAmount(BigDecimal.valueOf(499000));em.persist(order);em.flush();
         mvc.perform(post("/api/orders/"+order.getId()+"/return").header("Authorization",token(outsider)).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Wrong owner\"}")).andExpect(status().isNotFound());
         postJson("/api/orders/"+order.getId()+"/return",buyer,Map.of("reason","PRIVATE_RETURN_REASON"),200);
@@ -54,8 +54,8 @@ class CareWorkflowIntegrationTest {
         complete(assigned,child,"RESOLVED");report=outcomes.report(null,null,assigned.getId());assertEquals(2,report.counts().completed());assertEquals(new BigDecimal("50.00"),report.counts().resolvedRate());
         // Completing care must never complete a return or collect COD implicitly.
         em.refresh(order);assertEquals("REQUESTED",order.getReturnStatus());assertEquals("DELIVERED",order.getStatus());assertEquals("COD",order.getPaymentStatus());
-        mvc.perform(get("/api/manager/audit-logs?type=CARE_TASK").header("Authorization",token(manager))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(4));
-        mvc.perform(get("/api/manager/audit-logs?type=CARE_NOTE").header("Authorization",token(manager))).andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("/api/admin/audit-logs?type=CARE_TASK").header("Authorization",token(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(4));
+        mvc.perform(get("/api/admin/audit-logs?type=CARE_NOTE").header("Authorization",token(admin))).andExpect(jsonPath("$.totalElements").value(1));
         for(var log:logs.findAll()){String snapshots=log.getBeforeData()+log.getAfterData();for(String secret:List.of("PRIVATE_","SECRET_HASH","@workflow.test"))assertFalse(snapshots.contains(secret));}
         assertTrue(logs.findAll().stream().anyMatch(l->l.getActorId().equals(assigned.getId())&&l.getAction().equals("UPDATE")));
     }
