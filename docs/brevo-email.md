@@ -11,10 +11,10 @@ Dùng HTTPS API, không dùng SMTP (Render Free chặn các cổng SMTP thông d
 ```text
 MAIL_PROVIDER=brevo
 BREVO_ENABLED=true
-BREVO_SENDER_EMAIL=anhkiet240205@gmail.com
+BREVO_SENDER_EMAIL=sender@example.com
 BREVO_SENDER_NAME=ANH LON SHOP
 BREVO_TEST_MODE=true
-BREVO_TEST_RECIPIENT=anhkiet240205@gmail.com
+BREVO_TEST_RECIPIENT=recipient@example.com
 PUBLIC_ORIGIN=https://anhlonshop.onrender.com
 DEV_PASSWORD_RESET_ENABLED=false
 ```
