@@ -101,7 +101,7 @@ public class TransactionalMail {
         if(body.length>16_384)return new DeliveryFailure(status,"OVERSIZED_RESPONSE");
         try {
             var error=mapper.readTree(body);
-            if(error==null || !error.isObject())return new DeliveryFailure(status,"NON_JSON_RESPONSE");
+            if(error==null || !error.isObject())return new DeliveryFailure(status,status==429?"RATE_LIMITED":"NON_JSON_RESPONSE");
             String code=error.path("code").asText(error.path("name").asText("")).toLowerCase(Locale.ROOT);
             String message=error.path("message").asText("").toLowerCase(Locale.ROOT);
             if(message.contains("ip") && (message.contains("unrecogn") || message.contains("unauthoriz") || message.contains("not authoriz") || message.contains("not whitelist")))reason="IP_NOT_AUTHORIZED";
