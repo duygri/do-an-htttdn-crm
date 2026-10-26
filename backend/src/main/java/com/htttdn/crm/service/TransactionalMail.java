@@ -21,7 +21,7 @@ import java.util.*;
 public class TransactionalMail {
     @Value("${RESEND_API_KEY:}") private String apiKey;
     @Value("${RESEND_ENABLED:false}") private boolean enabled;
-    @Value("${RESEND_FROM:ANH LỚN SHOP <onboarding@resend.dev>}") private String from;
+    @Value("${RESEND_FROM:onboarding@resend.dev}") private String from;
     @Value("${RESEND_TEST_MODE:true}") private boolean testMode;
     @Value("${RESEND_TEST_RECIPIENT:}") private String testRecipient;
     @Value("${PUBLIC_ORIGIN:}") private String origin;
@@ -63,7 +63,7 @@ public class TransactionalMail {
         ThreadPoolTaskExecutor executor() {
             var executor=new ThreadPoolTaskExecutor(); executor.setCorePoolSize(1); executor.setMaxPoolSize(1);
             executor.setQueueCapacity(100); executor.setThreadNamePrefix("transactional-mail-");
-            executor.setRejectedExecutionHandler((task,pool)->org.slf4j.LoggerFactory.getLogger(TransactionalMail.class).warn("Order email queue full; in-app notification retained"));
+            executor.setRejectedExecutionHandler((task,pool)->org.slf4j.LoggerFactory.getLogger(TransactionalMail.class).warn("Email queue full; delivery skipped"));
             return executor;
         }
     }
