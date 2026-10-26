@@ -6,10 +6,11 @@ Website vẫn dùng `https://anhlonshop.onrender.com`; tên miền website độ
 
 - `RESEND_API_KEY`: khóa Sending access, chỉ nhập trong Render Environment. Không commit, không gửi vào chat.
 - `RESEND_ENABLED=true`.
-- `RESEND_FROM=ANH LỚN SHOP <onboarding@resend.dev>`.
+- `RESEND_FROM=onboarding@resend.dev` (không thêm ký tự Unicode vào trường địa chỉ).
 - `RESEND_TEST_MODE=true` (mặc định).
 - `RESEND_TEST_RECIPIENT`: email đăng ký tài khoản Resend.
 - `PUBLIC_ORIGIN=https://anhlonshop.onrender.com`.
+- `MAIL_PROVIDER=resend` (mặc định). Hướng chuyển sang Brevo: xem `brevo-email.md`.
 - Giữ `DEV_PASSWORD_RESET_ENABLED=false` ở bản deploy.
 
 Chế độ thử chỉ gửi nếu email thật của customer trùng email thử; không chuyển email khách khác về hộp thư thử. API quên mật khẩu trả thông báo chung cho email không tồn tại/không được gửi. Chỉ thử khôi phục bằng customer có đúng email đăng ký Resend. Chưa xác minh tên miền thì không gửi được tới mọi khách hàng.
