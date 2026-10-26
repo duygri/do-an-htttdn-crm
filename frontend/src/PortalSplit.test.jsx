@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import React from 'react';
 import {render,screen,fireEvent,cleanup,waitFor} from '@testing-library/react';
-import {it,expect,vi,afterEach} from 'vitest';
+import {it,expect,vi,afterEach,beforeEach} from 'vitest';
 import SystemAdminApp from './SystemAdminApp';
 import {adminApi,adminRefreshSession} from './api';
 vi.mock('./api',()=>({adminApi:vi.fn(),adminRefreshSession:vi.fn(),adminSignIn:vi.fn(),adminSignOut:vi.fn()}));
+beforeEach(()=>{window.localStorage.removeItem('admin-sidebar-collapsed');window.localStorage.removeItem('admin-theme')});
 afterEach(()=>{cleanup();vi.resetAllMocks();vi.unstubAllEnvs()});
 it('combined deployment links stay on the current HTTPS origin', async () => {
  vi.stubEnv('VITE_SAME_ORIGIN', 'true');
@@ -71,6 +72,28 @@ it('admin has only system navigation and accounts use admin APIs',async()=>{
  expect(screen.queryByRole('link',{name:'Khách hàng'})).toBeNull();expect(screen.queryByRole('link',{name:'Đơn hàng'})).toBeNull();
  expect(adminApi.mock.calls.every(([url])=>url.startsWith('/api/admin/'))).toBe(true);
  fireEvent.click(screen.getByText('Thêm mới'));expect(screen.getByLabelText('Vai trò').value).toBe('MANAGER');
+});
+it('collapses the admin sidebar from the brand and restores the saved state', async () => {
+ window.history.replaceState({}, '', '/admin');
+ adminRefreshSession.mockResolvedValue({admin:{email:'admin@test.vn'}});
+ adminApi.mockResolvedValue({accounts:2,products:3});
+ const view=render(<SystemAdminApp/>);
+ const toggle=await screen.findByRole('button',{name:'Thu gọn thanh điều hướng'});
+ expect(toggle.closest('.internal-brand')).toBeTruthy();
+ expect(toggle.getAttribute('aria-controls')).toBe('admin-sidebar');
+ expect(toggle.getAttribute('aria-expanded')).toBe('true');
+ fireEvent.click(toggle);
+ expect(view.container.querySelector('#admin-sidebar').className).toContain('is-collapsed');
+ expect(window.localStorage.getItem('admin-sidebar-collapsed')).toBe('true');
+ expect(screen.getByRole('button',{name:'Mở rộng thanh điều hướng'}).getAttribute('aria-expanded')).toBe('false');
+ expect(screen.getByRole('link',{name:'Tài khoản nội bộ'})).toBeTruthy();
+ expect(screen.getByRole('link',{name:'Cổng quản lý (Manager)'})).toBeTruthy();
+ expect(screen.getByRole('link',{name:'Xem trang bán hàng'})).toBeTruthy();
+ expect(screen.getByRole('button',{name:'Đăng xuất'})).toBeTruthy();
+ view.unmount();
+ const remount=render(<SystemAdminApp/>);
+ await screen.findByRole('button',{name:'Mở rộng thanh điều hướng'});
+ expect(remount.container.querySelector('#admin-sidebar').className).toContain('is-collapsed');
 });
 it('admin redirects anonymous requests to its login',async()=>{
  window.history.replaceState({},'', '/admin/products');adminRefreshSession.mockResolvedValue(null);render(<SystemAdminApp/>);
