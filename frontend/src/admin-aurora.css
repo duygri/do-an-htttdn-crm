@@ -399,6 +399,109 @@
   .admin-shell.internal-portal .internal-login { width: calc(100% - 32px); margin: 32px 16px; }
   .admin-shell.internal-portal :is(input,select,textarea) { font-size: 16px; }
 }
+.admin-shell.internal-portal .internal-brand .internal-collapse-toggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 9px;
+  background: var(--admin-input);
+  color: var(--admin-muted);
+  cursor: pointer;
+}
+.admin-shell.internal-portal .internal-brand .internal-collapse-toggle:hover {
+  background: var(--admin-card);
+  color: var(--admin-text);
+}
+.admin-shell.internal-portal .internal-brand-title {
+  flex: 1;
+  min-width: 0;
+}
+.admin-shell.internal-portal .internal-brand-title :is(h2, small) {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (min-width: 761px) {
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed {
+    width: 84px;
+    padding: 14px 8px;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-brand {
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 0 12px;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-brand-title {
+    display: none;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-collapse-toggle {
+    margin-left: 0;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-nav {
+    padding: 14px 0;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-nav::before {
+    display: none;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed :is(.internal-sidebar-divider, .internal-sidebar-section-title) {
+    display: none;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-nav-link {
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-nav-link > span,
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-logout-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .external-icon {
+    display: none;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-sidebar-footer {
+    padding: 12px 0 4px;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-user-card {
+    justify-content: center;
+    padding: 0;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-user-info {
+    display: none;
+  }
+  .admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-logout-btn {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+    padding: 0;
+    gap: 0;
+  }
+}
+@media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
+  .admin-shell.internal-portal .internal-sidebar {
+    transition: width .22s ease, padding .22s ease;
+  }
+}
+@media (max-width: 760px) {
+  .admin-shell.internal-portal .internal-brand .internal-collapse-toggle {
+    display: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .admin-shell.internal-portal *, .admin-shell.internal-portal *::before, .admin-shell.internal-portal *::after { animation: none; transition: none; scroll-behavior: auto; }
 }
