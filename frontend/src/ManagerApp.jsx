@@ -18,7 +18,6 @@ const CustomerProfile = React.lazy(() => import('./CustomerProfile'));
 const CustomerCare = React.lazy(() => import('./CustomerCare'));
 const CareDashboard = React.lazy(() => import('./CareDashboard'));
 const RetentionReport = React.lazy(() => import('./RetentionReport'));
-const AuditLogs = React.lazy(() => import('./AuditLogs'));
 const SupportTickets = React.lazy(()=>import('./SupportTickets'));
 const ManagerRefunds = React.lazy(()=>import('./ManagerRefunds'));
 const CashflowReport = React.lazy(()=>import('./CashflowReport'));
@@ -81,7 +80,6 @@ const navItems = [
   ["surveys", "Khảo sát"],
   ["reports", "Báo cáo"],
   ["vouchers", "Mã giảm giá"],
-  ["audit-logs", "Nhật ký thao tác"],
 ];
 const validSections = new Set(navItems.map(([key]) => key));
 const navIcons = {
@@ -98,7 +96,6 @@ const navIcons = {
   surveys: ClipboardList,
   reports: Activity,
   vouchers: TicketPercent,
-  'audit-logs': Activity,
 };
 const statusLabels = {
   PENDING_PAYMENT: "Chờ thanh toán",
@@ -368,7 +365,6 @@ export default function ManagerApp() {
         {section==='support-tickets'&&<SupportTickets manager location={path} navigate={go}/>}
         {section === "surveys" && <Surveys notify={notify} location={path} go={go} />}
         {section === "reports" && <Reports go={go} />}
-        {section === 'audit-logs' && <AuditLogs manager />}
         {section === "vouchers" && <AdminVouchers />}
         {section === "care" && <CustomerCare go={go} location={path}/>}
         {section === "care-dashboard" && <CareDashboard go={go} location={path}/>}

@@ -1,8 +1,6 @@
 import React,{useCallback,useEffect,useState} from 'react';
-import {adminApi as managerApi} from './manager-api';
 import {adminApi} from './api';
 import {useManagerFilters,managerQuery,vietnamDateRange} from './useManagerFilters';
-import {useManagerResource} from './useManagerResource';
 import './audit-logs.css';
 
 const types={ORDER:'Đơn hàng',CUSTOMER:'Khách hàng',ACCOUNT:'Tài khoản nội bộ',PRODUCT:'Sản phẩm',VOUCHER:'Voucher',FEEDBACK:'Phản hồi',SURVEY:'Khảo sát',CARE_TASK:'Công việc chăm sóc',CARE_NOTE:'Ghi chú chăm sóc',SUPPORT_TICKET:'Phiếu hỗ trợ'};
@@ -16,25 +14,23 @@ function AdminRead({fetcher,children}){
  useEffect(()=>{const controller=new AbortController();setState({loading:true,data:null,error:'',fetcher});fetcher(controller.signal).then(data=>{if(!controller.signal.aborted)setState({loading:false,data,error:'',fetcher});}).catch(e=>{if(!controller.signal.aborted)setState(s=>({...s,loading:false,error:e.message}));});return()=>controller.abort();},[fetcher,revision]);
  return children({...state,backgroundError:'',stale:state.fetcher!==fetcher,load});
 }
-function ManagerRead({fetcher,children}){return children(useManagerResource(fetcher));}
-export default function AuditLogs({manager=false}){
+export default function AuditLogs(){
  const [filters,change]=useManagerFilters({q:'',type:'',action:'',from:'',to:'',page:'0'});const [draft,setDraft]=useState(filters.q);
  useEffect(()=>setDraft(filters.q),[filters.q]);
  const numericPage=Number(filters.page);const page=Number.isInteger(numericPage)&&numericPage>=0?numericPage:0;
  const range=vietnamDateRange(filters.from,filters.to);
- const endpoint=`/api/${manager?'manager':'admin'}/audit-logs?${managerQuery({...filters,...range,page,size:20})}`;
- const fetcher=useCallback(signal=>(manager?managerApi:adminApi)(endpoint,{signal}),[manager,endpoint]);
- const Reader=manager?ManagerRead:AdminRead;
+ const endpoint=`/api/admin/audit-logs?${managerQuery({...filters,...range,page,size:20})}`;
+ const fetcher=useCallback(signal=>adminApi(endpoint,{signal}),[endpoint]);
  return <section className="audit-logs admin-panel" aria-label="Nhật ký thao tác">
-  <h2>Nhật ký thao tác</h2><p>Lịch sử thành công từ khi triển khai tính năng. Chỉ xem, không sửa hoặc xóa. {manager?'Hiển thị thao tác nghiệp vụ của Manager.':'Hiển thị thao tác của Admin, Manager và các thao tác khách hàng đã được ghi nhận.'}</p>
+  <h2>Nhật ký thao tác</h2><p>Lịch sử thành công từ khi triển khai tính năng. Chỉ xem, không sửa hoặc xóa. Hiển thị thao tác của Admin, Manager và các thao tác khách hàng đã được ghi nhận.</p>
   <form className="audit-filters" onSubmit={e=>{e.preventDefault();change({q:draft});}}>
    <label>Người thực hiện / ID đối tượng<input aria-label="Tìm nhật ký" value={draft} maxLength={150} onChange={e=>setDraft(e.target.value)} placeholder="Tên nhân viên hoặc ID"/></label><button className="admin-primary">Tìm kiếm</button>
-   <label>Chức năng<select value={filters.type} onChange={e=>change({type:e.target.value})}><option value="">Tất cả chức năng</option>{Object.entries(types).filter(([key])=>!manager||key!=='ACCOUNT').map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-   <label>Thao tác<select value={filters.action} onChange={e=>change({action:e.target.value})}><option value="">Tất cả thao tác</option>{Object.entries(actions).filter(([key])=>!manager||!key.startsWith('CUSTOMER_')).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+   <label>Chức năng<select value={filters.type} onChange={e=>change({type:e.target.value})}><option value="">Tất cả chức năng</option>{Object.entries(types).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+   <label>Thao tác<select value={filters.action} onChange={e=>change({action:e.target.value})}><option value="">Tất cả thao tác</option>{Object.entries(actions).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
    <label>Từ ngày<input type="date" value={filters.from} onChange={e=>change({from:e.target.value})}/></label><label>Đến ngày<input type="date" value={filters.to} onChange={e=>change({to:e.target.value})}/></label>
    <button type="button" className="admin-action" onClick={()=>change({q:'',type:'',action:'',from:'',to:''})}>Xóa bộ lọc</button>
   </form>
-  <Reader fetcher={fetcher}>{({data,loading,error,backgroundError,load,stale})=><>
+  <AdminRead fetcher={fetcher}>{({data,loading,error,backgroundError,load,stale})=><>
    {(error||backgroundError)&&<p role="alert">{backgroundError&&'Đang giữ dữ liệu gần nhất. '}{error||backgroundError} <button className="admin-action" onClick={()=>load(true)}>Thử lại</button></p>}
    {(loading&&!data||stale)&&<p role="status">Đang tải nhật ký…</p>}
    {!stale&&data&&<><div className="audit-summary"><span>{data.totalElements} bản ghi · Giờ Việt Nam</span><button className="admin-action" onClick={()=>load(true)}>Tải lại</button></div>
@@ -44,6 +40,6 @@ export default function AuditLogs({manager=false}){
     </article>)}</div>
     <nav aria-label="Phân trang nhật ký"><button className="admin-action" disabled={page===0} onClick={()=>change({page:String(page-1)})}>Trang trước</button><span>Trang {page+1} / {Math.max(1,data.totalPages)}</span><button className="admin-action" disabled={page+1>=data.totalPages} onClick={()=>change({page:String(page+1)})}>Trang sau</button></nav>
    </>}
-  </>}</Reader>
+  </>}</AdminRead>
  </section>;
 }

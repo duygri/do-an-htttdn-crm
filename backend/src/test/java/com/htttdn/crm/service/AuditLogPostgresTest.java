@@ -27,7 +27,7 @@ class AuditLogPostgresTest {
         for(String statement:sql.split(";"))if(!statement.isBlank())db.execute(statement);
         String name="audit-qa-"+UUID.randomUUID();
         logs.saveAndFlush(new AuditLog(999999L,name,"MANAGER","STOCK","PRODUCT",999999L,"{\"stock\":1}","{\"stock\":2}"));
-        var request=new MockHttpServletRequest();request.setAttribute(AuditTrail.ACTOR_ATTRIBUTE,new AuditTrail.Actor(999999L,name,"MANAGER"));RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        var request=new MockHttpServletRequest();request.setAttribute(AuditTrail.ACTOR_ATTRIBUTE,new AuditTrail.Actor(999999L,name,"ADMIN"));RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
         try{var result=query.list(name,"PRODUCT","STOCK",null,null,0,1);assertEquals(1,result.totalElements());assertEquals(2,result.content().getFirst().afterData().get("stock").asInt());}
         finally{RequestContextHolder.resetRequestAttributes();}
     }
