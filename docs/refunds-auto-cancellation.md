@@ -5,14 +5,16 @@
 1. Sao lưu database, kiểm thử trên bản sao và đối soát các đơn đang mở.
 2. Chạy `database/migration_refunds_abandoned_payos.sql` trước khi khởi động backend mới. File chỉ thêm một bảng `order_refunds` và các cột/chỉ mục liên quan; không tạo khoản hoàn hoặc xác nhận COD cho dữ liệu cũ.
 3. Khởi động backend với `DB_PASSWORD`, `JWT_SECRET` hợp lệ. Hibernate `validate` yêu cầu schema đã cập nhật.
-4. Tự hủy **mặc định tắt**. Chỉ bật sau kiểm thử/đối soát, qua biến môi trường rồi khởi động lại backend:
+4. Tự hủy **mặc định tắt trong code**. Với cấu hình demo/nghiệm thu, bật tự hủy sau khi đã kiểm tra schema và dữ liệu. Spring Boot không tự đọc file `.env`; đặt biến trong môi trường của tiến trình backend, rồi khởi động lại. Cấu hình này bảo đảm đơn PayOS bỏ dở không giữ tồn kho vô thời hạn. Tham khảo [mẫu biến môi trường demo/nghiệm thu](env-demo.md):
 
 ```powershell
 $env:PAYOS_AUTO_CANCEL_ENABLED='true'
 $env:PAYOS_AUTO_CANCEL_GRACE_HOURS='24'
+$env:DEV_PASSWORD_RESET_ENABLED='false'
+$env:APP_PAYOS_AUTO_CANCEL_MS='300000'
 ```
 
-Không cần sửa `application.yml`. Muốn tắt, đặt cờ thành `false` rồi khởi động lại. Không bật ở database thật chỉ để thử nghiệm. Không áp dụng script vá kho hoặc suy đoán tiền đã thu/hoàn cho đơn cũ.
+Không cần sửa `application.yml`. `APP_PAYOS_AUTO_CANCEL_MS` tương ứng thuộc tính `app.payos.auto-cancel-ms` và mặc định là 300000 ms; scheduler chờ thêm 24 giờ sau hạn link 15 phút trước khi tự hủy. `PAYOS_AUTO_CANCEL_GRACE_HOURS` phải là số nguyên từ 1 đến 720 giờ; giá trị ngoài khoảng này khiến backend không khởi động. Muốn tắt, đặt cờ thành `false` rồi khởi động lại. Các giá trị trên là cấu hình demo/nghiệm thu, không phải mặc định code. Không bật ở database thật chỉ để thử nghiệm. Không áp dụng script vá kho hoặc suy đoán tiền đã thu/hoàn cho đơn cũ.
 
 ## Hoàn tiền thủ công
 
