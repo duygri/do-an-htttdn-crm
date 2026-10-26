@@ -59,7 +59,7 @@ Các UC-A02, UC-A08, UC-A10 khớp hành vi và chỉ đổi actor Admin thành 
 
 | Mã | Use Case | Bằng chứng code |
 |---|---|---|
-| UC-09 | Đặt lại mật khẩu (ngoài MVP theo PRD; mặc định tắt, chỉ bật ở môi trường dev) | `AuthController.java` `forgotPassword`, `resetPassword`; `AuthService.java` `requestPasswordReset`, `resetPassword` |
+| UC-09 | Đặt lại mật khẩu (ngoài MVP; mặc định tắt; không bật ở demo/nghiệm thu; kênh email chưa xác minh) | `AuthController.java` `forgotPassword`, `resetPassword`; `AuthService.java` `requestPasswordReset`, `resetPassword` |
 | UC-10 | Đổi mật khẩu | `AuthController.java` `changePassword`; `AuthService.java` `changePassword` |
 | UC-11 | Quản lý sổ địa chỉ | `AddressController.java` list/create/update/delete/default; `AddressService.java` |
 | UC-12 | Quản lý wishlist | `WishlistController.java` list/add/remove |
@@ -98,13 +98,19 @@ Các UC-A02, UC-A08, UC-A10 khớp hành vi và chỉ đổi actor Admin thành 
 | UC-ADM04 | Xem tổng quan hệ thống | `DirectoryController.java` `/api/admin/overview`; `DirectoryService.java` `overview` |
 | UC-ADM05 | Xem danh mục sản phẩm và nhà cung cấp | `DirectoryController.java` `/api/admin/products`, `/api/admin/suppliers`; chế độ đọc theo phạm vi được phép tại PRD mục 5.2. |
 
-## 4. Điểm cần xác nhận
+## 4. Quyết định đã chốt và điểm cần xác nhận
+
+### Quyết định đã chốt
+
+- **Audit log:** Admin xem toàn bộ bản ghi. Manager chỉ xem bản ghi do Manager thực hiện; thao tác tài khoản nội bộ do Admin thực hiện không hiển thị, sự kiện do Customer thực hiện có thể không hiển thị. Lịch sử hoạt động Customer vẫn xem riêng ở hồ sơ 360°.
+- **Đặt lại mật khẩu:** ngoài MVP; cờ mặc định tắt và không bật ở demo/nghiệm thu; kênh email chưa xác minh.
+- **Tự hủy PayOS:** demo/nghiệm thu bật `PAYOS_AUTO_CANCEL_ENABLED=true` và đặt grace 24 giờ; mặc định code vẫn `false`.
+
+### Điểm cần xác nhận
 
 1. `/reports/cashflow` đáp ứng FR-16 về kỳ báo cáo, tổng doanh thu, sản phẩm bán chạy và bằng chứng dữ liệu. Riêng `/reports/revenue` cộng cả đơn chưa thanh toán; có cần giữ UC-A12 kèm cảnh báo số liệu này có thể bị hiểu là doanh thu đã thu?
 2. PRD mục 5.2 cho phép Admin xem các danh mục được phép đọc; cần xác nhận `/api/admin/products` và `/api/admin/suppliers` giới hạn đúng phạm vi được phép và không mở thao tác ghi.
-3. `AuditLogController` có route `/api/manager/audit-logs` ngoài route Admin. Manager được xem toàn bộ audit log hay chỉ phạm vi giới hạn?
-4. PRD nêu reset mật khẩu qua email ngoài MVP, nhưng `forgotPassword`/`resetPassword` tồn tại; khi cấu hình bật, API có thể trả resetCode. Có đưa thao tác đặt lại mật khẩu vào MVP hay chỉ ghi nhận khả năng phát triển?
-5. PRD xếp hoàn tiền production và đối soát production ngoài MVP; code có quy trình ghi nhận hoàn tiền thủ công, thu COD và đối soát PayOS. Phần nào được trình bày là chức năng demo, phần nào ngoài nghiệm thu?
+3. PRD xếp hoàn tiền production và đối soát production ngoài MVP; code có quy trình ghi nhận hoàn tiền thủ công, thu COD và đối soát PayOS. Phần nào được trình bày là chức năng demo, phần nào ngoài nghiệm thu?
 
 ## 5. Khoảng trống so với PRD và rủi ro
 
@@ -121,7 +127,7 @@ Các UC-A02, UC-A08, UC-A10 khớp hành vi và chỉ đổi actor Admin thành 
 - Hoàn tiền thủ công và đối soát thanh toán có code nhưng PRD xếp hoạt động production tương ứng ngoài MVP; không mô tả đây là tích hợp hoàn tiền tự động.
 - `/api/manager/reports/revenue` cộng `totalAmount` của đơn không hủy, kể cả chưa thanh toán; số liệu có thể bị hiểu nhầm là doanh thu đã thu.
 - PayOS webhook cập nhật trạng thái thanh toán; không tự chuyển đơn từ PENDING sang CONFIRMED. Luồng nghiệp vụ phải giữ hai trạng thái riêng.
-- Ranh giới quyền danh mục: PRD mục 5.2 cho phép ADMIN đọc danh mục được phép; cần bảo đảm `/api/admin/products` và `/api/admin/suppliers` chỉ đọc đúng phạm vi được cấp. `AuditLogController` cũng có route Manager; phạm vi dữ liệu Manager được xem cần được xác nhận.
+- Ranh giới quyền danh mục: PRD mục 5.2 cho phép ADMIN đọc danh mục được phép; cần bảo đảm `/api/admin/products` và `/api/admin/suppliers` chỉ đọc đúng phạm vi được cấp. Audit log Manager được lọc theo vai trò người thực hiện (`MANAGER`), không lọc theo loại đối tượng; do đó Manager không thấy thao tác tài khoản do Admin thực hiện và có thể không thấy sự kiện do Customer thực hiện. Lịch sử Customer vẫn có ở hồ sơ 360°. Phân bố vai trò trong dữ liệu lịch sử chưa được kiểm tra.
 
 ## 6. Danh sách controller được quét và ánh xạ
 
@@ -140,7 +146,7 @@ Các UC-A02, UC-A08, UC-A10 khớp hành vi và chỉ đổi actor Admin thành 
 | AdminSurveyStatsController | UC-A08 |
 | AdminUserController | UC-A02, UC-A04, UC-A10, UC-A11 |
 | AdminVoucherController | UC-A13 |
-| AuditLogController | UC-ADM03; route Manager cần xác nhận |
+| AuditLogController | UC-ADM03; Admin xem toàn bộ, Manager chỉ xem bản ghi do Manager thực hiện |
 | AuthController | UC-01, UC-02, UC-09, UC-10 |
 | CareOutcomeReportController | UC-A20 |
 | CartController | UC-07 |
@@ -185,7 +191,7 @@ Các nội dung dưới đây không được trình bày như hành vi đang c�
 | HTTP lỗi 400/401/403/404/409/423 xuất hiện trong các luồng cũ được giữ | `ApiExceptionHandler.java`; `AdminAccessGuard.java`; `AuthService.java` `login`, `requireCustomer`; `SurveyController.java` `respond` |
 | Feedback rating 1–5; comment tối đa 4.000 ký tự | `FeedbackController.java` `FeedbackRequest`, `create` |
 | Phản hồi Manager tối đa 4.000 ký tự | `AdminFeedbackService.java` `update` |
-| Đơn PayOS hết hạn sau 15 phút; lịch dọn đơn chạy theo khoảng mặc định 300.000 ms; thời gian chờ tự hủy mặc định 24 giờ | `OrderService.java` `create`; `AbandonedOrderScheduler.java`; `AbandonedOrderWorker.java` |
+| Đơn PayOS hết hạn sau 15 phút; lịch dọn đơn chạy theo khoảng mặc định 300.000 ms; chỉ khi `PAYOS_AUTO_CANCEL_ENABLED=true` mới áp dụng thời gian chờ tự hủy mặc định 24 giờ (cờ mặc định `false`; demo/nghiệm thu bật) | `OrderService.java` `create`; `AbandonedOrderScheduler.java`; `AbandonedOrderWorker.java` |
 | Lịch sử đơn mặc định 10 mục/trang, tối đa 50 | `OrderController.java` `history`; `OrderService.java` `history` |
 | Manager hủy đơn cần lý do 1–1.000 ký tự | `AdminOrderService.java` `updateStatus` |
 | Ghi chú từ chối/hoàn tất đổi trả tối đa 1.000 ký tự | `ReturnManagementService.java` `process` |
@@ -220,5 +226,5 @@ Các nội dung dưới đây không được trình bày như hành vi đang c�
 - Bỏ dòng mô tả trùng ở UC mới theo phạm vi review và in đậm tiêu đề cột Nội dung ở các UC được chỉ định.
 - UC-ADM05 bỏ nhãn cần xác nhận; giữ ranh giới danh mục chỉ đọc theo PRD mục 5.2 và ghi chú quyền ở phần rủi ro.
 - UC-09 ghi rõ ngoài MVP, mặc định tắt và chỉ bật ở môi trường dev. UC-A16 ghi nhận hoàn tiền thủ công, không gửi lệnh hoàn PayOS.
-- Giữ câu hỏi mở về phạm vi audit log Manager được đọc.
+- Audit log Manager được mô tả theo hành vi hiện tại: chỉ trả bản ghi do Manager thực hiện; sự kiện Customer có thể không xuất hiện. Lịch sử hoạt động khách được tra cứu riêng trong hồ sơ 360°. Dữ liệu audit lịch sử chưa được kiểm tra.
 - Sơ đồ PlantUML có ba sơ đồ Customer/Khách vãng lai, Manager và Admin; UC-13/UC-14 nối Customer; PayOS là tác nhân phụ của UC-07, UC-18 và UC-A16; các quan hệ extend thể hiện nhánh tùy chọn và không có include bắt buộc riêng.
