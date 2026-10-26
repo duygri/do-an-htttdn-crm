@@ -2,7 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { api, endpoints, signOut } from './api';
 
 export default function CustomerPassword({ initialMode, onNavigate, onNotice }) {
-  const [form, setForm] = useState({ currentPassword: '', newPassword: '', email: '', code: '' });
+  const [form, setForm] = useState(() => {
+    const link = initialMode === 'reset' ? new URLSearchParams(window.location.hash.slice(1)) : new URLSearchParams();
+    return { currentPassword: '', newPassword: '', email: link.get('email') || '', code: link.get('code') || '' };
+  });
+  const [sent, setSent] = useState('');
+  useEffect(() => { if (initialMode === 'reset' && window.location.hash) window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search); }, [initialMode]);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const lock = useRef(false), alive = useRef(true);
   const [recovery,setRecovery]=useState(false),[recoveryError,setRecoveryError]=useState('');
@@ -23,8 +28,8 @@ export default function CustomerPassword({ initialMode, onNavigate, onNotice }) 
         const result = await api(endpoints.forgotPassword, { method: 'POST', body: { email: form.email } });
         if (alive.current) {
           setForm(current => ({ ...current, code: result.resetCode || '' }));
-          onNotice(result.message || 'Kiểm tra hướng dẫn khôi phục mật khẩu.');
-          onNavigate('/dat-lai-mat-khau');
+          setSent(result.message || 'Nếu tài khoản hợp lệ, liên kết đặt lại mật khẩu sẽ được gửi tới email của bạn.');
+          if (result.resetCode) onNavigate('/dat-lai-mat-khau');
         }
       } else {
         await api(endpoints.resetPassword, { method: 'POST', body: { email: form.email, code: form.code, newPassword: form.newPassword } });
@@ -39,11 +44,12 @@ export default function CustomerPassword({ initialMode, onNavigate, onNotice }) 
     <p className="kicker">BẢO MẬT TÀI KHOẢN</p><h1>{title}</h1>
     <p>Mật khẩu mới cần có ít nhất 8 ký tự, gồm chữ và số.</p>
     {error && <p role="alert" className="shop-inline-error">{error}</p>}
+    {sent && <p role="status">{sent}</p>}
     <form onSubmit={submit}><fieldset disabled={busy}>
       {initialMode === 'change' ? field('currentPassword', 'Mật khẩu hiện tại', { type: 'password', autoComplete: 'current-password' }) : field('email', 'Email', { type: 'email', autoComplete: 'email' })}
-      {initialMode === 'reset' && field('code', 'Mã 6 chữ số', { inputMode: 'numeric', pattern: '[0-9]{6}', autoComplete: 'one-time-code' })}
+      {initialMode === 'reset' && !form.code && <p>Mở liên kết trong email để đặt lại mật khẩu, hoặc yêu cầu liên kết mới.</p>}
       {initialMode !== 'forgot' && field('newPassword', 'Mật khẩu mới', { type: 'password', minLength: 8, autoComplete: 'new-password' })}
-      <button className="button button-dark" disabled={busy}>{busy ? 'Đang xử lý...' : initialMode === 'forgot' ? 'Nhận mã đặt lại' : title}</button>
+      <button className="button button-dark" disabled={busy || (initialMode === 'reset' && !form.code)}>{busy ? 'Đang xử lý...' : initialMode === 'forgot' ? 'Gửi liên kết đặt lại' : title}</button>
     </fieldset></form>
     <div className="auth-switch"><button onClick={() => onNavigate(initialMode === 'change' ? '/quen-mat-khau' : '/dang-nhap')}>{initialMode === 'change' ? 'Quên mật khẩu?' : 'Về đăng nhập'}</button></div>
   </section></div>;

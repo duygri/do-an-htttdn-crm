@@ -319,6 +319,28 @@ describe("admin navigation", () => {
     expect(screen.getByRole("button", { name: "Khách hàng", exact: true }).getAttribute("aria-current")).toBe("page");
   });
 
+  it("collapses the sidebar from the brand, keeps navigation accessible and restores the state", async () => {
+    const view = render(<AdminApp />, { wrapper });
+    await screen.findByRole("heading", { name: "Tổng quan", level: 1 });
+    const toggle = screen.getByRole("button", { name: "Thu gọn thanh điều hướng" });
+    expect(toggle.closest(".admin-brand")).toBeTruthy();
+    expect(toggle.getAttribute("aria-controls")).toBe("manager-sidebar");
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(toggle);
+    expect(view.container.querySelector("#manager-sidebar").className).toContain("is-collapsed");
+    expect(window.localStorage.getItem("manager-sidebar-collapsed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Mở rộng thanh điều hướng" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: "Khách hàng", exact: true })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Đăng xuất", exact: true })).toBeTruthy();
+    view.unmount();
+    const remount = render(<AdminApp />, { wrapper });
+    await screen.findByRole("heading", { name: "Tổng quan", level: 1 });
+    expect(remount.container.querySelector("#manager-sidebar").className).toContain("is-collapsed");
+    fireEvent.click(screen.getByRole("button", { name: "Mở rộng thanh điều hướng" }));
+    expect(remount.container.querySelector("#manager-sidebar").className).not.toContain("is-collapsed");
+    expect(window.localStorage.getItem("manager-sidebar-collapsed")).toBe("false");
+  });
+
   it("navigates through every sidebar page using only admin APIs", async () => {
     render(<AdminApp />, { wrapper });
     await screen.findByRole("heading", { name: "Tổng quan", level: 1 });
@@ -366,4 +388,25 @@ describe("admin navigation", () => {
     await screen.findByRole("heading", { name: "Tổng quan", level: 1 });
     expect(window.location.pathname).toBe("/manager");
   });
+});
+
+it.each(['getItem', 'setItem'])('keeps the sidebar usable when %s fails', async (method) => {
+ const original = Storage.prototype[method];
+ const storage = vi.spyOn(Storage.prototype, method).mockImplementation(function (key, ...args) {
+   if (key === 'manager-sidebar-collapsed') throw new DOMException('Storage unavailable', 'SecurityError');
+   return original.call(this, key, ...args);
+ });
+ try {
+   const view = render(<AdminApp/>);
+   const toggle = await screen.findByRole('button', {name:'Thu gọn thanh điều hướng'});
+   expect(toggle.getAttribute('aria-expanded')).toBe('true');
+   fireEvent.click(toggle);
+   expect(screen.getByRole('button', {name:'Mở rộng thanh điều hướng'}).getAttribute('aria-expanded')).toBe('false');
+   expect(view.container.querySelector('#manager-sidebar').className).toContain('is-collapsed');
+   fireEvent.click(screen.getByRole('button', {name:'Mở rộng thanh điều hướng'}));
+   expect(screen.getByRole('button', {name:'Thu gọn thanh điều hướng'}).getAttribute('aria-expanded')).toBe('true');
+   expect(storage.mock.calls.some(([key]) => key === 'manager-sidebar-collapsed')).toBe(true);
+ } finally {
+   storage.mockRestore();
+ }
 });

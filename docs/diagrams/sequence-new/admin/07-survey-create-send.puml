@@ -6,27 +6,27 @@ hide footbox
 skinparam monochrome true
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-actor ADMIN as Admin
+actor MANAGER as Manager
 boundary "Trang quản lý khảo sát" as Boundary
 control "Control tạo và gửi khảo sát" as Control
 entity "e_bảng khảo sát" as Entity
 
-Admin -> Boundary: Truy cập trang quản lý khảo sát
+Manager -> Boundary: Truy cập trang quản lý khảo sát
 Boundary -> Control: Gửi yêu cầu tạo bảng khảo sát mới
-Admin -> Boundary: Nhập nội dung và danh sách câu hỏi khảo sát
+Manager -> Boundary: Nhập nội dung và danh sách câu hỏi khảo sát
 Boundary -> Control: Truyền dữ liệu câu hỏi đến bộ điều khiển
 Control -> Entity: Lưu thông tin bảng khảo sát vào CSDL
 Entity --> Control: Trả kết quả lưu thành công
 
-alt Gửi khảo sát thành công
-  Control -> Entity: Kích hoạt tác vụ phân phối khảo sát đến khách hàng
-  Entity --> Control: Xác nhận đã gửi thông báo/email cho khách hàng
+alt Phát hành khảo sát thành công
+  Control -> Entity: Phát hành PUBLISHED; tạo thông báo cho khách đủ điều kiện
+  Entity --> Control: Xác nhận đã tạo thông báo trong ứng dụng cho khách hàng
   Control -> Boundary: Hiển thị thông báo tạo và gửi khảo sát thành công
-  Boundary --> Admin: Thông báo hoàn tất đến Admin
-else Gửi khảo sát thất bại hoặc lưu nháp
+  Boundary --> Manager: Thông báo hoàn tất đến Manager
+else Chưa phát hành / lưu nháp
   Control -> Entity: Cập nhật trạng thái bản nháp
   Entity --> Control: Trả kết quả khảo sát
   Control -> Boundary: Báo lỗi hoặc lưu nháp thành công
-  Boundary --> Admin: Hiển thị kết quả
+  Boundary --> Manager: Hiển thị kết quả
 end
 @enduml

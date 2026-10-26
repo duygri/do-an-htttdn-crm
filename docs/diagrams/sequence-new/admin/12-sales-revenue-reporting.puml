@@ -1,29 +1,27 @@
 @startuml
-title Thống kê và báo cáo doanh thu
-
+title Manager xem doanh thu đơn hàng (legacy)
 autonumber
 hide footbox
 skinparam monochrome true
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-actor ADMIN as Admin
-boundary "Trang thống kê báo cáo" as Boundary
-control "Control thống kê doanh thu" as Control
-entity "e_doanh_thu" as Entity
+actor MANAGER as Manager
+boundary "Báo cáo doanh thu" as Web
+control "AdminReportService" as API
+database "CRM Database" as DB
 
-Admin -> Boundary: Truy cập trang thống kê báo cáo
-Admin -> Boundary: Chọn mốc thời gian và tiêu chí thống kê
-Boundary -> Control: Gửi yêu cầu tổng hợp dữ liệu thống kê
-Control -> Entity: Truy vấn dữ liệu hóa đơn, sản phẩm bán chạy và lợi nhuận
-Entity --> Control: Trả về dữ liệu thô
-Control -> Control: Tính toán và gom nhóm dữ liệu biểu đồ
-Control -> Boundary: Truyền kết quả báo cáo hiển thị
-Boundary --> Admin: Hiển thị bảng số liệu và biểu đồ
-
-note right of Control
-  Tiêu chí báo cáo:
-  - Doanh thu theo thời gian
-  - Sản phẩm bán chạy
-  - Lợi nhuận
+Manager -> Web: Mở báo cáo doanh thu
+Web -> API: GET /api/manager/reports/revenue
+API -> DB: SUM(totalAmount) của đơn status <> CANCELLED
+DB --> API: totalRevenue (mặc định 0)
+API -> DB: Đếm tất cả đơn hàng
+DB --> API: orders
+API --> Web: 200 {totalRevenue, orders}
+Web --> Manager: Hiển thị doanh thu đơn hàng và tổng số đơn
+note right of API
+  Doanh thu legacy bao gồm đơn chưa thanh toán.
+  orders đếm cả đơn CANCELLED.
+  Đây không phải tiền đã thu hoặc lợi nhuận.
+  Báo cáo dòng tiền có endpoint riêng.
 end note
 @enduml

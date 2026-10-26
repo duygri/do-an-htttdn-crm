@@ -72,7 +72,7 @@ Các trang thường dùng: `/san-pham/{id}`, `/gio-hang`, `/dat-hang`, `/don-ha
 - **Phiếu hỗ trợ:** tạo hộ khách, phân công, trao đổi công khai, ghi chú nội bộ và cập nhật trạng thái xử lý.
 - **Khảo sát:** tạo nháp, phát hành/gỡ, thống kê kết quả, chọn tất cả khách hoặc chỉ định người nhận và cấu hình voucher thưởng.
 - **Khảo sát theo nhóm:** tạo bản nháp từ toàn bộ khách khớp bộ lọc, xem trước và chốt người nhận khi lưu; không tự phát hành. Có thể lọc đã/chưa trả lời một khảo sát cụ thể.
-- **Voucher/báo cáo/nhật ký:** quản lý mã giảm giá và báo cáo; Manager chỉ xem các bản ghi audit do Manager thực hiện. Thao tác tài khoản nội bộ do Admin thực hiện không hiển thị tại đây; sự kiện do Customer thực hiện cũng có thể không xuất hiện. Lịch sử hoạt động của khách được xem riêng trong hồ sơ 360°.
+- **Voucher/báo cáo:** quản lý mã giảm giá, báo cáo khách hàng, khảo sát, mua lại và kết quả chăm sóc. Lịch sử hoạt động của khách được xem riêng trong hồ sơ 360°; audit log hệ thống chỉ dành cho Admin.
 
 Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang mở được cập nhật mỗi 5 giây; tạm dừng khi tab bị ẩn hoặc người dùng đang nhập/gửi thao tác liên quan.
 
@@ -256,10 +256,13 @@ Spring Boot không tự đọc file `.env`. Đặt các biến trong môi trư�
 | --- | --- | --- | --- |
 | `PAYOS_AUTO_CANCEL_ENABLED` | `true` | `false` | Bật tự hủy đơn PayOS chưa thanh toán trong demo/nghiệm thu. |
 | `PAYOS_AUTO_CANCEL_GRACE_HOURS` | `24` | `24` | Thời gian chờ sau khi link thanh toán hết hạn. Số nguyên từ 1 đến 720 giờ; giá trị ngoài khoảng này khiến backend không khởi động. |
-| `DEV_PASSWORD_RESET_ENABLED` | `false` | `false` | Giữ tắt ở demo/nghiệm thu; tính năng ngoài MVP. |
+| `DEV_PASSWORD_RESET_ENABLED` | `false` | `false` | Tắt nhánh mã sáu chữ số dành cho profile development. |
+| `RESEND_ENABLED` | `false` | `false` | Tắt nhánh khôi phục qua email và email đơn hàng trong bộ cấu hình demo này. |
 | `APP_PAYOS_AUTO_CANCEL_MS` (`app.payos.auto-cancel-ms`) | `300000` | `300000` | Chu kỳ kiểm tra tự hủy, tương đương 5 phút. |
 
 PayOS không có sandbox. COD là luồng smoke test mặc định; chỉ thử PayOS thật khi người phụ trách đã xác nhận tài khoản, số tiền giới hạn và thời điểm thực hiện. Không commit `PAYOS_CLIENT_ID`, `PAYOS_API_KEY` hoặc `PAYOS_CHECKSUM_KEY`.
+
+Code đã hỗ trợ khôi phục mật khẩu qua Resend khi cấu hình email hợp lệ; `DEV_PASSWORD_RESET_ENABLED=false` không tắt nhánh email. Bộ demo ở trên chủ động tắt cả hai cờ. Khi thử riêng luồng email, xem [cấu hình Resend](docs/resend-email.md); liên kết dùng token 43 ký tự, API không trả mã đặt lại trong chế độ email. Chưa xác nhận gửi email thật trong đợt rà soát tài liệu này.
 
 ## Cấu hình thanh toán PayOS
 
@@ -327,7 +330,7 @@ Tài liệu từng đợt có thể ghi kết quả kiểm tra ở thời điể
 ## Giới hạn và lưu ý triển khai
 
 - Đây là đồ án mô phỏng; cần rà soát bảo mật, cấu hình, hiệu năng, sao lưu/khôi phục và vận hành trước khi dùng thực tế.
-- Chưa tích hợp email gửi mã khôi phục mật khẩu; kênh email chưa xác minh. Luồng mã đặt lại ngoài MVP, mặc định tắt và không bật ở demo/nghiệm thu. Cờ `DEV_PASSWORD_RESET_ENABLED=true` chỉ dành cho môi trường `development` khi thử nghiệm riêng; không bật trong demo hoặc triển khai thật. Hướng phát triển là tích hợp SMTP.
+- Đã tích hợp email khôi phục mật khẩu và thông báo đơn qua Resend dưới cờ cấu hình. Bộ demo/nghiệm thu mặc định giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; nhánh mã sáu chữ số chỉ dành cho profile `development`. Việc gửi email thật và điều kiện triển khai được kiểm tra riêng theo [hướng dẫn Resend](docs/resend-email.md).
 - Chưa có email marketing, thông báo hệ điều hành, hoàn tiền tự động hoặc chiến dịch tự phát voucher. Nhắc việc và thông báo hiện tại nằm trong web.
 - Báo cáo mua lại toàn thời gian chưa phải phân tích giữ chân theo cohort; giá trị đơn không phải tiền thực thu hay lợi nhuận.
 - Giao diện quản lý nhà cung cấp không nằm trong menu hiện tại; database/API có thể còn thành phần tương thích từ các phiên bản trước.

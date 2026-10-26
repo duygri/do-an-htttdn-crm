@@ -1,25 +1,25 @@
 @startuml
-title Xóa khách hàng
+title Manager xóa mềm khách hàng
 
 autonumber
 hide footbox
 skinparam monochrome true
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-actor ADMIN as Admin
+actor MANAGER as Manager
 boundary "Trang quản lý khách hàng" as Boundary
 control "Control xóa khách hàng" as Control
 entity "e_khách hàng" as Entity
 
-Admin -> Boundary: Chọn khách hàng cần xóa và xác nhận
+Manager -> Boundary: Chọn khách hàng cần xóa và xác nhận
 Boundary -> Control: Gửi yêu cầu xóa khách hàng
-Control -> Entity: Kiểm tra ràng buộc và xóa khách hàng
+Control -> Entity: Đặt deletedAt, locked=true; thu hồi refresh token; ghi audit
 Entity --> Control: Trả về kết quả xóa khách hàng
 Control -> Boundary: Trả kết quả xử lý
 
 alt Không thể xóa khách hàng
-  Boundary --> Admin: Hiển thị lý do không thể xóa
+  Boundary --> Manager: Hiển thị lý do không thể xóa
 else Xóa khách hàng thành công
-  Boundary --> Admin: Hiển thị kết quả xóa khách hàng
+  Boundary --> Manager: Hiển thị kết quả xóa khách hàng
 end
 @enduml

@@ -1,0 +1,364 @@
+@startuml database-erd-full
+title ANH LỚN SHOP CRM - ERD toàn bộ 31 bảng (thuộc tính chọn lọc)
+hide methods
+legend bottom left
+  PK: khóa chính; FK: khóa ngoại; UK: khóa duy nhất trên một cột.
+  Bội số quan hệ phản ánh FK, NULL và UNIQUE trong database/schema.sql.
+  Chỉ hiển thị các thuộc tính chọn lọc; xem schema.sql để có đầy đủ cột,
+  DEFAULT, NOT NULL, CHECK, UNIQUE ghép, index và hành vi ON DELETE.
+  Tài khoản CUSTOMER / ADMIN / MANAGER hiện dùng bảng customers.
+  admins là bảng cũ, còn được feedback.admin_id tham chiếu trong SQL.
+  actor_id, target_id, requested_by, processed_by không có FK trong SQL.
+endlegend
+skinparam ranksep 35
+skinparam nodesep 20
+skinparam entity {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  FontSize 11
+}
+
+package "Danh mục - sản phẩm" {
+entity categories {
+  * category_id : BIGSERIAL <<PK>>
+  --
+  name : VARCHAR(100)
+}
+entity suppliers {
+  * id : BIGSERIAL <<PK>>
+  --
+  code : VARCHAR(40)
+  name : VARCHAR(150)
+  active : BOOLEAN
+}
+entity products {
+  * product_id : BIGSERIAL <<PK>>
+  --
+  category_id : BIGINT <<FK>>
+  supplier_id : BIGINT <<FK>>
+  name : VARCHAR(150)
+  gender : VARCHAR(20)
+  price : NUMERIC(12,2)
+  sale_price : NUMERIC(12,2)
+  quantity_remaining : INTEGER
+  active : BOOLEAN
+}
+}
+
+package "Tài khoản - khách hàng" {
+entity customers {
+  * customer_id : BIGSERIAL <<PK>>
+  --
+  full_name : VARCHAR(150)
+  email : VARCHAR(255)
+  phone : VARCHAR(40)
+  role : VARCHAR(20)
+  locked : BOOLEAN
+  deleted_at : TIMESTAMPTZ
+}
+entity admins {
+  * admin_id : BIGSERIAL <<PK>>
+  --
+  role : VARCHAR(50)
+  password_hash : VARCHAR(255)
+}
+entity customer_addresses {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  recipient_name : VARCHAR(150)
+  phone : VARCHAR(40)
+  address_line : VARCHAR(500)
+  default_address : BOOLEAN
+}
+entity refresh_tokens {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  token_hash : VARCHAR(128)
+  audience : VARCHAR(20)
+  status : VARCHAR(20)
+  expires_at : TIMESTAMPTZ
+}
+entity password_reset_tokens {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  token_hash : VARCHAR(128)
+  expires_at : TIMESTAMPTZ
+  used_at : TIMESTAMPTZ
+}
+}
+
+package "Bán hàng - hậu mãi" {
+entity orders {
+  * order_id : BIGSERIAL <<PK>>
+  --
+  order_code : BIGINT
+  customer_id : BIGINT <<FK>>
+  total_amount : NUMERIC(12,2)
+  discount_amount : NUMERIC(15,2)
+  status : VARCHAR(30)
+  payment_status : VARCHAR(30)
+  payment_method : VARCHAR(30)
+  return_status : VARCHAR(30)
+  refund_status : VARCHAR(10)
+  created_at : TIMESTAMPTZ
+}
+entity order_items {
+  * order_item_id : BIGSERIAL <<PK>>
+  --
+  order_id : BIGINT <<FK>>
+  product_id : BIGINT <<FK>>
+  quantity : INTEGER
+  unit_price : NUMERIC(12,2)
+  size : VARCHAR(1000)
+  color : VARCHAR(1000)
+}
+entity order_return_events {
+  * id : BIGSERIAL <<PK>>
+  --
+  order_id : BIGINT <<FK>>
+  manager_id : BIGINT <<FK>>
+  manager_name : VARCHAR(255)
+  status : VARCHAR(30)
+  note : VARCHAR(1000)
+  created_at : TIMESTAMPTZ
+}
+entity order_refunds {
+  * id : BIGINT <<PK>>
+  --
+  order_id : BIGINT <<FK>>
+  reason_type : VARCHAR(10)
+  amount : NUMERIC(15,2)
+  status : VARCHAR(10)
+  requested_by : BIGINT
+  processed_by : BIGINT
+}
+entity cart_items {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  product_id : BIGINT <<FK>>
+  quantity : INTEGER
+  size : VARCHAR(1000)
+  color : VARCHAR(1000)
+}
+entity wishlists {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  product_id : BIGINT <<FK>>
+  created_at : TIMESTAMPTZ
+}
+}
+
+package "Voucher - thanh toán" {
+entity store_vouchers {
+  * id : BIGSERIAL <<PK>>
+  --
+  code : VARCHAR(40)
+  owner_customer_id : BIGINT <<FK>>
+  reward_survey_id : BIGINT <<FK>>
+  discount_type : VARCHAR(20)
+  discount_value : NUMERIC(12,2)
+  usage_limit : INTEGER
+  active : BOOLEAN
+}
+entity voucher_usages {
+  * id : BIGSERIAL <<PK>>
+  --
+  order_id : BIGINT <<FK,UK>>
+  voucher_id : BIGINT <<FK>>
+  created_at : TIMESTAMPTZ
+  released_at : TIMESTAMPTZ
+}
+entity payments {
+  * id : BIGSERIAL <<PK>>
+  --
+  order_id : BIGINT <<FK,UK>>
+  amount : NUMERIC(15,2)
+  payment_link_id : VARCHAR(255)
+  status : VARCHAR(30)
+  expires_at : TIMESTAMPTZ
+}
+entity payment_attempts {
+  * id : BIGSERIAL <<PK>>
+  --
+  order_id : BIGINT <<FK>>
+  provider_order_code : BIGINT
+  payment_link_id : VARCHAR(255)
+  status : VARCHAR(30)
+  expires_at : TIMESTAMPTZ
+}
+entity payment_webhook_events {
+  * id : BIGSERIAL <<PK>>
+  --
+  event_key : VARCHAR(255)
+  order_code : BIGINT
+  received_at : TIMESTAMPTZ
+}
+}
+
+package "Khảo sát - đánh giá" {
+entity feedback {
+  * feedback_id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  admin_id : BIGINT <<FK>>
+  product_id : BIGINT <<FK>>
+  order_id : BIGINT <<FK>>
+  rating : INTEGER
+  status : VARCHAR(30)
+  content : TEXT
+}
+entity survey_definitions {
+  * id : BIGSERIAL <<PK>>
+  --
+  title : VARCHAR(255)
+  status : VARCHAR(30)
+  audience : VARCHAR(255)
+  reward_enabled : BOOLEAN
+  starts_at : TIMESTAMPTZ
+  ends_at : TIMESTAMPTZ
+}
+entity survey_questions {
+  * id : BIGSERIAL <<PK>>
+  --
+  survey_id : BIGINT <<FK>>
+  text : VARCHAR(1000)
+  type : VARCHAR(30)
+  display_order : INTEGER
+  required : BOOLEAN
+}
+entity survey_responses {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  survey_id : BIGINT <<FK>>
+  created_at : TIMESTAMPTZ
+}
+entity survey_answers {
+  * id : BIGSERIAL <<PK>>
+  --
+  response_id : BIGINT <<FK>>
+  question_id : BIGINT <<FK>>
+  answer : VARCHAR(4000)
+}
+entity survey_recipients {
+  * survey_id : BIGINT <<PK,FK>>
+  * customer_id : BIGINT <<PK,FK>>
+}
+entity survey_notified_customers {
+  * survey_id : BIGINT <<PK,FK>>
+  * customer_id : BIGINT <<PK,FK>>
+}
+}
+
+package "CRM - hỗ trợ - nhật ký" {
+entity customer_care_notes {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  author_id : BIGINT <<FK>>
+  author_name : VARCHAR(255)
+  content : VARCHAR(4000)
+  created_at : TIMESTAMPTZ
+}
+entity customer_care_tasks {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  assignee_id : BIGINT <<FK>>
+  created_by : BIGINT <<FK>>
+  updated_by : BIGINT <<FK>>
+  parent_task_id : BIGINT <<FK,UK>>
+  title : VARCHAR(255)
+  status : VARCHAR(30)
+  outcome : VARCHAR(30)
+  due_at : TIMESTAMPTZ
+}
+entity support_tickets {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  order_id : BIGINT <<FK>>
+  assignee_id : BIGINT <<FK>>
+  created_by : BIGINT <<FK>>
+  title : VARCHAR(150)
+  status : VARCHAR(30)
+  request_key : VARCHAR(36)
+}
+entity customer_notifications {
+  * id : BIGSERIAL <<PK>>
+  --
+  customer_id : BIGINT <<FK>>
+  order_id : BIGINT <<FK>>
+  care_task_id : BIGINT <<FK>>
+  support_ticket_id : BIGINT <<FK>>
+  type : VARCHAR(30)
+  read_at : TIMESTAMPTZ
+}
+entity audit_logs {
+  * id : BIGINT <<PK>>
+  --
+  actor_id : BIGINT
+  actor_name : VARCHAR(150)
+  actor_role : VARCHAR(20)
+  action : VARCHAR(40)
+  entity_type : VARCHAR(40)
+  target_id : BIGINT
+  created_at : TIMESTAMPTZ
+}
+}
+
+categories ||--o{ products : category_id
+suppliers |o--o{ products : supplier_id
+customers ||--o{ customer_addresses : customer_id
+customers ||--o{ orders : customer_id
+customers ||--o{ cart_items : customer_id
+customers ||--o{ wishlists : customer_id
+customers ||--o{ feedback : customer_id
+customers ||--o{ survey_responses : customer_id
+customers ||--o{ survey_recipients : customer_id
+customers ||--o{ survey_notified_customers : customer_id
+customers ||--o{ customer_care_notes : customer_id
+customers ||--o{ customer_care_notes : author_id
+customers ||--o{ customer_care_tasks : customer_id
+customers ||--o{ customer_care_tasks : assignee_id
+customers ||--o{ customer_care_tasks : created_by
+customers ||--o{ customer_care_tasks : updated_by
+customers ||--o{ support_tickets : customer_id
+customers |o--o{ support_tickets : assignee_id
+customers ||--o{ support_tickets : created_by
+customers ||--o{ customer_notifications : customer_id
+customers ||--o{ refresh_tokens : customer_id
+customers ||--o{ password_reset_tokens : customer_id
+customers |o--o{ order_return_events : manager_id
+admins |o--o{ feedback : admin_id
+products ||--o{ order_items : product_id
+products ||--o{ cart_items : product_id
+products ||--o{ wishlists : product_id
+products |o--o{ feedback : product_id
+orders ||--o{ order_items : order_id
+orders ||--o{ order_return_events : order_id
+orders ||--o{ order_refunds : order_id
+orders ||--o| payments : order_id
+orders ||--o{ payment_attempts : order_id
+orders ||--o| voucher_usages : order_id
+orders |o--o{ support_tickets : order_id
+orders |o--o{ feedback : order_id
+orders |o--o{ customer_notifications : order_id
+store_vouchers ||--o{ voucher_usages : voucher_id
+customers |o--o{ store_vouchers : owner_customer_id
+survey_definitions |o--o{ store_vouchers : reward_survey_id
+survey_definitions ||--o{ survey_questions : survey_id
+survey_definitions ||--o{ survey_responses : survey_id
+survey_definitions ||--o{ survey_recipients : survey_id
+survey_definitions ||--o{ survey_notified_customers : survey_id
+survey_responses ||--o{ survey_answers : response_id
+survey_questions ||--o{ survey_answers : question_id
+customer_care_tasks |o--o| customer_care_tasks : parent_task_id
+customer_care_tasks |o--o{ customer_notifications : care_task_id
+support_tickets |o--o{ customer_notifications : support_ticket_id
+@enduml

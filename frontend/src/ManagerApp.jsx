@@ -18,7 +18,6 @@ const CustomerProfile = React.lazy(() => import('./CustomerProfile'));
 const CustomerCare = React.lazy(() => import('./CustomerCare'));
 const CareDashboard = React.lazy(() => import('./CareDashboard'));
 const RetentionReport = React.lazy(() => import('./RetentionReport'));
-const AuditLogs = React.lazy(() => import('./AuditLogs'));
 const SupportTickets = React.lazy(()=>import('./SupportTickets'));
 const ManagerRefunds = React.lazy(()=>import('./ManagerRefunds'));
 const CashflowReport = React.lazy(()=>import('./CashflowReport'));
@@ -33,6 +32,8 @@ import {
   LogOut,
   Menu,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
   Sun,
   Moon,
   ExternalLink,
@@ -81,7 +82,6 @@ const navItems = [
   ["surveys", "Khảo sát"],
   ["reports", "Báo cáo"],
   ["vouchers", "Mã giảm giá"],
-  ["audit-logs", "Nhật ký thao tác"],
 ];
 const validSections = new Set(navItems.map(([key]) => key));
 const navIcons = {
@@ -98,7 +98,6 @@ const navIcons = {
   surveys: ClipboardList,
   reports: Activity,
   vouchers: TicketPercent,
-  'audit-logs': Activity,
 };
 const statusLabels = {
   PENDING_PAYMENT: "Chờ thanh toán",
@@ -171,6 +170,15 @@ export default function ManagerApp() {
   const [sessionError,setSessionError]=useState('');
   const [notice, setNotice] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => {
+      try {
+        return window.localStorage.getItem("manager-sidebar-collapsed") === "true";
+      } catch {
+        return false;
+      }
+    }
+  );
   const [theme, setTheme] = useState(
     () => window.localStorage.getItem("manager-theme") || "light"
   );
@@ -194,6 +202,16 @@ export default function ManagerApp() {
   useEffect(() => {
     window.localStorage.setItem("manager-theme", theme);
   }, [theme]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        "manager-sidebar-collapsed",
+        String(sidebarCollapsed)
+      );
+    } catch {
+      // Keep the sidebar usable in memory when persistence is unavailable.
+    }
+  }, [sidebarCollapsed]);
   useEffect(() => {
     const onPop = () => {
       const current = window.location.pathname;
@@ -256,14 +274,29 @@ export default function ManagerApp() {
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
-      <aside className={`admin-sidebar ${mobileMenuOpen ? "is-open" : ""}`} onKeyDown={event => { if (event.key === 'Escape') setMobileMenuOpen(false); }}>
+      <aside id="manager-sidebar" className={`admin-sidebar${sidebarCollapsed ? " is-collapsed" : ""}${mobileMenuOpen ? " is-open" : ""}`} onKeyDown={event => { if (event.key === 'Escape') setMobileMenuOpen(false); }}>
         <div className="admin-brand">
           <span className="admin-brand-mark">
             <Activity size={18} />
           </span>
-          <div>
+          <div className="admin-brand-copy">
             ANH LỚN<small>Quản lý cửa hàng · CRM</small>
           </div>
+          <button
+            type="button"
+            className="admin-collapse-toggle"
+            aria-label={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="manager-sidebar"
+            title={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+            onClick={() => setSidebarCollapsed((value) => !value)}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen size={16} aria-hidden="true" />
+            ) : (
+              <PanelLeftClose size={16} aria-hidden="true" />
+            )}
+          </button>
         </div>
         <nav aria-label="Chức năng quản lý">
           {navItems.map(([key, label]) => {
@@ -273,10 +306,11 @@ export default function ManagerApp() {
                 key={key}
                 className={section === key ? "active" : ""}
                 aria-current={section === key ? "page" : undefined}
+                title={sidebarCollapsed ? label : undefined}
                 onClick={() => go(key)}
               >
                 <Icon size={17} aria-hidden="true" />
-                {label}
+                <span className="admin-nav-label">{label}</span>
               </button>
             );
           })}
@@ -284,13 +318,14 @@ export default function ManagerApp() {
         <div className="manager-sidebar-footer">
         <div className="admin-profile">
           <span>{admin.fullName?.slice(0, 1)?.toUpperCase() || "A"}</span>
-          <div>
+          <div className="admin-profile-copy">
             <b>{admin.fullName}</b>
             <small>{admin.email || "Nhân viên quản lý"}</small>
           </div>
         </div>
         <button
           className="admin-logout"
+          title={sidebarCollapsed ? "Đăng xuất" : undefined}
           onClick={async () => {
             setAdmin(null);
             go("login");
@@ -298,7 +333,7 @@ export default function ManagerApp() {
           }}
         >
           <LogOut size={16} aria-hidden="true" />
-          Đăng xuất
+          <span className="admin-logout-label">Đăng xuất</span>
         </button>
         </div>
       </aside>
@@ -368,7 +403,6 @@ export default function ManagerApp() {
         {section==='support-tickets'&&<SupportTickets manager location={path} navigate={go}/>}
         {section === "surveys" && <Surveys notify={notify} location={path} go={go} />}
         {section === "reports" && <Reports go={go} />}
-        {section === 'audit-logs' && <AuditLogs manager />}
         {section === "vouchers" && <AdminVouchers />}
         {section === "care" && <CustomerCare go={go} location={path}/>}
         {section === "care-dashboard" && <CareDashboard go={go} location={path}/>}

@@ -4,8 +4,8 @@
 
 Với database hiện có, chạy `database/migration_audit_logs.sql` rồi khởi động lại backend. Script chỉ bổ sung bảng và index, không sửa dữ liệu nghiệp vụ. Database cài mới dùng `database/schema.sql` đã gồm bảng này. Không cần đổi `application.yml`.
 
-- Manager: `/manager/audit-logs`, API `GET /api/manager/audit-logs` chỉ trả thao tác MANAGER.
 - Admin: `/admin/audit-logs`, API `GET /api/admin/audit-logs` trả toàn bộ nhật ký, gồm ADMIN, MANAGER và hai thao tác đơn hàng CUSTOMER bổ sung bên dưới.
+- Manager không có trang hoặc API tra cứu nhật ký. Thao tác Manager vẫn được ghi nhận để Admin tra cứu và hiển thị trong timeline hồ sơ 360°.
 - CUSTOMER không được truy cập. Quyền và người thực hiện lấy từ tài khoản đã kiểm tra trong database, không nhận tên/quyền từ header tự khai báo.
 
 ## Phạm vi bản đầu
@@ -33,7 +33,6 @@ Chỉ ghi thao tác thành công, trong cùng transaction với dữ liệu ngu�
 - Dùng khóa bản ghi và transaction đơn hàng hiện có: gửi lại hoặc đồng thời chỉ ghi một lần.
 - Nếu PayOS báo đã trả tiền trong lúc hủy và đơn không bị hủy, không ghi CUSTOMER_CANCEL.
 - Timeline hồ sơ 360° Manager hiển thị nhãn riêng và liên kết chi tiết đúng đơn.
-  Trang audit Manager vẫn chỉ trả thao tác MANAGER như trước; không mở rộng quyền.
 - Không ghi lý do hủy hay dữ liệu người nhận. Không migration mới, không ghi bù sự kiện cũ.
 - Hành động customer khác chưa được bổ sung audit trong đợt này.
 
@@ -49,13 +48,13 @@ Bổ sung nhật ký chăm sóc dùng bảng sẵn có, không cần migration m
 
 ## Tra cứu
 
-Tham số tùy chọn `q`, `type`, `action`, `from`, `to`, `page`, `size`. Tìm theo tên nhân viên hoặc ID đối tượng/nhân viên; không tìm theo email khách hoặc mã đơn hiển thị. Lọc tại database trước phân trang; mặc định mới nhất, tối đa 100 bản ghi/trang. `from` bao gồm, `to` loại trừ; giao diện đổi ngày Việt Nam thành khoảng ISO tương ứng. Bộ lọc được giữ trong URL, hỗ trợ refresh/back/forward. Manager cập nhật 5 giây khi tab hiện, Admin tải khi mở/lọc hoặc bấm tải lại.
+Tham số tùy chọn `q`, `type`, `action`, `from`, `to`, `page`, `size`. Tìm theo tên nhân viên hoặc ID đối tượng/nhân viên; không tìm theo email khách hoặc mã đơn hiển thị. Lọc tại database trước phân trang; mặc định mới nhất, tối đa 100 bản ghi/trang. `from` bao gồm, `to` loại trừ; giao diện đổi ngày Việt Nam thành khoảng ISO tương ứng. Bộ lọc được giữ trong URL, hỗ trợ refresh/back/forward. Admin tải khi mở/lọc hoặc bấm tải lại.
 
 ## Kiểm thử
 
 - `AuditLogIntegrationTest`: quyền, actor chống giả mạo, dữ liệu trước/sau, tối thiểu hóa thông tin, tìm/lọc/phân trang, API chỉ đọc, lỗi nghiệp vụ, chống lặp trạng thái, rollback.
-- `AuditLogs.test.jsx`: tra cứu, URL/back, phân trang, polling Manager, giữ dữ liệu khi lỗi, retry và API Admin tách biệt.
+- `AuditLogs.test.jsx`: tra cứu, URL/back, phân trang, retry và trạng thái rỗng trên trang Admin.
 - `AuditLogPostgresTest` (bật riêng `CRM_POSTGRES_QA=true`): chạy migration hai lần và tra cứu trên PostgreSQL, rollback cả DDL và bản ghi thử; không áp dụng migration vĩnh viễn vào database đang dùng.
 - Chạy `mvn test -q`, `npm test`, `npm run build`, `git diff --check`.
 
-Trước khi triển khai nên thử trên database staging: chạy migration, thao tác một đơn/customer thử bằng Manager, kiểm tra log; Admin thấy toàn bộ, customer bị từ chối. Không thử trên đơn hoặc giao dịch thanh toán thật.
+Trước khi triển khai nên thử trên database staging: chạy migration, thao tác một đơn/customer thử bằng Manager, kiểm tra log; Admin thấy toàn bộ, Manager không mở được trang/API nhật ký, customer bị từ chối. Không thử trên đơn hoặc giao dịch thanh toán thật.

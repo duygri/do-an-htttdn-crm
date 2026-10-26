@@ -69,7 +69,7 @@ class SupportTicketIntegrationTest {
         String body=mvc.perform(get("/api/support-tickets/"+t.id()).header("Authorization",auth(buyer))).andExpect(status().isOk()).andExpect(jsonPath("$.messages.length()").value(0)).andReturn().getResponse().getContentAsString();assertFalse(body.contains("INTERNAL_SECRET"));assertFalse(body.contains(manager.getEmail()));assertFalse(body.contains("SECRET_HASH"));
         for(User wrong:List.of(buyer,admin))mvc.perform(get("/api/manager/support-tickets").header("Authorization",auth(wrong))).andExpect(status().isForbidden());
         mvc.perform(get("/api/manager/support-tickets?status=BAD").header("Authorization",auth(manager))).andExpect(status().isBadRequest());
-        mvc.perform(get("/api/manager/audit-logs?type=SUPPORT_TICKET").header("Authorization",auth(manager))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("/api/admin/audit-logs?type=SUPPORT_TICKET").header("Authorization",auth(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
         mvc.perform(post("/api/support-tickets").header("Authorization",auth(buyer)).contentType(MediaType.APPLICATION_JSON).content("{\"customerId\":"+other.getId()+",\"title\":\"Fake\",\"description\":\"Fake\",\"requestId\":\""+key()+"\"}")).andExpect(status().isBadRequest());
     }
     @Test @Transactional(propagation=Propagation.NOT_SUPPORTED) void rollbackRemovesTicketNotificationAndAuditTogether(){

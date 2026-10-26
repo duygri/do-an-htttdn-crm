@@ -6,20 +6,20 @@ hide footbox
 skinparam monochrome true
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-actor ADMIN as Admin
+actor MANAGER as Manager
 boundary "Form thêm khách hàng" as Boundary
 control "Control thêm khách hàng" as Control
 entity "e_khách hàng" as Entity
 
-Admin -> Boundary: Nhập thông tin khách hàng mới và xác nhận
+Manager -> Boundary: Nhập thông tin khách hàng mới và xác nhận
 Boundary -> Control: Gửi yêu cầu thêm khách hàng
 Control -> Entity: Kiểm tra và lưu thông tin khách hàng
 Entity --> Control: Trả về kết quả thêm khách hàng
 Control -> Boundary: Trả kết quả xử lý
 
 alt Thông tin không hợp lệ hoặc bị trùng
-  Boundary --> Admin: Hiển thị lỗi thêm khách hàng
+  Boundary --> Manager: Hiển thị lỗi thêm khách hàng
 else Thêm khách hàng thành công
-  Boundary --> Admin: Hiển thị kết quả thêm khách hàng
+  Boundary --> Manager: Hiển thị kết quả thêm khách hàng
 end
 @enduml

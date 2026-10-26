@@ -6,20 +6,20 @@ hide footbox
 skinparam monochrome true
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-actor ADMIN as Admin
+actor MANAGER as Manager
 boundary "Trang quản lý khách hàng" as Boundary
 control "Control khóa/mở tài khoản" as Control
 entity "e_tài khoản khách hàng" as Entity
 
-Admin -> Boundary: Chọn khách hàng và chức năng khóa/mở
+Manager -> Boundary: Chọn khách hàng và chức năng khóa/mở
 Boundary -> Control: Gửi yêu cầu mở/khóa tài khoản
 Control -> Entity: Kiểm tra trạng thái và cập nhật tài khoản
 Entity --> Control: Trả về kết quả khóa/mở
 Control -> Boundary: Trả kết quả xử lý
 
 alt Không tìm thấy khách hàng / cập nhật thất bại
-  Boundary --> Admin: Hiển thị lỗi khóa/mở tài khoản
+  Boundary --> Manager: Hiển thị lỗi khóa/mở tài khoản
 else Khóa/mở thành công
-  Boundary --> Admin: Hiển thị kết quả khóa/mở tài khoản
+  Boundary --> Manager: Hiển thị kết quả khóa/mở tài khoản
 end
 @enduml

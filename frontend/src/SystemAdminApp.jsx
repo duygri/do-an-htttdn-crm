@@ -20,7 +20,9 @@ import {
   Server,
   Database,
   Lock,
-  ArrowRight
+  ArrowRight,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 
 const menu = {
@@ -46,6 +48,15 @@ export default function SystemAdminApp() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('admin-theme') || 'dark');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => {
+      try {
+        return localStorage.getItem('admin-sidebar-collapsed') === 'true';
+      } catch {
+        return false;
+      }
+    }
+  );
   const [form, setForm] = useState({ email: 'admin@shop.com', password: '' });
   const [overview, setOverview] = useState(null);
   const [retry, setRetry] = useState(0);
@@ -102,6 +113,14 @@ export default function SystemAdminApp() {
   useEffect(() => {
     localStorage.setItem('admin-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('admin-sidebar-collapsed', String(sidebarCollapsed));
+    } catch {
+      // Keep the sidebar usable in memory when persistence is unavailable.
+    }
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     if (!session) return;
@@ -175,7 +194,7 @@ export default function SystemAdminApp() {
         </main>
       ) : (
         <>
-          <aside className="internal-sidebar">
+          <aside id="admin-sidebar" className={`internal-sidebar${sidebarCollapsed ? ' is-collapsed' : ''}`}>
             <div className="internal-brand">
               <span className="internal-brand-icon">
                 <ShieldCheck size={20} />
@@ -184,6 +203,21 @@ export default function SystemAdminApp() {
                 <h2>System Admin</h2>
                 <small>TRUNG TÂM HỆ THỐNG</small>
               </div>
+              <button
+                type="button"
+                className="internal-collapse-toggle"
+                aria-label={sidebarCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}
+                aria-expanded={!sidebarCollapsed}
+                aria-controls="admin-sidebar"
+                title={sidebarCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}
+                onClick={() => setSidebarCollapsed((value) => !value)}
+              >
+                {sidebarCollapsed ? (
+                  <PanelLeftOpen size={16} aria-hidden="true" />
+                ) : (
+                  <PanelLeftClose size={16} aria-hidden="true" />
+                )}
+              </button>
             </div>
 
             <nav className="internal-nav">
@@ -194,6 +228,7 @@ export default function SystemAdminApp() {
                     key={key}
                     className={`internal-nav-link ${section === key ? 'active' : ''}`}
                     aria-current={section === key ? 'page' : undefined}
+                    title={sidebarCollapsed ? label : undefined}
                     href={`/admin${key === 'dashboard' ? '' : '/' + key}`}
                     onClick={(e) => {
                       e.preventDefault();
@@ -212,7 +247,7 @@ export default function SystemAdminApp() {
               <a
                 className="internal-nav-link external"
                 href={managerUrl}
-                title="Mở cổng quản lý đơn hàng & khách hàng"
+                title={sidebarCollapsed ? 'Cổng quản lý (Manager)' : 'Mở cổng quản lý đơn hàng & khách hàng'}
               >
                 <Layers size={17} aria-hidden="true" />
                 <span>Cổng quản lý (Manager)</span>
@@ -222,7 +257,7 @@ export default function SystemAdminApp() {
               <a
                 className="internal-nav-link external"
                 href={storefrontUrl}
-                title="Xem website bán hàng khách hàng"
+                title={sidebarCollapsed ? 'Xem trang bán hàng' : 'Xem website bán hàng khách hàng'}
               >
                 <ExternalLink size={17} aria-hidden="true" />
                 <span>Xem trang bán hàng</span>
@@ -240,6 +275,7 @@ export default function SystemAdminApp() {
               <button
                 type="button"
                 className="internal-logout-btn"
+                title={sidebarCollapsed ? 'Đăng xuất' : undefined}
                 onClick={async () => {
                   await adminSignOut();
                   setSession(null);
@@ -247,7 +283,7 @@ export default function SystemAdminApp() {
                 }}
               >
                 <LogOut size={15} aria-hidden="true" />
-                <span>Đăng xuất</span>
+                <span className="internal-logout-label">Đăng xuất</span>
               </button>
             </div>
           </aside>

@@ -78,6 +78,7 @@ public class AdminOrderService extends AdminServiceSupport {
         order.setStatus(request.status());
         if("CANCELLED".equals(order.getStatus()))refunds.requestCancellation(order);
         order.setUpdatedAt(Instant.now());
+        if (!"CANCELLED".equals(request.status())) notifications.create(order.getCustomer(), "Cập nhật đơn hàng", "Đơn #"+order.getOrderCode()+": "+switch(request.status()){case "CONFIRMED" -> "Đã xác nhận";case "PREPARING" -> "Đang xử lý";case "SHIPPED","DELIVERING" -> "Đang giao";case "DELIVERED" -> "Đã giao — chờ bạn xác nhận nhận hàng";default -> "Trạng thái đơn đã cập nhật";}, "ORDER_STATUS", order.getId());
         audit("ORDER_STATUS","ORDER",id,before,order);
         return orders.save(order);
     }

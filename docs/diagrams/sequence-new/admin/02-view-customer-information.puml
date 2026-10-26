@@ -6,21 +6,21 @@ hide footbox
 skinparam monochrome true
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-actor ADMIN as Admin
+actor MANAGER as Manager
 boundary "Trang thông tin khách hàng" as Boundary
 control "Control xem thông tin khách hàng" as Control
 entity "e_xem thông tin khách hàng" as Entity
 
-Admin -> Boundary: Truy cập trang quản lý khách hàng
+Manager -> Boundary: Truy cập trang quản lý khách hàng
 Boundary -> Control: Gửi yêu cầu xem thông tin khách hàng
 Control -> Entity: Chọn khách hàng cần xem
 Entity --> Control: Trả về kết quả thông tin khách hàng cần xem
 
 alt Không tìm thấy / xem thông tin thất bại
   Control -> Boundary: Thông báo không tìm thấy thông tin khách hàng
-  Boundary --> Admin: Thông báo xem thông tin khách hàng thất bại
+  Boundary --> Manager: Thông báo xem thông tin khách hàng thất bại
 else Đã tìm thấy / xem thông tin thành công
   Control -> Boundary: Hiển thị thông tin khách hàng
-  Boundary --> Admin: Thông báo xem thông tin khách hàng thành công
+  Boundary --> Manager: Thông báo xem thông tin khách hàng thành công
 end
 @enduml

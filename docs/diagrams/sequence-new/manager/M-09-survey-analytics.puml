@@ -13,14 +13,14 @@ database "CRM Database" as DB
 
 Manager -> Web: Mở trang thống kê khảo sát
 Web -> API: GET /api/manager/surveys/stats
-API -> DB: Tổng hợp response và answer
+API -> DB: Đếm khảo sát chưa xóa: total, draft, published
 DB --> API: Survey summary
 API --> Web: 200 SurveyStats
 Web --> Manager: Hiển thị chỉ số tổng quan
 
 Manager -> Web: Chọn một khảo sát
 Web -> API: GET /api/manager/reports/surveys/{id}/results
-API -> DB: Truy vấn kết quả theo câu hỏi
+API -> DB: Đếm responses, answered/skipped/invalid theo câu hỏi;\nđếm lựa chọn và percent theo answered
 DB --> API: Result dataset
 API --> Web: 200 Results
 

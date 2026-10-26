@@ -1,0 +1,25 @@
+@startuml
+title Use Case Admin v2
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+actor Admin
+package "Tài khoản nội bộ" {
+  usecase "UC-ADM01\nĐăng nhập Admin Portal" as ADM01
+  usecase "UC-ADM02\nQuản lý tài khoản nội bộ" as ADM02
+}
+package "Quản trị và giám sát" {
+  usecase "UC-ADM03\nXem audit log" as ADM03
+  usecase "UC-ADM04\nXem tổng quan hệ thống" as ADM04
+  usecase "UC-ADM05\nXem danh mục được phép đọc" as ADM05
+}
+Admin --> ADM01
+Admin --> ADM02
+Admin --> ADM03
+Admin --> ADM04
+Admin --> ADM05
+note bottom of ADM05
+PRD mục 5.2 cho phép Admin xem danh mục được phép đọc.
+Chỉ đọc; phạm vi endpoint phải theo quyền được cấp.
+end note
+@enduml

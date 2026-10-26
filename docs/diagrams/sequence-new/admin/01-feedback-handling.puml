@@ -1,35 +1,33 @@
 @startuml
-title Tiếp nhận và xử lý phản hồi của khách hàng
-
+title Manager tiếp nhận và xử lý phản hồi
 autonumber
 hide footbox
 skinparam monochrome true
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-actor ADMIN as Admin
-boundary "Trang quản lý khiếu nại" as Boundary
-control "Control xử lý phản hồi" as Control
-entity "e_phản hồi khách hàng" as Entity
+actor MANAGER as Manager
+boundary "Quản lý phản hồi" as Web
+control "AdminFeedbackService" as API
+database "CRM Database" as DB
 
-Admin -> Boundary: Truy cập trang quản lý khiếu nại
-Boundary -> Control: Gửi yêu cầu xem danh sách phản hồi
-Control -> Entity: Lấy dữ liệu phản hồi chờ duyệt
-Entity --> Control: Trả về danh sách phản hồi
-Control -> Boundary: Hiển thị danh sách khiếu nại
-Boundary --> Admin: Hiển thị danh sách được khiếu nại
-
-Admin -> Boundary: Chọn khiếu nại và bấm duyệt/phản hồi
-Boundary -> Control: Gửi thông tin xử lý (Duyệt/Từ chối)
-
-alt Duyệt thành công
-  Control -> Entity: Cập nhật trạng thái đã duyệt và gửi thông báo
-  Entity --> Control: Thông báo thành công
-  Control -> Boundary: Gửi email/SMS phản hồi cho khách
-  Boundary --> Admin: Đã duyệt thành công
-else Duyệt thất bại
-  Control -> Entity: Ghi nhận lý do từ chối
-  Entity --> Control: Xác nhận ghi nhận lý do từ chối
-  Control -> Boundary: Báo lỗi/từ chối thành công
-  Boundary --> Admin: Duyệt thất bại
+Manager -> Web: Chọn bộ lọc trạng thái
+Web -> API: GET /api/manager/feedback?status&page&size
+API -> DB: Đọc phản hồi chưa xóa mềm
+DB --> API: FeedbackPage
+API --> Web: 200 FeedbackPage
+Web --> Manager: Hiển thị phản hồi
+alt Cập nhật xử lý
+  Manager -> Web: Chọn NEW / IN_PROGRESS / RESOLVED, nhập trả lời, ẩn/hiện
+  Web -> API: PATCH /api/manager/feedback/{id}\nstatus, adminResponse, hidden
+  API -> API: Kiểm tra trạng thái và trả lời 1–4000 ký tự
+  API -> DB: Lưu phản hồi, processedAt (khi đổi trạng thái/trả lời), audit
+  DB --> API: Feedback
+  API --> Web: 200 Feedback
+else Xóa mềm
+  Manager -> Web: Xác nhận xóa
+  Web -> API: DELETE /api/manager/feedback/{id}
+  API -> DB: Đặt deletedAt và ghi audit
+  API --> Web: 204 No Content
 end
+Web --> Manager: Hiển thị kết quả xử lý
 @enduml

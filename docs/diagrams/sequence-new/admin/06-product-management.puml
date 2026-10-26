@@ -6,38 +6,38 @@ hide footbox
 skinparam monochrome true
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-actor ADMIN as Admin
+actor MANAGER as Manager
 boundary "Trang quản lý sản phẩm" as Boundary
 control "Control quản lý sản phẩm" as Control
 entity "e_sản phẩm và kho" as Entity
 
-Admin -> Boundary: Truy cập trang quản lý sản phẩm
+Manager -> Boundary: Truy cập trang quản lý sản phẩm
 Boundary -> Control: Gửi yêu cầu xem danh sách sản phẩm và kho
 Control -> Entity: Truy vấn dữ liệu sản phẩm, giá và tồn kho
 Entity --> Control: Trả về danh sách sản phẩm
 Control -> Boundary: Hiển thị danh sách sản phẩm
-Boundary --> Admin: Hiển thị danh sách cho Admin
+Boundary --> Manager: Hiển thị danh sách cho Manager
 
 alt Thêm mới sản phẩm
-  Admin -> Boundary: Nhập thông tin sản phẩm mới, giá và số lượng kho
+  Manager -> Boundary: Nhập thông tin sản phẩm mới, giá và số lượng kho
   Boundary -> Control: Gửi dữ liệu thêm sản phẩm
   Control -> Entity: Lưu thông tin sản phẩm mới vào CSDL
   Entity --> Control: Trả về thông tin được lưu
   Control -> Boundary: Thông báo lưu thành công
-  Boundary --> Admin: Hiển thị thông báo thành công
+  Boundary --> Manager: Hiển thị thông báo thành công
 else Sửa thông tin sản phẩm
-  Admin -> Boundary: Cập nhật thông tin, giá và kho
+  Manager -> Boundary: Cập nhật thông tin, giá và kho
   Boundary -> Control: Gửi yêu cầu cập nhật
   Control -> Entity: Cập nhật dữ liệu sản phẩm trong CSDL
   Entity --> Control: Trả về yêu cầu được cập nhật
   Control -> Boundary: Thông báo cập nhật thành công
-  Boundary --> Admin: Hiển thị kết quả
+  Boundary --> Manager: Hiển thị kết quả
 else Xóa sản phẩm
-  Admin -> Boundary: Chọn sản phẩm cần xóa và xác nhận
+  Manager -> Boundary: Chọn sản phẩm cần xóa và xác nhận
   Boundary -> Control: Gửi yêu cầu xóa sản phẩm
   Control -> Entity: Cập nhật yêu cầu xóa sản phẩm
   Entity --> Control: Trả về kết quả yêu cầu xóa
   Control -> Boundary: Thông báo xóa sản phẩm thành công
-  Boundary --> Admin: Hiển thị kết quả
+  Boundary --> Manager: Hiển thị kết quả
 end
 @enduml

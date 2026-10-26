@@ -6,31 +6,31 @@ hide footbox
 skinparam monochrome true
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-actor ADMIN as Admin
+actor MANAGER as Manager
 boundary "Trang quản lý đơn hàng" as Boundary
 control "Control xử lý đơn hàng" as Control
 entity "e_đơn hàng" as Entity
 
-Admin -> Boundary: Truy cập trang quản lý đơn hàng
+Manager -> Boundary: Truy cập trang quản lý đơn hàng
 Boundary -> Control: Gửi yêu cầu xem danh sách đơn hàng chờ duyệt
 Control -> Entity: Truy vấn dữ liệu đơn hàng từ CSDL
 Entity --> Control: Trả về danh sách đơn hàng
 Control -> Boundary: Hiển thị danh sách đơn hàng
-Boundary --> Admin: Hiển thị danh sách đơn hàng cho Admin
+Boundary --> Manager: Hiển thị danh sách đơn hàng cho Manager
 
 alt Duyệt đơn hàng
-  Admin -> Boundary: Chọn đơn hàng và bấm duyệt
+  Manager -> Boundary: Chọn đơn hàng và bấm duyệt
   Boundary -> Control: Gửi yêu cầu cập nhật trạng thái
-  Control -> Entity: Cập nhật trạng thái đơn thành Đã duyệt/Đang giao
+  Control -> Entity: Cập nhật trạng thái đơn thành trạng thái hợp lệ theo luồng đơn hàng
   Entity --> Control: Xác nhận cập nhật thành công
   Control -> Boundary: Thông báo duyệt đơn thành công
-  Boundary --> Admin: Hiển thị thông báo thành công
+  Boundary --> Manager: Hiển thị thông báo thành công
 else Hủy đơn hàng
-  Admin -> Boundary: Chọn đơn hàng và bấm hủy
+  Manager -> Boundary: Chọn đơn hàng và bấm hủy
   Boundary -> Control: Gửi yêu cầu hủy đơn hàng
   Control -> Entity: Cập nhật trạng thái Đã hủy và hoàn lại tồn kho
   Entity --> Control: Xác nhận hủy đơn thành công
   Control -> Boundary: Thông báo hủy đơn thành công
-  Boundary --> Admin: Hiển thị kết quả
+  Boundary --> Manager: Hiển thị kết quả
 end
 @enduml

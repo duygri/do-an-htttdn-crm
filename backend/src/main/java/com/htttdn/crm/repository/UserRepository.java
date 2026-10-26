@@ -4,6 +4,9 @@ import com.htttdn.crm.entity.User; import org.springframework.data.jpa.repositor
 
 public interface UserRepository extends JpaRepository<User,Long>, JpaSpecificationExecutor<User> {
     @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where lower(u.email)=lower(:email)")
+    Optional<User> findForPasswordReset(@org.springframework.data.repository.query.Param("email") String email);
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.role in ('ADMIN','MANAGER') order by u.id")
     List<User> lockInternalAccounts();
     Page<User> findByRoleAndFullNameContainingIgnoreCaseOrRoleAndEmailContainingIgnoreCase(String r1,String n,String r2,String e,Pageable p);

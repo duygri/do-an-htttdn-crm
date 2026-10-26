@@ -5,10 +5,10 @@
 | Thuộc tính | Nội dung |
 | --- | --- |
 | Môn học | Hệ thống thông tin doanh nghiệp (HTTTDN) |
-| Phiên bản | 1.3 |
-| Trạng thái | Draft for team review; đối chiếu code và quyết định đã chốt ngày 25/10/2026 |
+| Phiên bản | 1.4 |
+| Trạng thái | Draft for team review; đối chiếu code và quyết định đã chốt ngày 26/10/2026 |
 | Ngày tạo | 14/09/2026 |
-| Ngày rà soát | 25/10/2026 |
+| Ngày rà soát | 26/10/2026 |
 | Repository | [duygri/do-an-htttdn-crm](https://github.com/duygri/do-an-htttdn-crm) |
 | Phạm vi | Yêu cầu MVP; các ước lượng thời gian trong bản 1.0 không còn là kế hoạch hiện hành |
 
@@ -66,22 +66,22 @@ Dữ liệu khách hàng và bán hàng thường bị phân tán trong nhiều 
 - Chăm sóc khách hàng bằng task, ghi chú, nhắc việc, kết quả chăm sóc và dashboard.
 - Phiếu hỗ trợ do Customer gửi và Manager xử lý; Manager xử lý yêu cầu đổi trả.
 - Ghi nhận thủ công hoàn tiền và thu COD; hỗ trợ đối soát thanh toán; không gửi lệnh hoàn tới payOS.
-- Báo cáo giữ chân khách hàng và dòng tiền; audit log và thông báo nội bộ cho Manager.
+- Báo cáo giữ chân khách hàng và dòng tiền; audit log cho Admin và thông báo nội bộ cho Manager.
 - Kiểm thử, tài liệu kỹ thuật và demo.
 
 ### 3.2. Ngoài phạm vi MVP
 
 - Merchant go-live, hoàn tiền production và đối soát production. Trong MVP, hoàn tiền và thu COD được ghi nhận thủ công; hệ thống không gửi lệnh hoàn tới payOS. Tích hợp payOS được mô tả trong MVP; kiểm thử giao dịch thật là hoạt động riêng, có kiểm soát và không phải bước smoke test mặc định.
 - Tích hợp đơn vị vận chuyển thực tế.
-- Social login, xác thực đa yếu tố và quy trình quên/đặt lại mật khẩu qua email. Luồng hiện có dùng mã đặt lại, ngoài MVP, mặc định tắt và không bật ở demo/nghiệm thu; chỉ có thể bật trong môi trường dev. Kênh email chưa xác minh.
+- Social login, xác thực đa yếu tố và nghiệm thu khôi phục mật khẩu qua email ở production. Code hỗ trợ tùy chọn gửi liên kết đặt lại qua Resend khi được cấu hình, dùng token 43 ký tự và không trả mã trong response email. Fallback mã sáu chữ số chỉ bật bằng `DEV_PASSWORD_RESET_ENABLED` ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc vận hành production.
 - Ứng dụng native cho Android hoặc iOS.
 - Dự báo doanh thu bằng machine learning.
 - Triển khai production, autoscaling và vận hành 24/7.
 
 ### 3.3. Quyết định đã chốt
 
-- **Đặt lại mật khẩu:** ngoài MVP; mã đặt lại mặc định tắt và không bật ở demo/nghiệm thu. Kênh email chưa xác minh.
-- **Audit log:** Admin xem toàn bộ bản ghi; Manager chỉ xem bản ghi do Manager thực hiện. Vì vậy Manager không thấy thao tác tài khoản nội bộ do Admin thực hiện và có thể không thấy sự kiện do Customer thực hiện. Lịch sử hoạt động của Customer được xem riêng trong hồ sơ 360°.
+- **Đặt lại mật khẩu:** Code hỗ trợ tùy chọn gửi liên kết đặt lại qua Resend khi được cấu hình, dùng token 43 ký tự và không trả mã trong response email. Fallback mã sáu chữ số chỉ bật bằng `DEV_PASSWORD_RESET_ENABLED` ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc vận hành production.
+- **Audit log:** Chỉ Admin tra cứu audit log qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit cho Manager. Lịch sử hoạt động Customer được xem riêng trong hồ sơ 360°.
 - **Tự hủy PayOS:** mặc định code tắt. Môi trường demo/nghiệm thu đặt `PAYOS_AUTO_CANCEL_ENABLED=true` và `PAYOS_AUTO_CANCEL_GRACE_HOURS=24`; Spring Boot không tự đọc `.env`, nên phải đặt biến vào môi trường tiến trình backend. Cấu hình này là điều kiện để đơn PayOS bỏ dở không giữ tồn kho vô thời hạn.
 
 ## 4. Người dùng hệ thống và stakeholder
@@ -152,7 +152,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | FR-25 | Returns | Manager xử lý yêu cầu đổi trả | Chỉ xử lý đơn DELIVERED/COMPLETED; REQUESTED chuyển sang APPROVED hoặc REJECTED; APPROVED mới chuyển sang COMPLETED. Từ chối và hoàn tất phải có ghi chú; lịch sử đổi trả được lưu | — |
 | FR-26 | Refund and Reconciliation | Manager ghi nhận hoàn tiền, thu COD và đối soát thanh toán | Chỉ ghi nhận hoàn cho đơn hủy hoặc đổi trả đã duyệt/hoàn tất; số tiền là VND nguyên dương và không vượt số tiền đã thu. Manager hoàn tất/từ chối với ghi chú; thu COD chỉ cho đơn DELIVERED/COMPLETED. Đối soát PayOS đọc trạng thái giao dịch; không gửi lệnh hoàn tới payOS | — |
 | FR-27 | Retention and Cashflow | Manager xem báo cáo giữ chân khách hàng và dòng tiền | Báo cáo giữ chân trả tổng khách, khách mua/lặp lại, repeat rate, giá trị và trung bình giá trị đơn hoàn tất, khách dormant, phân bố vòng đời, ngưỡng và phiếu hỗ trợ đã giải quyết. Dòng tiền nhận khoảng tối đa 366 ngày, nhóm ngày/tháng và trả số thu, hoàn, ròng, số đơn đã thu cùng 10 sản phẩm bán chạy | — |
-| FR-28 | Audit | Admin và Manager tra cứu audit log theo phạm vi vai trò | Admin xem toàn bộ bản ghi; Manager chỉ xem bản ghi do Manager thực hiện. Manager không thấy thao tác tài khoản nội bộ do Admin thực hiện và có thể không thấy sự kiện do Customer thực hiện. Lọc và phân trang theo điều kiện truy vấn; lịch sử hoạt động Customer xem riêng trong hồ sơ 360° | — |
+| FR-28 | Audit | Admin tra cứu audit log | Chỉ Admin tra cứu audit log qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit cho Manager. Lịch sử hoạt động Customer được xem riêng trong hồ sơ 360°. Có bộ lọc và phân trang | — |
 | FR-29 | Manager Notifications | Manager xem thông báo nội bộ | Hộp thư gồm nhắc chăm sóc đến hạn/quá hạn và phiếu hỗ trợ được giao; xem số chưa đọc và danh sách phân trang; đánh dấu một hoặc tất cả thông báo đã đọc | — |
 
 **Nguồn đối chiếu code cho FR-21–FR-29**
@@ -166,7 +166,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | FR-25 | `ManagerReturnController`: `PATCH /api/manager/orders/{id}/return`; `ReturnManagementService`; Customer yêu cầu tại `OrderController`/`OrderService.requestReturn` |
 | FR-26 | `ManagerRefundController`: `/api/manager/orders/{id}/refunds`, `/refunds/{id}/complete`, `/refunds/{id}/reject`, `/orders/{id}/cod-collection`, `/orders/{id}/payment/reconcile`; `RefundService`, `PaymentReconciliationService` |
 | FR-27 | `RetentionReportController`: `GET /api/manager/reports/retention`; `CashflowReportController`: `GET /api/manager/reports/cashflow`; `RetentionReportService`, `CashflowReportService` |
-| FR-28 | `AuditLogController`: `GET /api/admin/audit-logs` và `GET /api/manager/audit-logs`; `AuditLogQuery.list` áp dụng điều kiện vai trò người truy vấn tại dòng 27; `OrderService.cancel/confirmReceipt` → `recordCustomerAction` ghi `CUSTOMER_CANCEL`/`CUSTOMER_RECEIPT` với actor `CUSTOMER`; `CustomerActivityService.list` cung cấp timeline hồ sơ 360° riêng |
+| FR-28 | `AuditLogController`: `GET /api/admin/audit-logs`; `AuditLogQuery.list` kiểm tra quyền ADMIN; `CustomerActivityService.list` cung cấp timeline hồ sơ 360° riêng |
 | FR-29 | `ManagerCareInboxController`: `/api/manager/notifications`, `/notifications/summary`, `/notifications/{id}/read`, `/notifications/read-all`; `ManagerCareInbox` |
 
 Các số Issue trong bảng là liên kết truy vết từ kế hoạch cũ, không biểu thị trạng thái hoàn thành. Trạng thái tracker hiện tại được ghi tại mục 11.
@@ -224,6 +224,8 @@ Schema PostgreSQL hiện có 31 bảng vật lý, được chia theo chín miề
 - Webhook hợp lệ lần đầu hoặc đã xử lý phải trả HTTP 2xx; chữ ký, `orderCode` hoặc số tiền không hợp lệ phải bị từ chối và không cập nhật đơn.
 - Link PayOS có hạn 15 phút. `OrderService.cleanupExpired` đánh dấu payment quá hạn; `AbandonedOrderScheduler` chạy theo `app.payos.auto-cancel-ms` (mặc định 300000 ms). Khi `PAYOS_AUTO_CANCEL_ENABLED=true`, `AbandonedOrderWorker` chỉ tự hủy đơn chưa thanh toán sau khi link hết hạn thêm `PAYOS_AUTO_CANCEL_GRACE_HOURS` (mặc định 24 giờ). Tồn kho được giữ đến khi đơn bị tự hủy; giao dịch tự hủy giải phóng tồn kho và voucher đúng một lần. Cờ mặc định là `false`; demo/nghiệm thu phải đặt cờ `true` và grace `24` giờ để tránh giữ tồn kho vô thời hạn. Spring Boot không tự đọc `.env`; biến phải nằm trong môi trường tiến trình backend.
 - Khóa ngoại không được tạo bản ghi mồ côi.
+- Customer xác nhận nhận hàng khi đơn `DELIVERED` và `returnStatus` là `NONE` hoặc null; đơn chuyển `COMPLETED`. Gọi lại khi đã `COMPLETED` trả kết quả hiện có (idempotent).
+- Đổi trả đi theo `REQUESTED` → `APPROVED` → `COMPLETED` hoặc `REQUESTED` → `REJECTED`.
 - Trạng thái đơn hàng chỉ chuyển theo luồng đã thống nhất.
 - Survey chỉ nhận response khi đã phát hành và còn hiệu lực.
 

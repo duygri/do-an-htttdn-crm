@@ -23,7 +23,7 @@ Quy ước: trạng thái phản ánh cả actor/quyền và hành vi. Các UC q
 | UC-04 | ⚠️ LỆCH | Chỉ đơn COMPLETED mới được đánh giá; yêu cầu có orderId; duy nhất theo cặp đơn/sản phẩm. Đơn COMPLETED đã có đánh giá không được yêu cầu đổi trả. | `controller/FeedbackController.java` `create`; `service/OrderService.java` `requestReturn` |
 | UC-05 | ✅ KHỚP | Xem/trả lời khảo sát giữ; code hỗ trợ đối tượng ALL/SELECTED và phát voucher thưởng theo cấu hình. | `controller/SurveyController.java` `active`, `mine`, `respond`; `service/SurveyRewardService.java` `grant` |
 | UC-06 | ⚠️ LỆCH | Khách vãng lai được xem/tìm; gender mặc định NAM; chỉ sản phẩm active được liệt kê/xem. | `controller/ProductController.java` `catalog`, `detail` |
-| UC-07 | ⚠️ LỆCH | UC cũ gộp giỏ hàng/đặt hàng nhưng nêu sai trạng thái và webhook. Code tạo PENDING; PayOS PENDING 15 phút, COD COD; tồn kho trừ khi tạo và hoàn khi hủy/hết hạn; webhook không xác nhận đơn. | `CartController.java` `/api/cart`; `VoucherController.java` `/api/vouchers/validate`; `OrderController.java` `/api/orders`; `OrderService.java` `create`, `webhook`; `PaymentReconciliationService.java`; `AbandonedOrderWorker.java` |
+| UC-07 | ⚠️ LỆCH | UC cũ gộp giỏ hàng/đặt hàng nhưng nêu sai trạng thái và webhook. Code tạo PENDING; PayOS PENDING 15 phút, COD COD; tồn kho trừ khi tạo và chỉ hoàn khi hủy thành công, không hoàn ngay khi link hết hạn; webhook không xác nhận đơn. | `CartController.java` `/api/cart`; `VoucherController.java` `/api/vouchers/validate`; `OrderController.java` `/api/orders`; `OrderService.java` `create`, `webhook`; `PaymentReconciliationService.java`; `AbandonedOrderWorker.java` |
 | UC-08 | ⚠️ LỆCH | Có tab/từ khóa; Manager cập nhật trạng thái; Customer xác nhận nhận hàng để đơn thành COMPLETED. | `service/OrderService.java` `history`, `confirmReceipt`; `service/AdminOrderService.java` `updateStatus` |
 
 ### UC bổ sung đã có trong code nhưng thiếu ở tài liệu cũ
@@ -49,7 +49,7 @@ Quy ước: trạng thái phản ánh cả actor/quyền và hành vi. Các UC q
 | UC-04 | Customer | Đơn thuộc Customer và COMPLETED; sản phẩm nằm trong đơn. | Gửi đánh giá với orderId và sản phẩm. | Trùng đánh giá theo đơn/sản phẩm bị từ chối. | Đơn COMPLETED có đánh giá chặn yêu cầu đổi trả. |
 | UC-06 | Khách vãng lai | Không cần đăng nhập. | Tìm/lọc/xem catalog; mặc định gender NAM. | Sản phẩm không active hoặc không tồn tại không được xem chi tiết. | Catalog công khai chỉ lấy sản phẩm active. |
 | UC-07 | Customer | Đăng nhập; địa chỉ giao hàng và sản phẩm hợp lệ. | Cập nhật giỏ, xác nhận checkout; đơn PENDING; trừ tồn kho; COD hoặc PAYOS; voucher tùy chọn. | Hết hàng/dữ liệu sai bị từ chối; PayOS có xử lý trạng thái riêng. | PAYOS 15 phút; webhook chỉ xác nhận thanh toán, không đổi đơn sang CONFIRMED. |
-| UC-08 | Customer/Manager | Customer chỉ xem đơn của mình; Manager có quyền nghiệp vụ. | Customer lọc lịch sử; Manager tiến trạng thái; Customer xác nhận nhận hàng. | Không chuyển ngược trạng thái; xác nhận chỉ khi DELIVERED. | Xác nhận của Customer đưa đơn sang COMPLETED. |
+| UC-08 | Customer/Manager | Customer chỉ xem đơn của mình; Manager có quyền nghiệp vụ. | Customer lọc lịch sử; Manager tiến trạng thái; Customer xác nhận nhận hàng. | Không chuyển ngược trạng thái; xác nhận khi DELIVERED và returnStatus NONE/null; gọi lại COMPLETED là idempotent. | Xác nhận của Customer đưa đơn sang COMPLETED. |
 
 Các UC-A02, UC-A08, UC-A10 khớp hành vi và chỉ đổi actor Admin thành Manager theo phân quyền code. UC-01/02/03/05 cũng khớp; các đặc tả được giữ và bổ sung truy vết.
 
@@ -59,7 +59,7 @@ Các UC-A02, UC-A08, UC-A10 khớp hành vi và chỉ đổi actor Admin thành 
 
 | Mã | Use Case | Bằng chứng code |
 |---|---|---|
-| UC-09 | Đặt lại mật khẩu (ngoài MVP; mặc định tắt; không bật ở demo/nghiệm thu; kênh email chưa xác minh) | `AuthController.java` `forgotPassword`, `resetPassword`; `AuthService.java` `requestPasswordReset`, `resetPassword` |
+| UC-09 | Đặt lại mật khẩu (email Resend tùy chọn; fallback development; demo tắt cả hai cờ; gửi email chưa được xác minh) | `AuthController.java` `forgotPassword`, `resetPassword`; `AuthService.java` `requestPasswordReset`, `resetPassword` |
 | UC-10 | Đổi mật khẩu | `AuthController.java` `changePassword`; `AuthService.java` `changePassword` |
 | UC-11 | Quản lý sổ địa chỉ | `AddressController.java` list/create/update/delete/default; `AddressService.java` |
 | UC-12 | Quản lý wishlist | `WishlistController.java` list/add/remove |
@@ -102,8 +102,8 @@ Các UC-A02, UC-A08, UC-A10 khớp hành vi và chỉ đổi actor Admin thành 
 
 ### Quyết định đã chốt
 
-- **Audit log:** Admin xem toàn bộ bản ghi. Manager chỉ xem bản ghi do Manager thực hiện; thao tác tài khoản nội bộ do Admin thực hiện không hiển thị, sự kiện do Customer thực hiện có thể không hiển thị. Lịch sử hoạt động Customer vẫn xem riêng ở hồ sơ 360°.
-- **Đặt lại mật khẩu:** ngoài MVP; cờ mặc định tắt và không bật ở demo/nghiệm thu; kênh email chưa xác minh.
+- **Audit log:** Chỉ Admin tra cứu audit log qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit cho Manager. Lịch sử hoạt động Customer được xem riêng trong hồ sơ 360°.
+- **Đặt lại mật khẩu:** Code hỗ trợ tùy chọn gửi liên kết đặt lại qua Resend khi được cấu hình, dùng token 43 ký tự và không trả mã trong response email. Fallback mã sáu chữ số chỉ bật bằng `DEV_PASSWORD_RESET_ENABLED` ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc vận hành production.
 - **Tự hủy PayOS:** demo/nghiệm thu bật `PAYOS_AUTO_CANCEL_ENABLED=true` và đặt grace 24 giờ; mặc định code vẫn `false`.
 
 ### Điểm cần xác nhận
@@ -117,17 +117,17 @@ Các UC-A02, UC-A08, UC-A10 khớp hành vi và chỉ đổi actor Admin thành 
 ### Khoảng trống so với PRD
 
 - **FR-16:** `/reports/cashflow` đáp ứng kỳ báo cáo, tổng doanh thu, sản phẩm bán chạy và bằng chứng dữ liệu. Rủi ro còn lại ở `/reports/revenue`: endpoint cộng totalAmount của đơn chưa hủy kể cả đơn chưa thanh toán, nên số này không đại diện riêng cho khoản tiền đã thu.
-- **Password reset email:** PRD mục 3.2 ghi reset qua email ngoài MVP. Code hiện có quên/đặt lại mật khẩu, nhưng gửi email chưa được xác minh như một kênh thực tế; cấu hình dev có thể bật trả resetCode.
+- **Khôi phục mật khẩu:** Code hỗ trợ tùy chọn gửi liên kết đặt lại qua Resend khi được cấu hình, dùng token 43 ký tự và không trả mã trong response email. Fallback mã sáu chữ số chỉ bật bằng `DEV_PASSWORD_RESET_ENABLED` ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc vận hành production.
 - **Refund/reconciliation production:** PRD mục 3.2 ghi hoàn tiền và đối soát production ngoài phạm vi. Code có quy trình nội bộ để ghi nhận yêu cầu/kết quả hoàn tiền, thu COD và đối soát PayOS; không xác nhận giao dịch hoàn tiền với cổng thanh toán bên ngoài.
 - **Giao vận thực tế:** PRD ngoài phạm vi tích hợp vận chuyển; không thấy controller tích hợp hãng vận chuyển trong 34 controller được quét.
 
 ### Rủi ro trong code cần lưu ý
 
-- `POST /api/auth/forgot-password` có thể trả `resetCode` nếu bật `passwordRecoveryEnabled`; `AuthService` mặc định tắt và chỉ cấu hình profile development bật luồng này. PRD lại ghi reset qua email ngoài MVP.
+- **Khôi phục mật khẩu:** Code hỗ trợ tùy chọn gửi liên kết đặt lại qua Resend khi được cấu hình, dùng token 43 ký tự và không trả mã trong response email. Fallback mã sáu chữ số chỉ bật bằng `DEV_PASSWORD_RESET_ENABLED` ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc vận hành production.
 - Hoàn tiền thủ công và đối soát thanh toán có code nhưng PRD xếp hoạt động production tương ứng ngoài MVP; không mô tả đây là tích hợp hoàn tiền tự động.
 - `/api/manager/reports/revenue` cộng `totalAmount` của đơn không hủy, kể cả chưa thanh toán; số liệu có thể bị hiểu nhầm là doanh thu đã thu.
 - PayOS webhook cập nhật trạng thái thanh toán; không tự chuyển đơn từ PENDING sang CONFIRMED. Luồng nghiệp vụ phải giữ hai trạng thái riêng.
-- Ranh giới quyền danh mục: PRD mục 5.2 cho phép ADMIN đọc danh mục được phép; cần bảo đảm `/api/admin/products` và `/api/admin/suppliers` chỉ đọc đúng phạm vi được cấp. Audit log Manager được lọc theo vai trò người thực hiện (`MANAGER`), không lọc theo loại đối tượng; do đó Manager không thấy thao tác tài khoản do Admin thực hiện và có thể không thấy sự kiện do Customer thực hiện. Lịch sử Customer vẫn có ở hồ sơ 360°. Phân bố vai trò trong dữ liệu lịch sử chưa được kiểm tra.
+- Ranh giới quyền danh mục: PRD mục 5.2 cho phép ADMIN đọc danh mục được phép; cần bảo đảm `/api/admin/products` và `/api/admin/suppliers` chỉ đọc đúng phạm vi được cấp. Chỉ Admin tra cứu audit log qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit cho Manager. Lịch sử hoạt động Customer được xem riêng trong hồ sơ 360°. Phân bố vai trò trong dữ liệu lịch sử chưa được kiểm tra.
 
 ## 6. Danh sách controller được quét và ánh xạ
 
@@ -146,7 +146,7 @@ Các UC-A02, UC-A08, UC-A10 khớp hành vi và chỉ đổi actor Admin thành 
 | AdminSurveyStatsController | UC-A08 |
 | AdminUserController | UC-A02, UC-A04, UC-A10, UC-A11 |
 | AdminVoucherController | UC-A13 |
-| AuditLogController | UC-ADM03; Admin xem toàn bộ, Manager chỉ xem bản ghi do Manager thực hiện |
+| AuditLogController | UC-ADM03; chỉ Admin tra cứu audit log |
 | AuthController | UC-01, UC-02, UC-09, UC-10 |
 | CareOutcomeReportController | UC-A20 |
 | CartController | UC-07 |
@@ -178,7 +178,7 @@ Các nội dung dưới đây không được trình bày như hành vi đang c�
 
 - **Duyệt/từ chối feedback và báo kết quả cho khách:** UC-A01 cũ mô tả approve/reject và thông báo. Code chỉ có trạng thái NEW/IN_PROGRESS/RESOLVED, phản hồi, ẩn và xóa mềm; không thấy hành động approve/reject hoặc thông báo khi Manager xử lý.
 - **Sửa nội dung khảo sát sau khi tạo:** UC-A07 cũ có nhánh sửa khảo sát; controller hiện có tạo, phần thưởng, publish/unpublish và xóa, không có route update nội dung.
-- **Khôi phục mật khẩu qua email:** PRD ghi ngoài MVP. Code có luồng mã đặt lại nhưng cấu hình mặc định tắt; chưa xác minh dịch vụ gửi email hoạt động.
+- **Nghiệm thu email production:** code đã có gửi reset qua Resend tùy chọn; chưa xác minh gửi/nhận thực tế hoặc vận hành production. Demo giữ cả hai cờ email/development tắt.
 - **Hoàn tiền qua cổng thanh toán production:** code ghi nhận hoàn tiền thủ công; chưa thấy thao tác gửi lệnh hoàn tới PayOS.
 - **Tích hợp đơn vị vận chuyển thực tế:** PRD loại khỏi phạm vi MVP; không có controller tích hợp hãng vận chuyển trong 34 controller đã kiểm tra.
 
@@ -186,7 +186,7 @@ Các nội dung dưới đây không được trình bày như hành vi đang c�
 
 | Con số/quy tắc | Nguồn code |
 |---|---|
-| Reset code sáu chữ số, hiệu lực 15 phút; mặc định tắt, profile development có thể bật | `AuthController.java` `ResetPasswordRequest`; `AuthService.java` `requestPasswordReset`, `resetPassword`, `requirePasswordRecovery`; `application.yml` default |
+| Email: token 43 ký tự, không trả mã; development: fallback sáu chữ số; hiệu lực 15 phút, demo tắt cả hai cờ | `AuthController.java`; `AuthService.java`; `application.yml` |
 | Password Customer tối thiểu 8 ký tự, phải có chữ và số; giới hạn request 72 ký tự | `AuthService.java` `validatePassword`; `AuthController.java` `RegisterRequest`, `ChangePasswordRequest`, `ResetPasswordRequest` |
 | HTTP lỗi 400/401/403/404/409/423 xuất hiện trong các luồng cũ được giữ | `ApiExceptionHandler.java`; `AdminAccessGuard.java`; `AuthService.java` `login`, `requireCustomer`; `SurveyController.java` `respond` |
 | Feedback rating 1–5; comment tối đa 4.000 ký tự | `FeedbackController.java` `FeedbackRequest`, `create` |
@@ -225,6 +225,13 @@ Các nội dung dưới đây không được trình bày như hành vi đang c�
 - Bảng trạng thái ở cả ba tài liệu ghi rõ PENDING_PAYMENT là trạng thái cũ, OrderService.create tạo PENDING; PREPARING/DELIVERING chỉ là mốc PROGRESS, không thuộc STATUSES. UC-15 nêu rõ các trạng thái và cờ đối soát chặn hủy theo OrderService.cancel.
 - Bỏ dòng mô tả trùng ở UC mới theo phạm vi review và in đậm tiêu đề cột Nội dung ở các UC được chỉ định.
 - UC-ADM05 bỏ nhãn cần xác nhận; giữ ranh giới danh mục chỉ đọc theo PRD mục 5.2 và ghi chú quyền ở phần rủi ro.
-- UC-09 ghi rõ ngoài MVP, mặc định tắt và chỉ bật ở môi trường dev. UC-A16 ghi nhận hoàn tiền thủ công, không gửi lệnh hoàn PayOS.
-- Audit log Manager được mô tả theo hành vi hiện tại: chỉ trả bản ghi do Manager thực hiện; sự kiện Customer có thể không xuất hiện. Lịch sử hoạt động khách được tra cứu riêng trong hồ sơ 360°. Dữ liệu audit lịch sử chưa được kiểm tra.
-- Sơ đồ PlantUML có ba sơ đồ Customer/Khách vãng lai, Manager và Admin; UC-13/UC-14 nối Customer; PayOS là tác nhân phụ của UC-07, UC-18 và UC-A16; các quan hệ extend thể hiện nhánh tùy chọn và không có include bắt buộc riêng.
+- UC-09 phân biệt email Resend tùy chọn và fallback development; demo tắt cả hai cờ, production chưa được xác minh. UC-A16 ghi nhận hoàn tiền thủ công, không gửi lệnh hoàn PayOS.
+- **Audit log:** Chỉ Admin tra cứu audit log qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit cho Manager. Lịch sử hoạt động Customer được xem riêng trong hồ sơ 360°.
+- Ba tệp PlantUML độc lập, mỗi tệp có đúng một `@startuml`: [Customer/Khách vãng lai](use-case-diagrams-v2.puml), [Manager](use-case-diagrams-manager-v2.puml), [Admin](use-case-diagrams-admin-v2.puml), kèm PNG cùng tên. UC-13/UC-14 nối Customer; PayOS là tác nhân phụ của UC-07, UC-18 và nhánh đối soát UC-A16; hoàn tiền UC-A16 chỉ ghi nhận thủ công, không gọi PayOS refund API.
+
+## 12. Đối chiếu ngày 26/10/2026
+
+- Các sequence vận hành cũ trong `admin/` dùng actor Manager; tên thư mục được giữ để bảo toàn liên kết. M-15 trong `manager/` biểu diễn audit chỉ dành cho Admin.
+- Feedback không có approve/reject hoặc email/SMS; thống kê khảo sát không có CSAT; revenue không có lợi nhuận.
+- PayOS tạo đơn PENDING, webhook chỉ cập nhật paymentStatus PAID; thất bại không giải phóng tồn kho ngay. Feedback yêu cầu COMPLETED và duy nhất theo cặp đơn/sản phẩm.
+- Xác nhận nhận hàng yêu cầu DELIVERED và returnStatus NONE/null; COMPLETED là nhánh idempotent. Đổi trả: REQUESTED → APPROVED → COMPLETED hoặc REQUESTED → REJECTED.
