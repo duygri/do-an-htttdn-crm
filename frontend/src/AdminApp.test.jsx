@@ -389,3 +389,24 @@ describe("admin navigation", () => {
     expect(window.location.pathname).toBe("/manager");
   });
 });
+
+it.each(['getItem', 'setItem'])('keeps the sidebar usable when %s fails', async (method) => {
+ const original = Storage.prototype[method];
+ const storage = vi.spyOn(Storage.prototype, method).mockImplementation(function (key, ...args) {
+   if (key === 'manager-sidebar-collapsed') throw new DOMException('Storage unavailable', 'SecurityError');
+   return original.call(this, key, ...args);
+ });
+ try {
+   const view = render(<AdminApp/>);
+   const toggle = await screen.findByRole('button', {name:'Thu gọn thanh điều hướng'});
+   expect(toggle.getAttribute('aria-expanded')).toBe('true');
+   fireEvent.click(toggle);
+   expect(screen.getByRole('button', {name:'Mở rộng thanh điều hướng'}).getAttribute('aria-expanded')).toBe('false');
+   expect(view.container.querySelector('#manager-sidebar').className).toContain('is-collapsed');
+   fireEvent.click(screen.getByRole('button', {name:'Mở rộng thanh điều hướng'}));
+   expect(screen.getByRole('button', {name:'Thu gọn thanh điều hướng'}).getAttribute('aria-expanded')).toBe('true');
+   expect(storage.mock.calls.some(([key]) => key === 'manager-sidebar-collapsed')).toBe(true);
+ } finally {
+   storage.mockRestore();
+ }
+});

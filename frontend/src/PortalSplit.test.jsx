@@ -88,3 +88,27 @@ it('admin redirects anonymous requests to its login',async()=>{
  window.history.replaceState({},'', '/admin/products');adminRefreshSession.mockResolvedValue(null);render(<SystemAdminApp/>);
  await screen.findByText('Đăng nhập Admin');await waitFor(()=>expect(window.location.pathname).toBe('/admin/login'));
 });
+
+it.each(['getItem', 'setItem'])('keeps the sidebar usable when %s fails', async (method) => {
+ window.history.replaceState({}, '', '/admin');
+ adminRefreshSession.mockResolvedValue({admin:{email:'admin@test.vn'}});
+ adminApi.mockResolvedValue({accounts:2,products:3});
+ const original = Storage.prototype[method];
+ const storage = vi.spyOn(Storage.prototype, method).mockImplementation(function (key, ...args) {
+   if (key === 'admin-sidebar-collapsed') throw new DOMException('Storage unavailable', 'SecurityError');
+   return original.call(this, key, ...args);
+ });
+ try {
+   const view = render(<SystemAdminApp/>);
+   const toggle = await screen.findByRole('button', {name:'Thu gọn thanh điều hướng'});
+   expect(toggle.getAttribute('aria-expanded')).toBe('true');
+   fireEvent.click(toggle);
+   expect(screen.getByRole('button', {name:'Mở rộng thanh điều hướng'}).getAttribute('aria-expanded')).toBe('false');
+   expect(view.container.querySelector('#admin-sidebar').className).toContain('is-collapsed');
+   fireEvent.click(screen.getByRole('button', {name:'Mở rộng thanh điều hướng'}));
+   expect(screen.getByRole('button', {name:'Thu gọn thanh điều hướng'}).getAttribute('aria-expanded')).toBe('true');
+   expect(storage.mock.calls.some(([key]) => key === 'admin-sidebar-collapsed')).toBe(true);
+ } finally {
+   storage.mockRestore();
+ }
+});

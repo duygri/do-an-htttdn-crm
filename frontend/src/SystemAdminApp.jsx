@@ -49,7 +49,13 @@ export default function SystemAdminApp() {
   const [busy, setBusy] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('admin-theme') || 'dark');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => localStorage.getItem('admin-sidebar-collapsed') === 'true'
+    () => {
+      try {
+        return localStorage.getItem('admin-sidebar-collapsed') === 'true';
+      } catch {
+        return false;
+      }
+    }
   );
   const [form, setForm] = useState({ email: 'admin@shop.com', password: '' });
   const [overview, setOverview] = useState(null);
@@ -109,7 +115,11 @@ export default function SystemAdminApp() {
   }, [theme]);
 
   useEffect(() => {
-    localStorage.setItem('admin-sidebar-collapsed', String(sidebarCollapsed));
+    try {
+      localStorage.setItem('admin-sidebar-collapsed', String(sidebarCollapsed));
+    } catch {
+      // Keep the sidebar usable in memory when persistence is unavailable.
+    }
   }, [sidebarCollapsed]);
 
   useEffect(() => {
