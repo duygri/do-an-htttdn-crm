@@ -71,7 +71,7 @@ Các trang thường dùng: `/san-pham/{id}`, `/gio-hang`, `/dat-hang`, `/don-ha
 - **Phiếu hỗ trợ:** tạo hộ khách, phân công, trao đổi công khai, ghi chú nội bộ và cập nhật trạng thái xử lý.
 - **Khảo sát:** tạo nháp, phát hành/gỡ, thống kê kết quả, chọn tất cả khách hoặc chỉ định người nhận và cấu hình voucher thưởng.
 - **Khảo sát theo nhóm:** tạo bản nháp từ toàn bộ khách khớp bộ lọc, xem trước và chốt người nhận khi lưu; không tự phát hành. Có thể lọc đã/chưa trả lời một khảo sát cụ thể.
-- **Voucher/báo cáo/nhật ký:** quản lý mã giảm giá, báo cáo khách hàng, khảo sát, mua lại, kết quả chăm sóc và tra cứu nhật ký nghiệp vụ.
+- **Voucher/báo cáo:** quản lý mã giảm giá, báo cáo khách hàng, khảo sát, mua lại và kết quả chăm sóc.
 
 Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang mở được cập nhật mỗi 5 giây; tạm dừng khi tab bị ẩn hoặc người dùng đang nhập/gửi thao tác liên quan.
 

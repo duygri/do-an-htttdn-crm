@@ -29,10 +29,11 @@ class AuditLogIntegrationTest {
     User user(String name,String role){var u=new User();u.setFullName(name);u.setEmail(name+"@audit.test");u.setRole(role);u.setPasswordHash("never-log-this-hash");em.persist(u);em.flush();return u;}
     String token(User u){return "Bearer "+jwt.issue(u.getId(),u.getRole());}
     @Test void verifiedActorBeforeAfterAndPrivacy() throws Exception {
-        var manager=user("Manager","MANAGER");var customer=user("Customer","CUSTOMER");
+        var manager=user("Manager","MANAGER");var admin=user("Admin","ADMIN");var customer=user("Customer","CUSTOMER");
         mvc.perform(patch("/api/manager/users/"+customer.getId()+"/lock").header("Authorization",token(manager)).header("X-Actor-Name","spoofed").contentType(MediaType.APPLICATION_JSON).content("{\"locked\":true,\"reason\":\"private reason\"}")) .andExpect(status().isOk());
         em.flush();assertEquals(1,logs.count());var log=logs.findAll().getFirst();assertEquals(manager.getId(),log.getActorId());assertEquals("Manager",log.getActorName());assertEquals("LOCK",log.getAction());assertTrue(log.getAfterData().contains("\"locked\":true"));assertTrue(log.getBeforeData().contains("\"locked\":false"));
-        String body=mvc.perform(get("/api/manager/audit-logs").header("Authorization",token(manager))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andReturn().getResponse().getContentAsString();
+        mvc.perform(get("/api/manager/audit-logs").header("Authorization",token(manager))).andExpect(status().isNotFound());
+        String body=mvc.perform(get("/api/admin/audit-logs").header("Authorization",token(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1)).andReturn().getResponse().getContentAsString();
         for(String secret:new String[]{"private reason","never-log-this-hash","Customer@audit.test","spoofed","passwordHash"})assertFalse(body.contains(secret));
         mvc.perform(patch("/api/manager/users/"+customer.getId()+"/lock").header("Authorization",token(manager)).contentType(MediaType.APPLICATION_JSON).content("{\"locked\":true,\"reason\":\"private reason\"}")).andExpect(status().isConflict());assertEquals(1,logs.count());
     }
@@ -40,13 +41,14 @@ class AuditLogIntegrationTest {
         var manager=user("Manager","MANAGER");var admin=user("Admin","ADMIN");var customer=user("Customer","CUSTOMER");
         logs.save(new AuditLog(admin.getId(),"Admin","ADMIN","UPDATE","ACCOUNT",8L,"{}","{}"));
         for(long id=1;id<=3;id++)logs.save(new AuditLog(manager.getId(),"Manager","MANAGER","STOCK","PRODUCT",id,"{}","{}"));em.flush();
-        mvc.perform(get("/api/manager/audit-logs")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/manager/audit-logs").header("Authorization",token(customer))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/audit-logs")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/admin/audit-logs").header("Authorization",token(customer))).andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/audit-logs").header("Authorization",token(manager))).andExpect(status().isForbidden());
-        mvc.perform(get("/api/manager/audit-logs?size=1&page=1&type=PRODUCT&action=STOCK&q=Manager").header("Authorization",token(manager))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.content.length()").value(1));
-        mvc.perform(get("/api/manager/audit-logs?type=ACCOUNT").header("Authorization",token(manager))).andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get("/api/manager/audit-logs").header("Authorization",token(manager))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/admin/audit-logs?size=1&page=1&type=PRODUCT&action=STOCK&q=Manager").header("Authorization",token(admin))).andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3)).andExpect(jsonPath("$.totalPages").value(3)).andExpect(jsonPath("$.content.length()").value(1));
+        mvc.perform(get("/api/admin/audit-logs?type=ACCOUNT").header("Authorization",token(admin))).andExpect(jsonPath("$.totalElements").value(1));
         mvc.perform(get("/api/admin/audit-logs").header("Authorization",token(admin))).andExpect(jsonPath("$.totalElements").value(4));
-        for(String filter:new String[]{"page=-1","size=101","type=BAD","action=BAD","from=2026-10-16T00:00:00Z&to=2026-10-15T00:00:00Z"})mvc.perform(get("/api/manager/audit-logs?"+filter).header("Authorization",token(manager))).andExpect(status().isBadRequest());
+        for(String filter:new String[]{"page=-1","size=101","type=BAD","action=BAD","from=2026-10-16T00:00:00Z&to=2026-10-15T00:00:00Z"})mvc.perform(get("/api/admin/audit-logs?"+filter).header("Authorization",token(admin))).andExpect(status().isBadRequest());
         mvc.perform(delete("/api/admin/audit-logs/1").header("Authorization",token(admin))).andExpect(status().is4xxClientError());assertEquals(4,logs.count());
     }
     @Test void orderNoOpDoesNotDuplicateAndFailedTransitionDoesNotLog() throws Exception {
