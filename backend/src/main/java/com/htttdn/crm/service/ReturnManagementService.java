@@ -1,5 +1,6 @@
 package com.htttdn.crm.service;
 
+import jakarta.validation.constraints.*;
 import com.htttdn.crm.entity.*;
 import com.htttdn.crm.repository.*;
 import com.htttdn.crm.exception.ApiException;
@@ -48,5 +49,5 @@ public class ReturnManagementService extends AdminServiceSupport {
         return orders.save(order);
     }
     private ApiException conflict(){return new ApiException(HttpStatus.CONFLICT,"INVALID_RETURN_TRANSITION","Yêu cầu đổi trả đã thay đổi hoặc không đủ điều kiện. Vui lòng tải lại.");}
-    public record Request(String status,String note) {}
+    public record Request(@Size(max=30) String status,@Size(max=1000) String note) {}
 }

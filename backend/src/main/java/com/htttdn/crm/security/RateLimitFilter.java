@@ -24,11 +24,13 @@ final class RateLimitFilter extends OncePerRequestFilter {
     private final RateLimitStore store;
     private final ObjectMapper mapper;
     private final boolean enabled;
+    private final int maxBodyBytes;
 
-    RateLimitFilter(RateLimitStore store, ObjectMapper mapper, boolean enabled) {
+    RateLimitFilter(RateLimitStore store, ObjectMapper mapper, boolean enabled, int maxBodyBytes) {
         this.store = store;
         this.mapper = mapper;
         this.enabled = enabled;
+        this.maxBodyBytes = maxBodyBytes;
     }
 
     @Override
@@ -37,7 +39,8 @@ final class RateLimitFilter extends OncePerRequestFilter {
         boolean webhook = "POST".equals(request.getMethod()) && WEBHOOK_PATH.equals(path);
         if (!enabled || "OPTIONS".equalsIgnoreCase(request.getMethod()) || webhook) { chain.doFilter(request, response); return; }
 
-        CachedBodyRequest wrapped = new CachedBodyRequest(request);
+        CachedBodyRequest wrapped = new CachedBodyRequest(request, maxBodyBytes);
+        if (wrapped.bodyTooLarge()) { writeJsonError(response, 413, "PAYLOAD_TOO_LARGE", "Payload quá lớn. Giới hạn " + maxBodyBytes / 1024 + " KB.", null); return; }
         String ipHash = AuthService.hash(clientIp(request));
         if (!store.tryConsumeGlobal(ipHash)) { write429(response, store.globalRetryAfterSeconds(ipHash)); return; }
 
@@ -74,9 +77,13 @@ final class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private static void write429(HttpServletResponse response, long retryAfterSeconds) throws IOException {
-        response.setStatus(429);
-        response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+        writeJsonError(response, 429, "RATE_LIMITED", "Quá nhiều yêu cầu. Vui lòng thử lại sau.", String.valueOf(retryAfterSeconds));
+    }
+
+    private static void writeJsonError(HttpServletResponse response, int status, String code, String message, String retryAfter) throws IOException {
+        response.setStatus(status);
+        if (retryAfter != null) response.setHeader("Retry-After", retryAfter);
         response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().print("{\"code\":\"RATE_LIMITED\",\"message\":\"Quá nhiều yêu cầu. Vui lòng thử lại sau.\"}");
+        response.getWriter().print("{\"code\":\"" + code + "\",\"message\":\"" + message + "\"}");
     }
 }

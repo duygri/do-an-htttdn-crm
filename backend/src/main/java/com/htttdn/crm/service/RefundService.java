@@ -1,5 +1,6 @@
 package com.htttdn.crm.service;
 
+import jakarta.validation.constraints.*;
 import com.htttdn.crm.entity.*;
 import com.htttdn.crm.repository.*;
 import com.htttdn.crm.exception.ApiException;
@@ -16,8 +17,8 @@ public class RefundService {
     private final OrderRepository orders; private final OrderRefundRepository refunds; private final PaymentRepository payments;
     private final NotificationService notifications; private final AuditTrail audit;
     public RefundService(OrderRepository orders,OrderRefundRepository refunds,PaymentRepository payments,NotificationService notifications,AuditTrail audit){this.orders=orders;this.refunds=refunds;this.payments=payments;this.notifications=notifications;this.audit=audit;}
-    public record Input(String reasonType,BigDecimal amount,String note,String requestKey){}
-    public record Process(String bankReference,String note){}
+    public record Input(@Size(max=10) String reasonType,@DecimalMin("0.0") BigDecimal amount,@Size(max=1000) String note,@Size(max=100) String requestKey){}
+    public record Process(@Size(max=120) String bankReference,@Size(max=1000) String note){}
     public record Summary(String status,BigDecimal refundedAmount,BigDecimal pendingAmount,BigDecimal availableAmount){}
     public record View(Long id,Long orderId,Long orderCode,String customerName,String customerEmail,String reasonType,BigDecimal amount,String status,String note,String processingNote,String bankReference,Long requestedBy,Long processedBy,Instant requestedAt,Instant processedAt){}
     public static BigDecimal collected(Order o){return "PAYOS".equals(o.getPaymentMethod())&&"PAID".equals(o.getPaymentStatus())?o.getTotalAmount():"COD".equals(o.getPaymentMethod())&&o.codCollectedAt!=null?o.codCollectedAmount:BigDecimal.ZERO;}

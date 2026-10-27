@@ -4,6 +4,7 @@ import com.htttdn.crm.entity.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Page;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.Map;
 @RestController
@@ -14,6 +15,6 @@ public class DirectoryController {
  @GetMapping({"/api/admin/suppliers","/api/manager/suppliers"}) public Page<Supplier> suppliers(@RequestParam(defaultValue="")String q,@RequestParam(required=false)Boolean active,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size,@RequestParam(defaultValue="name")String sort,@RequestParam(defaultValue="false")boolean desc){return service.suppliers(q,active,page,size,sort,desc);}
  @PostMapping("/api/manager/suppliers") @ResponseStatus(org.springframework.http.HttpStatus.CREATED) public Supplier create(@Valid @RequestBody Supplier input){return service.save(null,input);}
  @PutMapping("/api/manager/suppliers/{id}") public Supplier update(@PathVariable Long id,@Valid @RequestBody Supplier input){return service.save(id,input);}
- @PatchMapping("/api/manager/products/{id}/supplier") public Product assign(@PathVariable Long id,@RequestBody Assignment input){return service.assign(id,input.supplierId());}
- public record Assignment(Long supplierId){}
+ @PatchMapping("/api/manager/products/{id}/supplier") public Product assign(@PathVariable Long id,@Valid @RequestBody Assignment input){return service.assign(id,input.supplierId());}
+ public record Assignment(@NotNull Long supplierId){}
 }
