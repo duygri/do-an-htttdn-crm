@@ -68,7 +68,7 @@ Customer --> MA16
 Customer --> MA17
 Customer --> MA18
 MA17 .> MA09 : <<extend>>\n[khi đơn có yêu cầu đổi trả]
-note bottom
+note bottom of Manager
 UC-A03 ở sơ đồ Manager chỉ mô tả đăng nhập Manager.
 Đăng nhập Admin được đặc tả riêng bằng UC-ADM01.
 Manager không có quyền xem audit log hệ thống.

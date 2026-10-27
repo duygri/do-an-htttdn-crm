@@ -117,6 +117,7 @@ end
 note over Job,DB
   Grace defaults to 24 hours after the latest expiry, range 1-720 hours.
   Demo explicitly enables automatic cancellation; code defaults to false.
-  PayOS is tested separately with authorized real transactions.
+  PayOS real-transaction testing is still pending and will be
+  performed separately with authorized transactions.
 end note
 @enduml

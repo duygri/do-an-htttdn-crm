@@ -10,7 +10,7 @@ skinparam responseMessageBelowArrow true
 actor Customer
 boundary "Customer Portal" as Web
 control "Auth API" as API
-database "Auth Database / Redis" as DB
+database "Auth Database" as DB
 
 == Login ==
 
@@ -42,26 +42,35 @@ Web -> API: POST /api/auth/refresh\n(refreshToken)
 API -> API: Hash presented refresh token
 API -> DB: Lock and load the refresh-token record
 
-alt Token missing
+alt Token missing or audience ADMIN
     API --> Web: 401 INVALID_REFRESH_TOKEN
     Web --> Customer: Redirect to login
-else Token expired
-    API --> Web: 401 REFRESH_TOKEN_EXPIRED
-    Web --> Customer: Request login again
-else Token already rotated or used again
-    API -> DB: Revoke entire token family\nreason REUSE_DETECTED
-    API -> DB: Record security event
+else Token status ROTATED (reuse)
+    API -> DB: Revoke ACTIVE tokens in the same family\nstatus REVOKED, reason REUSE_DETECTED
     API --> Web: 401 REFRESH_TOKEN_REUSE_DETECTED
     Web --> Customer: Revoke local session and request login
-else Token revoked by logout or admin
+else Token status is not ACTIVE
     API --> Web: 401 INVALID_REFRESH_TOKEN
     Web --> Customer: Request login again
-else Active token
-    API -> DB: Revoke old token\nreason ROTATED
-    API -> API: Create new access JWT
-    API -> API: Create and hash replacement refresh token
-    API -> DB: Store replacement token with same token family
-    API --> Web: New accessToken\nSet-Cookie replacement refreshToken
+else Active token expired
+    API -> DB: Mark token REVOKED\nreason EXPIRED; set revokedAt
+    API --> Web: 401 REFRESH_TOKEN_EXPIRED
+    Web --> Customer: Request login again
+else Active token not expired
+    API -> DB: Mark old token ROTATED\nreason ROTATED; set revokedAt
+    API -> API: Validate token user role, deletedAt and lock status
+    alt Non-customer or deleted user
+        API --> Web: 401 INVALID_REFRESH_TOKEN
+        Web --> Customer: Request login again
+    else Locked customer
+        API --> Web: 423 ACCOUNT_LOCKED
+        Web --> Customer: Show account locked error
+    else Valid customer
+        API -> API: Create and hash replacement refresh token
+        API -> DB: Store replacement token with same token family
+        API -> API: Create new access JWT
+        API --> Web: New accessToken\nSet-Cookie replacement refreshToken
+    end
 end
 
 == Logout ==

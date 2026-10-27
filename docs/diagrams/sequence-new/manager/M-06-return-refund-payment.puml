@@ -43,7 +43,7 @@ else Hoàn tất hoặc từ chối refund
   API --> Web: 200 Refund
 else Xác nhận thu COD hoặc đối soát
   Manager -> Web: Xác nhận thu COD / đối soát PayOS
-  Web -> API: PATCH /api/manager/orders/{id}/cod-collection hoặc POST /payment/reconcile
+  Web -> API: PATCH /api/manager/orders/{id}/cod-collection\nhoặc POST /api/manager/orders/{id}/payment/reconcile
   API -> DB: Cập nhật payment ledger
   DB --> API: Payment updated
   API --> Web: 200 OrderDetail

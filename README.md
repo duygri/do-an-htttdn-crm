@@ -13,7 +13,7 @@ Dự án gồm ba giao diện độc lập **Khách hàng**, **Admin hệ thốn
 - [Công nghệ và kiến trúc](#công-nghệ-và-kiến-trúc)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
 - [Cài đặt và chạy local](#cài-đặt-và-chạy-local)
-- [Cấu hình môi trường demo/nghiệm thu](#cấu-hình-môi-trường-demo-nghiệm-thu)
+- [Cấu hình môi trường demo/nghiệm thu](#cấu-hình-môi-trường-demonghiệm-thu)
 - [Cấu hình thanh toán PayOS](#cấu-hình-thanh-toán-payos)
 - [Kiểm thử và CI](#kiểm-thử-và-ci)
 - [Tài liệu chi tiết](#tài-liệu-chi-tiết)

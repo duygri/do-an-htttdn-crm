@@ -65,7 +65,7 @@ Chỉ khả dụng khi dịch vụ email sẵn sàng, hoặc đồng thời
 profile development và DEV_PASSWORD_RESET_ENABLED=true.
 Email dùng liên kết một lần; chế độ dev hỗ trợ mã thử nghiệm.
 end note
-note bottom
+note bottom of C08
 UC-07 bao gồm giỏ hàng và đặt hàng trong cùng một Use Case; UC-14 chỉ xem ví voucher.
 Không có Use Case con bắt buộc riêng để tạo quan hệ include.
 UC-15, UC-16, UC-17 và UC-18 mở rộng UC-08 khi có điều kiện tương ứng.

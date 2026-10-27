@@ -20,7 +20,7 @@ Web --> Manager: Hiển thị danh sách
 
 alt Thêm hoặc sửa sản phẩm
   Manager -> Web: Nhập thông tin sản phẩm
-  Web -> API: POST/PUT /api/manager/products/{id}
+  Web -> API: POST /api/manager/products (tạo mới)\nhoặc PUT /api/manager/products/{id} (cập nhật)
   API -> DB: Validate và lưu sản phẩm
   DB --> API: Product saved
   API --> Web: 200/201 Product

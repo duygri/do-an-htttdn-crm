@@ -18,6 +18,9 @@ Boundary -> Control: Truyền dữ liệu câu hỏi đến bộ điều khiển
 Control -> Entity: Lưu thông tin bảng khảo sát vào CSDL
 Entity --> Control: Trả kết quả lưu thành công
 
+Manager -> Boundary: Chọn phát hành khảo sát
+Boundary -> Control: PATCH /api/manager/surveys/{id}/publish?value=true
+
 alt Phát hành khảo sát thành công
   Control -> Entity: Phát hành PUBLISHED; tạo thông báo cho khách đủ điều kiện
   Entity --> Control: Xác nhận đã tạo thông báo trong ứng dụng cho khách hàng
