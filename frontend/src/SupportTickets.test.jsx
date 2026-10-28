@@ -34,7 +34,7 @@ it('customer replies without changing ticket status from the browser and stops p
 });
 it('customer sees a not-found state for a missing ticket and polling stops',async()=>{
  api.mockImplementation(async()=>{const error=new Error('Yêu cầu thất bại (404)');error.status=404;throw error;});
- render(<SupportTickets location="/ho-tro/7" navigate={vi.fn()}/>);await flush();expect(screen.getByRole('alert').textContent).toContain('Không tìm thấy phiếu hỗ trợ');const count=api.mock.calls.length;await act(async()=>vi.advanceTimersByTimeAsync(15000));expect(api).toHaveBeenCalledTimes(count);
+ render(<SupportTickets location="/ho-tro/7" navigate={vi.fn()}/>);await flush();expect(api.mock.calls[0][0]).toBe('/api/support-tickets/7');expect(screen.getByRole('alert').textContent).toContain('Không tìm thấy phiếu hỗ trợ');const count=api.mock.calls.length;await act(async()=>vi.advanceTimersByTimeAsync(15000));expect(api).toHaveBeenCalledTimes(count);
 });
 it('list filters reset page, direct Manager route and back-forward restore detail',async()=>{
  window.history.replaceState({},'','/manager/support-tickets?id=7&page=2');render(<ManagerApp/>);await act(async()=>{await import('./SupportTickets');});await flush();expect(screen.getByText('Phiếu #7: Đơn giao chậm')).toBeTruthy();fireEvent.click(screen.getByText('← Danh sách phiếu'));await flush();expect(window.location.search).toContain('page=2');fireEvent.change(screen.getByLabelText('Lọc trạng thái phiếu'),{target:{value:'RESOLVED'}});await flush();expect(window.location.search).toContain('page=0');expect(window.location.search).toContain('status=RESOLVED');
