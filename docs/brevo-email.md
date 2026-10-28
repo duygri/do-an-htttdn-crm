@@ -23,6 +23,8 @@ Các biến `RESEND_*` không còn quyết định gửi khi chọn Brevo; khôn
 
 ## Bật cho mọi user
 
+Email khôi phục dùng link công khai không chứa token, kèm mã riêng để dán vào trang đặt lại mật khẩu. Nếu liên kết theo dõi `sendibt2.com` báo lỗi, người nhận có thể sao chép địa chỉ website hiển thị trong email để mở trực tiếp; không gửi link theo dõi hoặc mã khôi phục cho hỗ trợ. Link cũ còn hạn vẫn được frontend hỗ trợ. Không cần migration hoặc thay đổi API key cho bản sửa này.
+
 Sau khi gửi thử thành công, đặt `BREVO_TEST_MODE=false` và triển khai lại. Email luôn tới đúng customer của nghiệp vụ, không chuyển về địa chỉ thử, không gửi lại lịch sử. Cần thử thêm một hộp thư khác được chủ hộp thư đồng ý trước khi khẳng định hoạt động với người nhận khác.
 
 Brevo có thể thay địa chỉ gửi Gmail bằng miền của Brevo theo chính sách giao hàng; tên miền riêng được xác thực vẫn là lựa chọn lâu dài. Gói miễn phí hiện có hạn mức 300 email/ngày; cần kiểm tra hạn mức thực tế trong tài khoản. Không tự mua gói hoặc nâng cấp.

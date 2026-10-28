@@ -32,7 +32,7 @@ export default function CustomerPassword({ initialMode, onNavigate, onNotice }) 
           if (result.resetCode) onNavigate('/dat-lai-mat-khau');
         }
       } else {
-        await api(endpoints.resetPassword, { method: 'POST', body: { email: form.email, code: form.code, newPassword: form.newPassword } });
+        await api(endpoints.resetPassword, { method: 'POST', body: { email: form.email, code: form.code.trim(), newPassword: form.newPassword } });
         if (alive.current) { onNotice('Đặt lại mật khẩu thành công.'); onNavigate('/dang-nhap'); }
       }
     } catch (err) { if (alive.current) setError(err.message); }
@@ -47,9 +47,9 @@ export default function CustomerPassword({ initialMode, onNavigate, onNotice }) 
     {sent && <p role="status">{sent}</p>}
     <form onSubmit={submit}><fieldset disabled={busy}>
       {initialMode === 'change' ? field('currentPassword', 'Mật khẩu hiện tại', { type: 'password', autoComplete: 'current-password' }) : field('email', 'Email', { type: 'email', autoComplete: 'email' })}
-      {initialMode === 'reset' && !form.code && <p>Mở liên kết trong email để đặt lại mật khẩu, hoặc yêu cầu liên kết mới.</p>}
+      {initialMode === 'reset' && <><p>Dán mã khôi phục trong email. Mã chỉ dùng một lần và có thời hạn.</p>{field('code', 'Mã khôi phục', { type: 'text', autoComplete: 'one-time-code', autoCapitalize: 'none', spellCheck: false, maxLength: 128 })}</>}
       {initialMode !== 'forgot' && field('newPassword', 'Mật khẩu mới', { type: 'password', minLength: 8, autoComplete: 'new-password' })}
-      <button className="button button-dark" disabled={busy || (initialMode === 'reset' && !form.code)}>{busy ? 'Đang xử lý...' : initialMode === 'forgot' ? 'Gửi liên kết đặt lại' : title}</button>
+      <button className="button button-dark" disabled={busy || (initialMode === 'reset' && !form.code.trim())}>{busy ? 'Đang xử lý...' : initialMode === 'forgot' ? 'Gửi liên kết đặt lại' : title}</button>
     </fieldset></form>
     <div className="auth-switch"><button onClick={() => onNavigate(initialMode === 'change' ? '/quen-mat-khau' : '/dang-nhap')}>{initialMode === 'change' ? 'Quên mật khẩu?' : 'Về đăng nhập'}</button></div>
   </section></div>;

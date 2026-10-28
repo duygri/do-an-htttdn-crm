@@ -22,3 +22,17 @@ it('keeps the forgot form with a generic delivery message and no secret',async()
  fireEvent.click(screen.getByRole('button',{name:'Gửi liên kết đặt lại'}));
  expect(await screen.findByRole('status')).toBeTruthy();expect(navigate).not.toHaveBeenCalled();
 });
+it('accepts a code from email on the public reset page and retains it after failure',async()=>{
+ api.mockImplementation(async path=>{if(path==='/reset')throw new Error('Mã đã hết hạn hoặc không hợp lệ.');return {enabled:true};});
+ render(<CustomerPassword initialMode="reset" onNavigate={vi.fn()} onNotice={vi.fn()}/>);
+ const email=await screen.findByLabelText('Email');const submit=screen.getByRole('button',{name:'Đặt lại mật khẩu',exact:true});
+ expect(submit.disabled).toBe(true);
+ fireEvent.change(email,{target:{value:'owner@example.com'}});
+ fireEvent.change(screen.getByLabelText('Mã khôi phục'),{target:{value:'  '+ 'B'.repeat(43)+'  '}});
+ fireEvent.change(screen.getByLabelText('Mật khẩu mới'),{target:{value:'Password123'}});
+ fireEvent.click(submit);
+ expect(await screen.findByRole('alert')).toHaveProperty('textContent','Mã đã hết hạn hoặc không hợp lệ.');
+ expect(api).toHaveBeenCalledWith('/reset',{method:'POST',body:{email:'owner@example.com',code:'B'.repeat(43),newPassword:'Password123'}});
+ expect(screen.getByLabelText('Mã khôi phục').value.trim()).toBe('B'.repeat(43));
+ expect(window.location.hash).toBe('');
+});

@@ -38,7 +38,9 @@ class ResendRecoveryTest {
         service.deliverPasswordReset(request.getValue());
         var token=ArgumentCaptor.forClass(PasswordResetToken.class);verify(tokens).save(token.capture());
         var text=ArgumentCaptor.forClass(String.class);verify(mail).send(eq("owner@example.com"),anyString(),text.capture(),anyString());
-        var code=text.getValue().split("&code=")[1].split("\\n")[0];
+        var code=text.getValue().lines().filter(line->line.matches("[A-Za-z0-9_-]{43}")).findFirst().orElseThrow();
+        assertTrue(text.getValue().contains("https://example.com/dat-lai-mat-khau\n"));
+        assertFalse(text.getValue().contains("#email="));assertFalse(text.getValue().contains("code="));
         assertEquals(43,code.length());assertEquals(AuthService.hash(code),token.getValue().getTokenHash());
         assertFalse(token.getValue().getTokenHash().contains(code));
     }

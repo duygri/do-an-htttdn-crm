@@ -75,8 +75,8 @@ public class AuthService {
         byte[] bytes=new byte[32];new SecureRandom().nextBytes(bytes);
         String code=deliver?Base64.getUrlEncoder().withoutPadding().encodeToString(bytes):String.format("%06d",new SecureRandom().nextInt(1_000_000));
         if(deliver){
-            String link=mail.link("/dat-lai-mat-khau#email="+java.net.URLEncoder.encode(normalized,StandardCharsets.UTF_8)+"&code="+code);
-            try { mail.send(normalized,"ANH LỚN SHOP — Đặt lại mật khẩu","Mở liên kết để đặt lại mật khẩu:\n"+link+"\n\nLiên kết có hiệu lực "+resetCodeMinutes+" phút, dùng một lần. Nếu không yêu cầu, bạn có thể bỏ qua email này.","password-reset-"+UUID.randomUUID()); }
+            String link=mail.link("/dat-lai-mat-khau");
+            try { mail.send(normalized,"ANH LỚN SHOP — Đặt lại mật khẩu","Mở trang sau để đặt lại mật khẩu:\n"+link+"\n\nNhập email tài khoản và dán toàn bộ mã khôi phục sau:\n"+code+"\n\nMã có hiệu lực "+resetCodeMinutes+" phút, dùng một lần. Không chia sẻ mã này. Nếu nút trong email báo lỗi, hãy sao chép địa chỉ trang ở trên và mở trực tiếp trong trình duyệt. Nếu không yêu cầu, bạn có thể bỏ qua email này.","password-reset-"+UUID.randomUUID()); }
             catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Password reset email delivery failed (status={}, reason={})",e instanceof TransactionalMail.DeliveryFailure f?f.status:0,e instanceof TransactionalMail.DeliveryFailure f?f.reason:"TRANSPORT_OR_INTERNAL"); return null; }
         }
         resetTokens.deleteByCustomerId(user.getId());resetTokens.flush();

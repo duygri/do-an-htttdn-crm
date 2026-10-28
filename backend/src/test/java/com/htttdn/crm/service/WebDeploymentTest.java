@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class WebDeploymentTest {
     @Test void pagesForwardButApiAndAssetsNeverDo() throws Exception {
         var mvc = MockMvcBuilders.standaloneSetup(new WebDeploymentController()).build();
-        for (String path : new String[]{"/", "/san-pham", "/san-pham/1", "/manager/login", "/admin/accounts", "/don-hang/2", "/ho-tro/3"})
+        for (String path : new String[]{"/", "/san-pham", "/san-pham/1", "/manager/login", "/admin/accounts", "/don-hang/2", "/ho-tro/3", "/dat-lai-mat-khau"})
             mvc.perform(get(path)).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
         mvc.perform(get("/healthz")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ok"));
         mvc.perform(get("/api/not-found")).andExpect(status().isNotFound());
