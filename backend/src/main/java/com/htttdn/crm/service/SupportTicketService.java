@@ -54,17 +54,18 @@ public class SupportTicketService {
         User manager=actor(a);if(!a.manager())throw new ApiException(HttpStatus.FORBIDDEN,"MANAGER_REQUIRED","Chỉ quản lý được xử lý phiếu.");var t=ticket(a,id,true);
         String status=input.status();if(status==null||!STATUSES.contains(status))throw bad("Trạng thái phiếu không hợp lệ.");
         String reply=text(input.reply(),4000,false),request=reply.isEmpty()?null:key(input.requestId());
+        // Acting manager takes an unassigned ticket; an explicit request wins, an existing owner is never stolen.
+        Long assignee=input.assigneeId()!=null?input.assigneeId():t.assigneeId!=null?t.assigneeId:("NEW".equals(status)&&reply.isEmpty()?null:a.id());
         // Retrying the same transition after a lost response returns its result, without another message/notification.
-        if(request!=null&&messages(t).stream().anyMatch(m->m.id().equals(request))){var old=messages(t).stream().filter(m->m.id().equals(request)).findFirst().orElseThrow();if(!old.content().equals(reply)||!old.author().equals("ANH LỚN SHOP")||old.internal()||!t.status.equals(status)||!Objects.equals(t.assigneeId,input.assigneeId()))throw conflict("Yêu cầu đã thay đổi. Hãy tải lại phiếu.");return detail(a,id);}
+        if(request!=null&&messages(t).stream().anyMatch(m->m.id().equals(request))){var old=messages(t).stream().filter(m->m.id().equals(request)).findFirst().orElseThrow();if(!old.content().equals(reply)||!old.author().equals("ANH LỚN SHOP")||old.internal()||!t.status.equals(status)||!Objects.equals(t.assigneeId,assignee))throw conflict("Yêu cầu đã thay đổi. Hãy tải lại phiếu.");return detail(a,id);}
         if(input.version()==null||input.version()!=t.version)throw conflict("Phiếu đã thay đổi. Hãy tải lại trước khi lưu.");
         if("RESOLVED".equals(t.status))throw conflict("Phiếu đã giải quyết, không thể sửa. Hãy tạo phiếu mới nếu cần.");
         boolean same=t.status.equals(status),valid=same||"NEW".equals(t.status)&&"IN_PROGRESS".equals(status)||"IN_PROGRESS".equals(t.status)&&Set.of("WAITING_CUSTOMER","RESOLVED").contains(status)||"WAITING_CUSTOMER".equals(t.status)&&Set.of("IN_PROGRESS","RESOLVED").contains(status);
         if(!valid)throw conflict("Không thể chuyển sang trạng thái này.");
-        if(!Objects.equals(t.assigneeId,input.assigneeId()))staff(input.assigneeId());
-        if(!"NEW".equals(status)&&input.assigneeId()==null)throw bad("Cần chọn người phụ trách trước khi xử lý.");
+        if(!Objects.equals(t.assigneeId,assignee))staff(assignee);
         if(!same&&Set.of("WAITING_CUSTOMER","RESOLVED").contains(status)&&reply.isEmpty())throw bad("Hãy nhập nội dung gửi khách khi chờ khách hoặc giải quyết phiếu.");
-        if(same&&Objects.equals(t.assigneeId,input.assigneeId())&&reply.isEmpty())return detail(a,id);
-        var before=snapshot(t);boolean reassigned=!Objects.equals(t.assigneeId,input.assigneeId());t.assigneeId=input.assigneeId();t.status=status;t.updatedAt=Instant.now();if("RESOLVED".equals(status))t.resolvedAt=t.updatedAt;
+        if(same&&Objects.equals(t.assigneeId,assignee)&&reply.isEmpty())return detail(a,id);
+        var before=snapshot(t);boolean reassigned=!Objects.equals(t.assigneeId,assignee);t.assigneeId=assignee;t.status=status;t.updatedAt=Instant.now();if("RESOLVED".equals(status))t.resolvedAt=t.updatedAt;
         if(!reply.isEmpty())append(t,new Message(request,"ANH LỚN SHOP",reply,false,t.updatedAt));em.flush();log(manager,"UPDATE",t,before);
         if(!same||!reply.isEmpty())notify(customer(t.customerId,false),t,"Phiếu hỗ trợ đã được cập nhật","SUPPORT_UPDATED");if(reassigned)notifyAssignee(t);return detail(a,id);
     }
@@ -73,7 +74,7 @@ public class SupportTicketService {
         String request=key(input.requestId()),content=text(input.content(),4000,true);String author=a.manager()?"ANH LỚN SHOP":"Khách hàng";
         var existing=messages(t).stream().filter(m->m.id().equals(request)).findFirst();if(existing.isPresent()){var old=existing.get();if(!old.content().equals(content)||!old.author().equals(author)||old.internal()!=input.internal())throw conflict("Mã tin nhắn đã được dùng.");return detail(a,id);}
         if("RESOLVED".equals(t.status))throw conflict("Phiếu đã giải quyết. Hãy tạo phiếu mới nếu cần hỗ trợ thêm.");
-        var before=snapshot(t);t.updatedAt=Instant.now();append(t,new Message(request,author,content,input.internal(),t.updatedAt));
+        var before=snapshot(t);t.updatedAt=Instant.now();if(a.manager()&&t.assigneeId==null)t.assigneeId=a.id();append(t,new Message(request,author,content,input.internal(),t.updatedAt));
         if(!a.manager()&&"WAITING_CUSTOMER".equals(t.status))t.status="IN_PROGRESS";em.flush();
         if(a.manager()){log(sender,"UPDATE",t,before);if(!input.internal())notify(customer(t.customerId,false),t,"Shop đã trả lời phiếu hỗ trợ","SUPPORT_REPLY");}else notifyAssignee(t);
         return detail(a,id);
