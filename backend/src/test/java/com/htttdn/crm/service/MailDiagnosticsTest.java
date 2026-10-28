@@ -11,6 +11,24 @@ import static org.mockito.Mockito.*;
 
 class MailDiagnosticsTest {
  private final TransactionalMail mail=new TransactionalMail(new ObjectMapper());
+ @Test void supportOutputPreservesProviderExplanationButRedactsSensitiveValues() throws Exception {
+  org.springframework.test.util.ReflectionTestUtils.setField(mail,"brevoApiKey","synthetic-private-key");
+  String body=new ObjectMapper().writeValueAsString(java.util.Map.of(
+   "code","permission_denied","message","Sending is blocked. Contact support. synthetic-private-key person@example.com https://shop.example/reset#code=secret 198.51.100.5 2001:db8::1 abcdefghijklmnopqrstuvwxyz0123456789\nforged-log",
+   "api-key","DO-NOT-LOG-EXTRA-FIELDS"));
+  String diagnostic=mail.supportDiagnostic(body.getBytes(StandardCharsets.UTF_8),"person@example.com");
+  assertTrue(diagnostic.contains("permission_denied"));assertTrue(diagnostic.contains("Sending is blocked. Contact support."));
+  for(String secret:java.util.List.of("synthetic-private-key","person@example.com","shop.example","198.51.100.5","2001:db8::1","abcdefghijklmnopqrstuvwxyz0123456789","DO-NOT-LOG-EXTRA-FIELDS"))assertFalse(diagnostic.contains(secret),secret);
+  assertFalse(diagnostic.contains("\n"));assertTrue(diagnostic.contains("\\n"));
+  assertEquals(2,new ObjectMapper().readTree(diagnostic).size());
+ }
+ @Test void supportOutputRejectsInvalidOrOversizedBodyAndBoundsFields() throws Exception {
+  assertEquals("OVERSIZED_RESPONSE",mail.supportDiagnostic(new byte[16_385],""));
+  for(String invalid:java.util.List.of("","[]","null","<html>secret</html>"))assertEquals("NON_JSON_RESPONSE",mail.supportDiagnostic(invalid.getBytes(StandardCharsets.UTF_8),""));
+  String diagnostic=mail.supportDiagnostic(new ObjectMapper().writeValueAsBytes(java.util.Map.of("message","short words ".repeat(200))),"");
+  assertTrue(new ObjectMapper().readTree(diagnostic).path("message").asText().length()<=1035);
+  assertTrue(diagnostic.contains("[TRUNCATED]"));
+ }
  @ParameterizedTest @CsvSource({
   "We detected an unrecognised IP address,IP_NOT_AUTHORIZED",
   "Your SMTP account is not yet activated,ACCOUNT_NOT_ACTIVATED_OR_SUSPENDED",

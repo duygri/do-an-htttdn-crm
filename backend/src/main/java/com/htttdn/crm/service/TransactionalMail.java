@@ -31,6 +31,7 @@ public class TransactionalMail {
     @Value("${BREVO_SENDER_NAME:ANH LON SHOP}") private String brevoSenderName = "ANH LON SHOP";
     @Value("${BREVO_TEST_MODE:true}") private boolean brevoTestMode = true;
     @Value("${BREVO_TEST_RECIPIENT:}") private String brevoTestRecipient = "";
+    @Value("${BREVO_ERROR_DIAGNOSTICS:false}") private boolean brevoErrorDiagnostics;
     @Value("${PUBLIC_ORIGIN:}") private String origin;
     private final ObjectMapper mapper;
     private final HttpClient client;
@@ -62,7 +63,13 @@ public class TransactionalMail {
             HttpResponse.BodyHandler<byte[]> handler=info->info.statusCode()>=200 && info.statusCode()<300
                 ?HttpResponse.BodySubscribers.mapping(HttpResponse.BodySubscribers.discarding(),ignored->new byte[0]):new LimitedErrorBody();
             var response=client.send(request,handler);
-            if(response.statusCode()<200 || response.statusCode()>=300)throw failure(response.statusCode(),response.body()==null?new byte[0]:response.body());
+            if(response.statusCode()<200 || response.statusCode()>=300){
+                byte[] errorBody=response.body()==null?new byte[0]:response.body();
+                if(brevo() && brevoErrorDiagnostics && response.statusCode()==403){
+                    org.slf4j.LoggerFactory.getLogger(getClass()).warn("Brevo support diagnostic (status=403, redacted=true): {}",supportDiagnostic(errorBody,recipient));
+                }
+                throw failure(response.statusCode(),errorBody);
+            }
             org.slf4j.LoggerFactory.getLogger(getClass()).info("Email request accepted by provider (provider={}, status={}); delivery not confirmed",brevo()?"brevo":"resend",response.statusCode());
         } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException("Email delivery interrupted"); }
         catch (java.io.IOException e) { throw new IllegalStateException("Email delivery unavailable"); }
@@ -73,6 +80,29 @@ public class TransactionalMail {
         }).collect(java.util.stream.Collectors.joining())+"</body></html>";
     }
     private static String escape(String value){return value.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
+    /** Opt-in support output: only bounded JSON code/message, never headers or full bodies. */
+    String supportDiagnostic(byte[] body,String recipient){
+        if(body.length>16_384)return "OVERSIZED_RESPONSE";
+        try {
+            var error=mapper.readTree(body);
+            if(error==null || !error.isObject())return "NON_JSON_RESPONSE";
+            String code=error.path("code").isTextual()?error.path("code").textValue():"";
+            String message=error.path("message").isTextual()?error.path("message").textValue():"";
+            return mapper.writeValueAsString(Map.of("code",redactDiagnostic(code,recipient,128),"message",redactDiagnostic(message,recipient,1024)));
+        }catch(java.io.IOException | RuntimeException ignored){return "NON_JSON_RESPONSE";}
+    }
+    private String redactDiagnostic(String value,String recipient,int limit){
+        for(String secret:new String[]{brevoApiKey,apiKey,recipient,brevoSender,testRecipient,brevoTestRecipient}){
+            if(secret!=null && !secret.isBlank())value=value.replace(secret,"[REDACTED]");
+        }
+        value=value.replaceAll("(?i)https?://[^\\s<>\"']+","[URL]")
+            .replaceAll("[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+","[EMAIL]")
+            .replaceAll("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b","[IP]")
+            .replaceAll("(?i)(?:[a-f0-9]{0,4}:){2,}[a-f0-9:]+","[IP]")
+            .replaceAll("[A-Za-z0-9_+/=.-]{20,}","[TOKEN]");
+        // JSON encoding escapes control characters, keeping one log record per response.
+        return value.length()>limit?value.substring(0,limit)+"[TRUNCATED]":value;
+    }
     static final class DeliveryFailure extends IllegalStateException {
         final int status;
         final String reason;

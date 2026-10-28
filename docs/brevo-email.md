@@ -33,4 +33,6 @@ Tài liệu: https://developers.brevo.com/reference/send-transac-email
 
 ## Chẩn đoán lỗi gửi
 
+Khi Brevo yêu cầu phản hồi API để điều tra 403, có thể tạm bật `BREVO_ERROR_DIAGNOSTICS=true` rồi khởi động lại. Chỉ với lỗi Brevo HTTP 403, log `Brevo support diagnostic` bổ sung hai trường JSON `code` và `message` đã che thông tin: khóa cấu hình, địa chỉ email, URL, IP và chuỗi dài giống token. Không ghi headers, request, nội dung email hoặc trường khác trong response. Control characters được JSON escape; mỗi trường có giới hạn độ dài. Đây là bản phản hồi đã lược bỏ dữ liệu, không phải nguyên văn toàn bộ response. Kiểm tra lại trước khi gửi hỗ trợ và tắt biến sau khi chẩn đoán. Chế độ mặc định tắt, không thay đổi thông báo công khai của luồng quên mật khẩu.
+
 Log chỉ có HTTP status và nhãn lý do cố định (`IP_NOT_AUTHORIZED`, `ACCOUNT_NOT_ACTIVATED_OR_SUSPENDED`, `API_KEY_REJECTED`, `SENDER_NOT_VERIFIED`, `PERMISSION_DENIED`, `PROVIDER_UNAUTHORIZED`, `EDGE_ACCESS_DENIED`...). Nhãn là phân loại từ phản hồi, không thay thế xác nhận của Brevo. Phản hồi không nhận diện được trả `UNKNOWN`/`NON_JSON_RESPONSE`; không log nội dung nguyên văn, địa chỉ, khóa, token hay URL reset. Chỉ đọc tối đa 16 KiB cộng một byte phát hiện quá giới hạn rồi hủy đọc, áp dụng timeout request hiện có. Không tự nới quyền, tắt bảo vệ IP hoặc đổi khóa khi gặp 403.

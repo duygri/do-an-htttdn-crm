@@ -49,6 +49,23 @@ class BrevoMailTest {
   var failure=assertThrows(TransactionalMail.DeliveryFailure.class,()->service.send("owner@example.com","subject","secret-link","key"));
   assertEquals(403,failure.status);assertFalse(failure.getMessage().contains("dummy-test-key"));assertFalse(failure.getMessage().contains("secret-link"));
  }
+ @Test void supportDiagnosticIsOptInAndNeverReachesPublicException() throws Exception {
+  var service=configured();var response=mock(HttpResponse.class);when(response.statusCode()).thenReturn(403);
+  when(response.body()).thenReturn("{\"code\":\"permission_denied\",\"message\":\"Sending blocked for owner@example.com dummy-test-key\"}".getBytes(StandardCharsets.UTF_8));
+  doReturn(response).when(client).send(any(HttpRequest.class),any(HttpResponse.BodyHandler.class));
+  var logger=(ch.qos.logback.classic.Logger)org.slf4j.LoggerFactory.getLogger(TransactionalMail.class);
+  var events=new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();events.start();logger.addAppender(events);
+  try {
+   assertThrows(TransactionalMail.DeliveryFailure.class,()->service.send("owner@example.com","subject","text","key"));
+   assertTrue(events.list.isEmpty());
+   ReflectionTestUtils.setField(service,"brevoErrorDiagnostics",true);
+   var failure=assertThrows(TransactionalMail.DeliveryFailure.class,()->service.send("owner@example.com","subject","text","key"));
+   assertEquals("Email provider rejected request",failure.getMessage());assertNull(failure.getCause());
+   assertEquals(1,events.list.size());String log=events.list.get(0).getFormattedMessage();
+   assertTrue(log.contains("permission_denied"));assertTrue(log.contains("Sending blocked"));
+   assertFalse(log.contains("owner@example.com"));assertFalse(log.contains("dummy-test-key"));
+  }finally{logger.detachAppender(events);events.stop();}
+ }
  private String body(HttpRequest request) throws Exception {
   var result=new CompletableFuture<String>();var bytes=new java.io.ByteArrayOutputStream();
   request.bodyPublisher().orElseThrow().subscribe(new Flow.Subscriber<ByteBuffer>(){
