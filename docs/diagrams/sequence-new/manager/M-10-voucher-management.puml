@@ -1,0 +1,36 @@
+@startuml
+title M-10 - Manager quản lý voucher cửa hàng
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Voucher Management Page" as Web
+control "Voucher API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Mở danh sách voucher và bộ lọc
+Web -> API: GET /api/manager/vouchers?search&state&page&size
+API -> DB: Truy vấn voucher và lượt sử dụng
+DB --> API: VoucherPage
+API --> Web: 200 VoucherPage
+Web --> Manager: Hiển thị danh sách voucher
+
+alt Tạo voucher
+  Manager -> Web: Nhập mã, thời hạn, điều kiện và mức giảm
+  Web -> API: POST /api/manager/vouchers
+  API -> API: Validate điều kiện voucher
+  API -> DB: Lưu voucher
+  DB --> API: Voucher created
+  API --> Web: 201 Voucher
+else Cập nhật hoặc bật/tắt voucher
+  Manager -> Web: Chỉnh sửa voucher hoặc trạng thái active
+  Web -> API: PATCH /api/manager/vouchers/{id}
+  API -> DB: Cập nhật voucher
+  DB --> API: Voucher updated
+  API --> Web: 200 Voucher
+end
+Web --> Manager: Hiển thị kết quả
+@enduml

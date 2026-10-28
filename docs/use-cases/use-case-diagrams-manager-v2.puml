@@ -1,0 +1,78 @@
+@startuml
+title Use Case Manager v2
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+actor Manager
+actor PayOS
+actor Customer
+package "Tài khoản và khách hàng" {
+  usecase "UC-A03\nĐăng nhập cổng Manager" as MA03
+  usecase "UC-A02\nXem thông tin khách hàng" as MA02
+  usecase "UC-A04\nKhóa/mở tài khoản" as MA04
+  usecase "UC-A10\nThêm khách hàng" as MA10
+  usecase "UC-A11\nXóa khách hàng" as MA11
+  usecase "UC-A14\nXem hồ sơ 360°" as MA14
+}
+package "Sản phẩm và khuyến mãi" {
+  usecase "UC-A06\nQuản lý sản phẩm/tồn kho" as MA06
+  usecase "UC-A13\nQuản lý voucher" as MA13
+  usecase "UC-A15\nQuản lý nhà cung cấp" as MA15
+}
+package "Phản hồi, khảo sát và hỗ trợ" {
+  usecase "UC-A01\nXử lý phản hồi" as MA01
+  usecase "UC-A07\nTạo/phát hành khảo sát" as MA07
+  usecase "UC-A08\nPhân tích khảo sát" as MA08
+  usecase "UC-A18\nXử lý phiếu hỗ trợ" as MA18
+}
+package "Đơn hàng và chăm sóc" {
+  usecase "UC-A09\nQuản lý trạng thái đơn" as MA09
+  usecase "UC-A16\nHoàn tiền/thu COD/đối soát" as MA16
+  usecase "UC-A17\nXử lý đổi trả" as MA17
+  usecase "UC-A19\nChăm sóc khách hàng" as MA19
+  usecase "UC-A23\nThông báo công việc nội bộ" as MA23
+}
+package "Báo cáo" {
+  usecase "UC-A05\nBáo cáo khách hàng" as MA05
+  usecase "UC-A12\nBáo cáo doanh thu" as MA12
+  usecase "UC-A20\nKết quả chăm sóc" as MA20
+  usecase "UC-A21\nBáo cáo giữ chân" as MA21
+  usecase "UC-A22\nBáo cáo dòng tiền" as MA22
+}
+Manager --> MA01
+Manager --> MA02
+Manager --> MA03
+Manager --> MA04
+Manager --> MA05
+Manager --> MA06
+Manager --> MA07
+Manager --> MA08
+Manager --> MA09
+Manager --> MA10
+Manager --> MA11
+Manager --> MA12
+Manager --> MA13
+Manager --> MA14
+Manager --> MA15
+Manager --> MA16
+Manager --> MA17
+Manager --> MA18
+Manager --> MA19
+Manager --> MA20
+Manager --> MA21
+Manager --> MA22
+Manager --> MA23
+PayOS --> MA16 : Đối soát thanh toán\n(không gửi lệnh hoàn tiền)
+Customer --> MA01
+Customer --> MA16
+Customer --> MA17
+Customer --> MA18
+MA17 .> MA09 : <<extend>>\n[khi đơn có yêu cầu đổi trả]
+note bottom of Manager
+UC-A03 ở sơ đồ Manager chỉ mô tả đăng nhập Manager.
+Đăng nhập Admin được đặc tả riêng bằng UC-ADM01.
+Manager không có quyền xem audit log hệ thống.
+Hoàn tiền là xác nhận thủ công trên sổ hoàn tiền;
+PayOS dùng cho thanh toán và đối soát, không có API hoàn tiền trực tiếp.
+end note
+@enduml

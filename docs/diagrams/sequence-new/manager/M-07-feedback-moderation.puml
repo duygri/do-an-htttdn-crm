@@ -1,0 +1,35 @@
+@startuml
+title M-07 - Manager tiếp nhận và kiểm duyệt đánh giá sản phẩm
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Feedback Management Page" as Web
+control "Feedback API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Chọn trạng thái đánh giá
+Web -> API: GET /api/manager/feedback?status&page&size
+API -> DB: Truy vấn feedback
+DB --> API: FeedbackPage
+API --> Web: 200 FeedbackPage
+Web --> Manager: Hiển thị đánh giá
+
+Manager -> Web: Chọn đánh giá và cập nhật trạng thái/nội dung
+Web -> API: PATCH /api/manager/feedback/{id}
+API -> DB: Lưu thay đổi kiểm duyệt
+DB --> API: Feedback updated
+API --> Web: 200 Feedback
+Web --> Manager: Hiển thị kết quả xử lý
+
+opt Xóa mềm đánh giá
+  Manager -> Web: Xác nhận xóa
+  Web -> API: DELETE /api/manager/feedback/{id}
+  API -> DB: Xóa mềm feedback và ghi audit log
+  DB --> API: 204 No Content
+  API --> Web: 204 No Content
+end
+@enduml

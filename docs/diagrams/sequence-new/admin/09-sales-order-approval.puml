@@ -1,0 +1,37 @@
+@startuml
+title Quản lý và duyệt đơn hàng bán
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+actor MANAGER as Manager
+boundary "Trang quản lý đơn hàng" as Boundary
+control "Control xử lý đơn hàng" as Control
+entity "e_đơn hàng" as Entity
+
+Manager -> Boundary: Truy cập trang quản lý đơn hàng
+Boundary -> Control: Gửi yêu cầu xem danh sách đơn hàng chờ duyệt
+Control -> Entity: Truy vấn dữ liệu đơn hàng từ CSDL
+Entity --> Control: Trả về danh sách đơn hàng
+Control -> Boundary: Hiển thị danh sách đơn hàng
+Boundary --> Manager: Hiển thị danh sách đơn hàng cho Manager
+
+alt Duyệt đơn hàng
+  Manager -> Boundary: Chọn đơn hàng và bấm duyệt
+  Boundary -> Control: Gửi yêu cầu cập nhật trạng thái
+  Control -> Entity: Cập nhật trạng thái đơn thành trạng thái hợp lệ theo luồng đơn hàng
+  Entity --> Control: Xác nhận cập nhật thành công
+  Control -> Boundary: Thông báo duyệt đơn thành công
+  Boundary --> Manager: Hiển thị thông báo thành công
+else Hủy đơn hàng
+  Manager -> Boundary: Chọn đơn hàng và bấm hủy
+  Manager -> Boundary: Nhập lý do hủy từ 1–1.000 ký tự sau khi bỏ khoảng trắng đầu/cuối
+  Boundary -> Control: PATCH /api/manager/orders/{id}/status\n(status=CANCELLED, reason)
+  Control -> Entity: Cập nhật trạng thái Đã hủy và hoàn lại tồn kho
+  Entity --> Control: Xác nhận hủy đơn thành công
+  Control -> Boundary: Thông báo hủy đơn thành công
+  Boundary --> Manager: Hiển thị kết quả
+end
+@enduml

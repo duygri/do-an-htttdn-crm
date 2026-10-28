@@ -1,0 +1,21 @@
+@startuml
+title Báo cáo khách hàng (thống kê tài khoản)
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+actor MANAGER as Manager
+boundary "Trang báo cáo khách hàng" as Boundary
+control "Control phân tích khách hàng" as Control
+entity "e_hồ sơ khách hàng" as Entity
+
+Manager -> Boundary: Truy cập trang báo cáo khách hàng
+Manager -> Boundary: Xem số khách hàng, tài khoản ADMIN và khách hàng bị khóa
+Boundary -> Control: GET /api/manager/reports/users
+Control -> Entity: Đếm khách hàng chưa xóa, tài khoản ADMIN\nvà khách hàng bị khóa chưa xóa
+Entity --> Control: Trả về các số đếm tài khoản
+Control -> Boundary: customers, admins, lockedCustomers
+Boundary --> Manager: Hiển thị thống kê tài khoản
+@enduml

@@ -1,0 +1,27 @@
+@startuml
+title Manager xem doanh thu đơn hàng (legacy)
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+actor MANAGER as Manager
+boundary "Báo cáo doanh thu" as Web
+control "AdminReportService" as API
+database "CRM Database" as DB
+
+Manager -> Web: Mở báo cáo doanh thu
+Web -> API: GET /api/manager/reports/revenue
+API -> DB: SUM(totalAmount) của đơn status <> CANCELLED
+DB --> API: totalRevenue (mặc định 0)
+API -> DB: Đếm tất cả đơn hàng
+DB --> API: orders
+API --> Web: 200 {totalRevenue, orders}
+Web --> Manager: Hiển thị doanh thu đơn hàng và tổng số đơn
+note right of API
+  Doanh thu legacy bao gồm đơn chưa thanh toán.
+  orders đếm cả đơn CANCELLED.
+  Đây không phải tiền đã thu hoặc lợi nhuận.
+  Báo cáo dòng tiền có endpoint riêng.
+end note
+@enduml

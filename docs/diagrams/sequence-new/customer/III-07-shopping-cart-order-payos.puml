@@ -1,0 +1,123 @@
+@startuml
+title III-07 - Customer checkout, PayOS payment and abandoned-order handling
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Customer
+boundary "Customer Portal" as Web
+control "Order Service / API" as API
+database "CRM Database" as DB
+participant "PayOS API" as PayOS
+participant "Expiry / Abandoned-order Scheduler" as Job
+
+== Checkout transaction ==
+Customer -> Web: Confirm selected items, address and payment method
+Web -> API: POST /api/orders\n(items, deliveryAddress, paymentMethod, optional voucherCode)
+API -> DB: Lock products; validate variants and available stock
+alt Invalid items or insufficient stock
+  API --> Web: 400 INVALID_CART / 409 OUT_OF_STOCK
+else Valid checkout
+  API -> DB: Deduct stock and create order items in transaction
+  API -> API: Prepare order.status=PENDING and unique orderCode
+  opt Voucher supplied
+    API -> DB: Lock voucher; validate eligibility and limits\nincrement used_count and set discount_amount
+  end
+  API -> API: totalAmount=max(subtotal-discountAmount, 0)
+  API -> DB: Save order and optional voucher_usages record\nreleased_at=NULL; consume purchased cart quantities
+  API -> DB: Create ORDER_CREATED in-app notification
+  alt Total amount is zero
+    API -> DB: Set order.paymentStatus=PAID and payment.status=PAID
+  else Payment method is COD
+    API -> DB: Set order.paymentStatus=COD and payment.status=PENDING
+  else Payment method is PAYOS and amount is positive
+    API -> DB: Set order.paymentStatus=PENDING\nexpires_at=now+15 minutes
+    API -> PayOS: Create payment link\ncanonical totalAmount as exact integer VND
+    PayOS --> API: checkoutUrl, paymentLinkId, qrCode
+    API -> DB: Save payment and payment_attempts
+  end
+  API -> DB: Commit checkout transaction
+  API --> Web: 201 Checkout(order, optional paymentUrl and QR)
+  opt PayOS link returned
+    Web --> Customer: Show QR / open checkoutUrl
+    Customer -> PayOS: Complete payment
+  end
+end
+note over API,DB
+  Checkout exceptions roll back local order, stock and voucher writes.
+  Voucher usage is recorded at checkout; there is no
+  RESERVED/CONFIRMED voucher-state column or webhook finalization.
+  Optional order emails run after commit only when Resend is configured.
+end note
+
+== Return/cancel URL is display only ==
+PayOS --> Web: Redirect returnUrl/cancelUrl with payment result
+Web -> API: GET /api/payments/payos/return
+API --> Web: Display-only result; no order-state transition
+
+== Webhook transaction ==
+PayOS -> API: POST /api/payments/payos/webhook\npayload and signature
+API -> API: Verify signature; resolve attempt/orderCode
+API -> DB: Lock order; verify amount and paymentLinkId
+alt Invalid signature, order or amount/link mismatch
+  API --> PayOS: 400 INVALID_WEBHOOK
+else Valid matching PAYOS payment
+  alt Order already PAID or CANCELLED
+    API -> API: Handle duplicate or late payment
+    opt Additional successful payment / success after cancellation
+      API -> DB: Record PAID; flag multiple payments for review\nor request manual cancellation refund as applicable
+    end
+  else Order still eligible for payment update
+    API -> DB: Check event_key and record new webhook event
+    alt Duplicate event
+      API -> API: No-op
+    else success=true and data.code=00
+      API -> DB: Set payment/attempt PAID and order.paymentStatus=PAID
+      API -> DB: Create payment notification; keep order.status unchanged
+    else Payment did not succeed
+      API -> DB: Mark attempt EXPIRED or CANCELLED
+      opt Callback belongs to current payment link
+        API -> DB: Update payment and order.paymentStatus\ncreate PAYMENT_FAILED notification
+      end
+      API -> API: Keep order.status and stock/voucher reservation
+    end
+  end
+  API -> DB: Commit payment update
+  API --> PayOS: 200 success=true
+end
+note over API,DB
+  Successful payment does not move order.status to CONFIRMED.
+  Manager confirms the order separately.
+  Expired/failed attempts may be retried or synchronized by Customer.
+end note
+
+== Link expiry is separate from order cancellation ==
+Job -> API: cleanupExpired (default every 300000 ms)
+API -> DB: Lock expired PAYOS orders with paymentStatus=PENDING
+API -> DB: Mark payment/attempt and order.paymentStatus=EXPIRED\ncreate PAYMENT_EXPIRED notification
+API -> API: Keep order.status and reserved stock/voucher
+
+== Optional abandoned-order cancellation ==
+Job -> API: AbandonedOrderScheduler (default every 300000 ms)
+alt PAYOS_AUTO_CANCEL_ENABLED=false (default)
+  API -> API: Skip automatic cancellation
+else Enabled; latest order/payment/attempt expiry plus grace elapsed
+  API -> DB: Lock candidate order (PENDING or legacy PENDING_PAYMENT)
+  API -> PayOS: Reconcile all links; cancel open links and verify result
+  PayOS --> API: Provider payment state
+  alt Confirmed UNPAID
+    API -> DB: Set order and payment CANCELLED\nrelease stock and voucher once; create ORDER_AUTO_CANCELLED
+  else Paid, mismatch, provider error or review required
+    API -> DB: Record payment/review result; keep stock and voucher
+  end
+end
+note over Job,DB
+  Grace defaults to 24 hours after the latest expiry, range 1-720 hours.
+  Demo explicitly enables automatic cancellation; code defaults to false.
+  PayOS real-transaction testing is still pending and will be
+  performed separately with authorized transactions.
+end note
+@enduml

@@ -1,0 +1,35 @@
+@startuml
+title M-14 - Manager xem dashboard CRM và các báo cáo
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Manager Reports Page" as Web
+control "Report API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Chọn khoảng thời gian và bộ lọc
+Web -> API: GET /api/manager/care/dashboard?from&to&assigneeId
+API -> DB: Tổng hợp KPI chăm sóc và khách hàng
+DB --> API: CareDashboard
+API --> Web: 200 Dashboard
+
+Web -> API: GET /api/manager/care/outcomes?filters
+API -> DB: Tổng hợp kết quả công việc chăm sóc
+DB --> API: OutcomeReport
+API --> Web: 200 OutcomeReport
+
+Web -> API: GET /api/manager/reports/retention
+API -> DB: Tính nhóm khách hàng và tỷ lệ mua lại
+DB --> API: RetentionReport
+API --> Web: 200 RetentionReport
+
+Web -> API: GET /api/manager/reports/cashflow?from&to&groupBy
+API -> DB: Tổng hợp doanh thu, thanh toán và dòng tiền
+DB --> API: CashflowReport
+API --> Web: 200 CashflowReport
+Web --> Manager: Hiển thị bảng số liệu và biểu đồ
+@enduml

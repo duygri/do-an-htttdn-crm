@@ -5,14 +5,16 @@
 1. Sao lưu database, kiểm thử trên bản sao và đối soát các đơn đang mở.
 2. Chạy `database/migration_refunds_abandoned_payos.sql` trước khi khởi động backend mới. File chỉ thêm một bảng `order_refunds` và các cột/chỉ mục liên quan; không tạo khoản hoàn hoặc xác nhận COD cho dữ liệu cũ.
 3. Khởi động backend với `DB_PASSWORD`, `JWT_SECRET` hợp lệ. Hibernate `validate` yêu cầu schema đã cập nhật.
-4. Tự hủy **mặc định tắt**. Chỉ bật sau kiểm thử/đối soát, qua biến môi trường rồi khởi động lại backend:
+4. Tự hủy **mặc định tắt trong code**. Với cấu hình demo/nghiệm thu, bật tự hủy sau khi đã kiểm tra schema và dữ liệu. Spring Boot không tự đọc file `.env`; đặt biến trong môi trường của tiến trình backend, rồi khởi động lại. Cấu hình này bật kiểm tra định kỳ các đơn PayOS bỏ dở; chỉ giải phóng tồn kho và lượt voucher sau khi xác minh và hủy đơn thành công. Đơn chưa xác minh được vẫn giữ tồn kho/voucher và cần được đối chiếu. Tham khảo [mẫu biến môi trường demo/nghiệm thu](env-demo.md):
 
 ```powershell
 $env:PAYOS_AUTO_CANCEL_ENABLED='true'
 $env:PAYOS_AUTO_CANCEL_GRACE_HOURS='24'
+$env:DEV_PASSWORD_RESET_ENABLED='false'
+$env:APP_PAYOS_AUTO_CANCEL_MS='300000'
 ```
 
-Không cần sửa `application.yml`. Muốn tắt, đặt cờ thành `false` rồi khởi động lại. Không bật ở database thật chỉ để thử nghiệm. Không áp dụng script vá kho hoặc suy đoán tiền đã thu/hoàn cho đơn cũ.
+Không cần sửa `application.yml`. `APP_PAYOS_AUTO_CANCEL_MS` tương ứng thuộc tính `app.payos.auto-cancel-ms` và mặc định là 300000 ms; scheduler kiểm tra định kỳ để xét hủy sau thời gian chờ 24 giờ tính từ hạn mới nhất của đơn/link/lần thử thanh toán. `PAYOS_AUTO_CANCEL_GRACE_HOURS` phải là số nguyên từ 1 đến 720 giờ; giá trị ngoài khoảng này khiến backend không khởi động. Muốn tắt, đặt cờ thành `false` rồi khởi động lại. Các giá trị trên là cấu hình demo/nghiệm thu, không phải mặc định code. Không bật ở database thật chỉ để thử nghiệm. Không áp dụng script vá kho hoặc suy đoán tiền đã thu/hoàn cho đơn cũ.
 
 ## Hoàn tiền thủ công
 
@@ -30,7 +32,7 @@ Không suy đoán đã thu từ trạng thái giao hàng. Chỉ Manager xác nh�
 
 ## Tự hủy và đối chiếu PayOS
 
-- QR vẫn có hạn 15 phút. Mốc tự hủy là **24 giờ sau hạn mới nhất** của đơn/lần thử thanh toán, không phải sau ngày đặt đơn. Tạo lại QR hợp lệ kéo dài mốc tương ứng.
+- QR vẫn có hạn 15 phút. Mốc bắt đầu xét tự hủy là **24 giờ sau hạn mới nhất** của đơn/link/lần thử thanh toán, không phải sau ngày đặt đơn. Tạo lại QR hợp lệ kéo dài mốc tương ứng.
 - Chỉ xét đơn PayOS `PENDING`/`PENDING_PAYMENT` chưa thanh toán. Không tự hủy COD hoặc đơn đã xác nhận.
 - Scheduler chạy mỗi 5 phút, đọc ID từng lô và xử lý transaction riêng từng đơn. Một đơn lỗi không ngăn đơn sau; nhiều tiến trình dựa vào khóa đơn và trạng thái hiện tại để chống lặp.
 - Kiểm tra tất cả link đã biết, kể cả link cũ; link còn hiệu lực phải hủy rồi kiểm tra lại. Timeout kết nối 5 giây, đọc 10 giây. Không có chứng cứ rõ ràng thì không giải phóng kho/voucher.

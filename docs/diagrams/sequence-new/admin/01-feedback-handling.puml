@@ -1,0 +1,33 @@
+@startuml
+title Manager tiếp nhận và xử lý phản hồi
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+actor MANAGER as Manager
+boundary "Quản lý phản hồi" as Web
+control "AdminFeedbackService" as API
+database "CRM Database" as DB
+
+Manager -> Web: Chọn bộ lọc trạng thái
+Web -> API: GET /api/manager/feedback?status&page&size
+API -> DB: Đọc phản hồi chưa xóa mềm
+DB --> API: FeedbackPage
+API --> Web: 200 FeedbackPage
+Web --> Manager: Hiển thị phản hồi
+alt Cập nhật xử lý
+  Manager -> Web: Chọn NEW / IN_PROGRESS / RESOLVED, nhập trả lời, ẩn/hiện
+  Web -> API: PATCH /api/manager/feedback/{id}\nstatus, adminResponse, hidden
+  API -> API: Kiểm tra trạng thái và trả lời 1–4000 ký tự
+  API -> DB: Lưu phản hồi, processedAt (khi đổi trạng thái/trả lời), audit
+  DB --> API: Feedback
+  API --> Web: 200 Feedback
+else Xóa mềm
+  Manager -> Web: Xác nhận xóa
+  Web -> API: DELETE /api/manager/feedback/{id}
+  API -> DB: Đặt deletedAt và ghi audit
+  API --> Web: 204 No Content
+end
+Web --> Manager: Hiển thị kết quả xử lý
+@enduml

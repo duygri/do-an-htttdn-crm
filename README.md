@@ -13,6 +13,7 @@ Dự án gồm ba giao diện độc lập **Khách hàng**, **Admin hệ thốn
 - [Công nghệ và kiến trúc](#công-nghệ-và-kiến-trúc)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
 - [Cài đặt và chạy local](#cài-đặt-và-chạy-local)
+- [Cấu hình môi trường demo/nghiệm thu](#cấu-hình-môi-trường-demonghiệm-thu)
 - [Cấu hình thanh toán PayOS](#cấu-hình-thanh-toán-payos)
 - [Kiểm thử và CI](#kiểm-thử-và-ci)
 - [Tài liệu chi tiết](#tài-liệu-chi-tiết)
@@ -71,7 +72,7 @@ Các trang thường dùng: `/san-pham/{id}`, `/gio-hang`, `/dat-hang`, `/don-ha
 - **Phiếu hỗ trợ:** tạo hộ khách, phân công, trao đổi công khai, ghi chú nội bộ và cập nhật trạng thái xử lý.
 - **Khảo sát:** tạo nháp, phát hành/gỡ, thống kê kết quả, chọn tất cả khách hoặc chỉ định người nhận và cấu hình voucher thưởng.
 - **Khảo sát theo nhóm:** tạo bản nháp từ toàn bộ khách khớp bộ lọc, xem trước và chốt người nhận khi lưu; không tự phát hành. Có thể lọc đã/chưa trả lời một khảo sát cụ thể.
-- **Voucher/báo cáo:** quản lý mã giảm giá, báo cáo khách hàng, khảo sát, mua lại và kết quả chăm sóc.
+- **Voucher/báo cáo:** quản lý mã giảm giá, báo cáo khách hàng, khảo sát, mua lại và kết quả chăm sóc. Lịch sử hoạt động của khách được xem riêng trong hồ sơ 360°; audit log hệ thống chỉ dành cho Admin.
 
 Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang mở được cập nhật mỗi 5 giây; tạm dừng khi tab bị ẩn hoặc người dùng đang nhập/gửi thao tác liên quan.
 
@@ -80,7 +81,7 @@ Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang 
 - Xem tổng quan và tra cứu sản phẩm bằng tìm kiếm, bộ lọc, sắp xếp và phân trang.
 - Tạo, sửa, khóa/mở khóa, xóa mềm và đổi quyền tài khoản ADMIN/MANAGER.
 - Bảo vệ thao tác tự khóa/xóa/đổi quyền và tài khoản Admin hoạt động cuối cùng.
-- Xem nhật ký hệ thống, bao gồm các thao tác khách hàng đã được bổ sung ghi nhận.
+- Xem toàn bộ audit log, gồm cả các thao tác quản lý tài khoản nội bộ do Admin thực hiện.
 - Liên kết đến portal Manager và website khách hàng; không thay thế vai trò vận hành của Manager.
 
 ## Quy tắc nghiệp vụ và chỉ số CRM
@@ -247,6 +248,22 @@ npm run dev:manager
 
 Ví dụ CORS local: `http://localhost:5173,http://localhost:5174,http://localhost:5175`. Không dùng cấu hình phát triển, bí mật mặc định hoặc tài khoản seed để vận hành thật.
 
+## Cấu hình môi trường demo/nghiệm thu
+
+Spring Boot không tự đọc file `.env`. Đặt các biến trong môi trường của tiến trình backend trước khi khởi động; ví dụ PowerShell và giá trị mẫu được ghi tại [docs/env-demo.md](docs/env-demo.md). Không đưa bí mật vào file mẫu hoặc Git.
+
+| Biến | Giá trị demo/nghiệm thu | Mặc định code | Ghi chú |
+| --- | --- | --- | --- |
+| `PAYOS_AUTO_CANCEL_ENABLED` | `true` | `false` | Bật tự hủy đơn PayOS chưa thanh toán trong demo/nghiệm thu. |
+| `PAYOS_AUTO_CANCEL_GRACE_HOURS` | `24` | `24` | Thời gian chờ sau khi link thanh toán hết hạn. Số nguyên từ 1 đến 720 giờ; giá trị ngoài khoảng này khiến backend không khởi động. |
+| `DEV_PASSWORD_RESET_ENABLED` | `false` | `false` | Tắt nhánh mã sáu chữ số dành cho profile development. |
+| `RESEND_ENABLED` | `false` | `false` | Tắt nhánh khôi phục qua email và email đơn hàng trong bộ cấu hình demo này. |
+| `APP_PAYOS_AUTO_CANCEL_MS` (`app.payos.auto-cancel-ms`) | `300000` | `300000` | Chu kỳ kiểm tra tự hủy, tương đương 5 phút. |
+
+PayOS không có sandbox. COD là luồng smoke test mặc định; chỉ thử PayOS thật khi người phụ trách đã xác nhận tài khoản, số tiền giới hạn và thời điểm thực hiện. Không commit `PAYOS_CLIENT_ID`, `PAYOS_API_KEY` hoặc `PAYOS_CHECKSUM_KEY`.
+
+Code đã hỗ trợ khôi phục mật khẩu qua Resend khi cấu hình email hợp lệ; `DEV_PASSWORD_RESET_ENABLED=false` không tắt nhánh email. Bộ demo ở trên chủ động tắt cả hai cờ. Khi thử riêng luồng email, xem [cấu hình Resend](docs/resend-email.md); liên kết dùng token 43 ký tự, API không trả mã đặt lại trong chế độ email. Chưa xác nhận gửi email thật trong đợt rà soát tài liệu này.
+
 ## Cấu hình thanh toán PayOS
 
 Thiết lập ở terminal backend trước khi chạy:
@@ -305,7 +322,7 @@ GitHub Actions phân loại thay đổi để chạy backend `mvn verify`, front
 | Hỗ trợ và đổi trả | [Phiếu hỗ trợ](docs/support-tickets.md), [xử lý đổi trả](docs/return-management.md) |
 | Voucher và đánh giá | [Voucher](database/VOUCHERS.md), [đánh giá và thưởng khảo sát](database/REVIEWS_REWARDS.md) |
 | Thu – hoàn tiền và giới hạn cá nhân | [Báo cáo, quy tắc voucher và migration](docs/cashflow-voucher-limits.md) |
-| Nhật ký và kiểm tra nghiệp vụ | [Audit log](docs/audit-logs.md), [ma trận QA](docs/crm-workflow-qa.md) |
+| Nhật ký và kiểm tra nghiệp vụ | [Audit log](docs/audit-logs.md), [ma trận QA](docs/crm-workflow-qa.md), [cấu hình demo](docs/env-demo.md), [quyết định và ghi nhận thay đổi](docs/decisions-changelog.md) |
 | Sơ đồ | [Thư mục sơ đồ](docs/diagrams/) |
 
 Tài liệu từng đợt có thể ghi kết quả kiểm tra ở thời điểm khác nhau. Khi có khác biệt, đối chiếu phiên bản mã nguồn và migration đang triển khai.
@@ -313,7 +330,7 @@ Tài liệu từng đợt có thể ghi kết quả kiểm tra ở thời điể
 ## Giới hạn và lưu ý triển khai
 
 - Đây là đồ án mô phỏng; cần rà soát bảo mật, cấu hình, hiệu năng, sao lưu/khôi phục và vận hành trước khi dùng thực tế.
-- Chưa tích hợp email gửi mã khôi phục mật khẩu. Luồng khôi phục công khai mặc định bị khóa; chế độ xem mã chỉ dành cho môi trường `development` và phải bật rõ `DEV_PASSWORD_RESET_ENABLED=true`. Không bật chế độ này khi triển khai thật.
+- Đã tích hợp email khôi phục mật khẩu và thông báo đơn qua Resend dưới cờ cấu hình. Bộ demo/nghiệm thu mặc định giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; nhánh mã sáu chữ số chỉ dành cho profile `development`. Việc gửi email thật và điều kiện triển khai được kiểm tra riêng theo [hướng dẫn Resend](docs/resend-email.md).
 - Chưa có email marketing, thông báo hệ điều hành, hoàn tiền tự động hoặc chiến dịch tự phát voucher. Nhắc việc và thông báo hiện tại nằm trong web.
 - Báo cáo mua lại toàn thời gian chưa phải phân tích giữ chân theo cohort; giá trị đơn không phải tiền thực thu hay lợi nhuận.
 - Giao diện quản lý nhà cung cấp không nằm trong menu hiện tại; database/API có thể còn thành phần tương thích từ các phiên bản trước.

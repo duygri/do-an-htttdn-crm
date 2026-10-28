@@ -1,0 +1,22 @@
+@startuml
+title M-15 - Admin tra cứu audit log (tên tệp lịch sử)
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+actor Admin
+boundary "Admin Audit Log Page" as Web
+control "AuditLogController / AuditLogQuery" as API
+database "Audit Log Database" as DB
+Admin -> Web: Nhập bộ lọc nhật ký
+Web -> API: GET /api/admin/audit-logs?q&type&action&from&to&page&size
+API -> DB: Truy vấn audit logs theo bộ lọc và phân trang
+DB --> API: Result
+API --> Web: 200 Result
+Web --> Admin: Hiển thị nhật ký hệ thống
+note over Admin, API
+  Chỉ ADMIN có quyền truy cập audit log.
+  Manager không có quyền; lịch sử hoạt động khách hàng 360°
+  là chức năng riêng, không phải nhật ký hệ thống.
+end note
+@enduml

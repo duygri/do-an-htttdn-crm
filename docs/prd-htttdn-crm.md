@@ -5,10 +5,10 @@
 | Thuộc tính | Nội dung |
 | --- | --- |
 | Môn học | Hệ thống thông tin doanh nghiệp (HTTTDN) |
-| Phiên bản | 1.1 |
-| Trạng thái | Draft for team review; đối chiếu repo ngày 29/09/2026 |
+| Phiên bản | 1.4 |
+| Trạng thái | Draft for team review; đối chiếu code và quyết định đã chốt ngày 26/10/2026 |
 | Ngày tạo | 14/09/2026 |
-| Ngày rà soát | 29/09/2026 |
+| Ngày rà soát | 26/10/2026 |
 | Repository | [duygri/do-an-htttdn-crm](https://github.com/duygri/do-an-htttdn-crm) |
 | Phạm vi | Yêu cầu MVP; các ước lượng thời gian trong bản 1.0 không còn là kế hoạch hiện hành |
 
@@ -62,16 +62,27 @@ Dữ liệu khách hàng và bán hàng thường bị phân tán trong nhiều 
 - Giỏ hàng, voucher, đặt hàng, lịch sử đơn hàng, hủy/đổi trả và trạng thái giao hàng.
 - Thanh toán COD và tùy chọn thanh toán trực tuyến qua payOS, Return URL/cancelUrl và webhook.
 - Báo cáo khách hàng, khảo sát và doanh thu.
+- Hồ sơ khách hàng 360° và lịch sử hoạt động; phân nhóm vòng đời Customer.
+- Chăm sóc khách hàng bằng task, ghi chú, nhắc việc, kết quả chăm sóc và dashboard.
+- Phiếu hỗ trợ do Customer gửi và Manager xử lý; Manager xử lý yêu cầu đổi trả.
+- Ghi nhận thủ công hoàn tiền và thu COD; hỗ trợ đối soát thanh toán; không gửi lệnh hoàn tới payOS.
+- Báo cáo giữ chân khách hàng và dòng tiền; audit log cho Admin và thông báo nội bộ cho Manager.
 - Kiểm thử, tài liệu kỹ thuật và demo.
 
 ### 3.2. Ngoài phạm vi MVP
 
-- Merchant go-live, refund production và đối soát production. Tích hợp payOS được mô tả trong MVP; kiểm thử giao dịch thật là hoạt động riêng, có kiểm soát và không phải bước smoke test mặc định.
+- Merchant go-live, hoàn tiền production và đối soát production. Trong MVP, hoàn tiền và thu COD được ghi nhận thủ công; hệ thống không gửi lệnh hoàn tới payOS. Tích hợp payOS được mô tả trong MVP; kiểm thử giao dịch thật là hoạt động riêng, có kiểm soát và không phải bước smoke test mặc định.
 - Tích hợp đơn vị vận chuyển thực tế.
-- Social login, xác thực đa yếu tố và password reset qua email.
+- Social login, xác thực đa yếu tố và nghiệm thu khôi phục mật khẩu qua email ở production. Code hỗ trợ tùy chọn gửi liên kết đặt lại qua Resend khi được cấu hình, dùng token 43 ký tự và không trả mã trong response email. Fallback mã sáu chữ số chỉ bật bằng `DEV_PASSWORD_RESET_ENABLED` ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc vận hành production.
 - Ứng dụng native cho Android hoặc iOS.
 - Dự báo doanh thu bằng machine learning.
 - Triển khai production, autoscaling và vận hành 24/7.
+
+### 3.3. Quyết định đã chốt
+
+- **Đặt lại mật khẩu:** Code hỗ trợ tùy chọn gửi liên kết đặt lại qua Resend khi được cấu hình, dùng token 43 ký tự và không trả mã trong response email. Fallback mã sáu chữ số chỉ bật bằng `DEV_PASSWORD_RESET_ENABLED` ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc vận hành production.
+- **Audit log:** Chỉ Admin tra cứu audit log qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit cho Manager. Lịch sử hoạt động Customer được xem riêng trong hồ sơ 360°.
+- **Tự hủy PayOS:** mặc định code tắt. Môi trường demo/nghiệm thu đặt `PAYOS_AUTO_CANCEL_ENABLED=true` và `PAYOS_AUTO_CANCEL_GRACE_HOURS=24`; Spring Boot không tự đọc `.env`, nên phải đặt biến vào môi trường tiến trình backend. Cấu hình này bật kiểm tra định kỳ; chỉ giải phóng tồn kho và voucher khi đã xác minh chưa thanh toán và hủy đơn thành công. Đơn chưa xác minh được vẫn giữ tồn kho/voucher và cần đối soát.
 
 ## 4. Người dùng hệ thống và stakeholder
 
@@ -134,6 +145,29 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | FR-18 | Survey Rewards | Manager cấu hình voucher thưởng cho khảo sát | Cấu hình phần thưởng hợp lệ; mỗi khách đủ điều kiện nhận tối đa một phần thưởng cho khảo sát | — |
 | FR-19 | Voucher | Manager quản lý voucher; Customer xem ví và áp dụng voucher | Kiểm tra thời hạn, điều kiện, lượt dùng và mức giảm ở backend; không tin mức giảm từ frontend | — |
 | FR-20 | Customer Self-service | Customer quản lý địa chỉ, danh sách yêu thích, hủy đơn đủ điều kiện và yêu cầu đổi trả | Tài nguyên thuộc đúng Customer; trạng thái/điều kiện được backend kiểm tra | — |
+| FR-21 | Customer 360 | Manager xem hồ sơ khách hàng 360° và lịch sử hoạt động | Xem hồ sơ tổng hợp, địa chỉ, đơn hàng, feedback, khảo sát, voucher, lượt dùng voucher và lịch sử hoạt động; các danh sách chi tiết có phân trang | — |
+| FR-22 | Customer Lifecycle | Manager phân nhóm vòng đời Customer | `NO_PURCHASE` khi chưa có đơn hoàn tất; `LOYAL` khi có ít nhất 5 đơn hoàn tất hoặc giá trị hoàn tất từ 5.000.000 VND; `FIRST_PURCHASE` với một đơn còn lại, các trường hợp còn lại là `RETURNING`; dormant từ 30 ngày sau lần mua gần nhất. Danh sách hỗ trợ lọc và phân trang | — |
+| FR-23 | Customer Care | Manager quản lý task, ghi chú, nhắc việc, kết quả và dashboard chăm sóc | Tạo/cập nhật task, follow-up và ghi chú; khi hoàn tất task phải có outcome hợp lệ. Dashboard trả task TODO, IN_PROGRESS, COMPLETED, quá hạn theo nhân viên và khách dormant chưa có task mở; Manager xem nhắc việc đến hạn | — |
+| FR-24 | Support | Customer gửi/theo dõi phiếu hỗ trợ; Manager tiếp nhận và xử lý | Customer tạo, xem và trả lời phiếu của mình; Manager tìm, xem, tạo, cập nhật và trả lời phiếu | — |
+| FR-25 | Returns | Manager xử lý yêu cầu đổi trả | Chỉ xử lý đơn DELIVERED/COMPLETED; REQUESTED chuyển sang APPROVED hoặc REJECTED; APPROVED mới chuyển sang COMPLETED. Từ chối và hoàn tất phải có ghi chú; lịch sử đổi trả được lưu | — |
+| FR-26 | Refund and Reconciliation | Manager ghi nhận hoàn tiền, thu COD và đối soát thanh toán | Chỉ ghi nhận hoàn cho đơn hủy hoặc đổi trả đã duyệt/hoàn tất; số tiền là VND nguyên dương và không vượt số tiền đã thu. Manager hoàn tất/từ chối với ghi chú; thu COD chỉ cho đơn DELIVERED/COMPLETED. Đối soát PayOS đọc trạng thái giao dịch; không gửi lệnh hoàn tới payOS | — |
+| FR-27 | Retention and Cashflow | Manager xem báo cáo giữ chân khách hàng và dòng tiền | Báo cáo giữ chân trả tổng khách, khách mua/lặp lại, repeat rate, giá trị và trung bình giá trị đơn hoàn tất, khách dormant, phân bố vòng đời, ngưỡng và phiếu hỗ trợ đã giải quyết. Dòng tiền nhận khoảng tối đa 366 ngày, nhóm ngày/tháng và trả số thu, hoàn, ròng, số đơn đã thu cùng 10 sản phẩm bán chạy | — |
+| FR-28 | Audit | Admin tra cứu audit log | Chỉ Admin tra cứu audit log qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit cho Manager. Lịch sử hoạt động Customer được xem riêng trong hồ sơ 360°. Có bộ lọc và phân trang | — |
+| FR-29 | Manager Notifications | Manager xem thông báo nội bộ | Hộp thư gồm nhắc chăm sóc đến hạn/quá hạn và phiếu hỗ trợ được giao; xem số chưa đọc và danh sách phân trang; đánh dấu một hoặc tất cả thông báo đã đọc | — |
+
+**Nguồn đối chiếu code cho FR-21–FR-29**
+
+| FR | Controller, route và service |
+| --- | --- |
+| FR-21 | `CustomerProfileController`: `GET /api/manager/users/{id}/profile` và các route `/activities`, `/addresses`, `/orders`, `/feedback`, `/surveys`, `/vouchers`, `/voucher-usages`; `CustomerProfileService`, `CustomerActivityService` |
+| FR-22 | `AdminUserController`: `GET /api/manager/users`; `CustomerLifecycleQuery`, `CustomerLifecycle` |
+| FR-23 | `CustomerCareController`: `/api/manager/care/dashboard`, `/care/tasks`, `/users/{id}/care/notes`; `CustomerCareService`, `CareDashboardService`, `CareReminderScheduler`, `CareReminderService` |
+| FR-24 | `SupportTicketController`: `/api/support-tickets` và `/api/manager/support-tickets`; `SupportTicketService` |
+| FR-25 | `ManagerReturnController`: `PATCH /api/manager/orders/{id}/return`; `ReturnManagementService`; Customer yêu cầu tại `OrderController`/`OrderService.requestReturn` |
+| FR-26 | `ManagerRefundController`: `/api/manager/orders/{id}/refunds`, `/refunds/{id}/complete`, `/refunds/{id}/reject`, `/orders/{id}/cod-collection`, `/orders/{id}/payment/reconcile`; `RefundService`, `PaymentReconciliationService` |
+| FR-27 | `RetentionReportController`: `GET /api/manager/reports/retention`; `CashflowReportController`: `GET /api/manager/reports/cashflow`; `RetentionReportService`, `CashflowReportService` |
+| FR-28 | `AuditLogController`: `GET /api/admin/audit-logs`; `AuditLogQuery.list` kiểm tra quyền ADMIN; `CustomerActivityService.list` cung cấp timeline hồ sơ 360° riêng |
+| FR-29 | `ManagerCareInboxController`: `/api/manager/notifications`, `/notifications/summary`, `/notifications/{id}/read`, `/notifications/read-all`; `ManagerCareInbox` |
 
 Các số Issue trong bảng là liên kết truy vết từ kế hoạch cũ, không biểu thị trạng thái hoàn thành. Trạng thái tracker hiện tại được ghi tại mục 11.
 
@@ -156,17 +190,19 @@ Các mã Issue trong bảng chỉ dùng truy vết tài liệu cũ. Đặc tả 
 
 ### 8.1. Miền dữ liệu và bảng hiện hành
 
-Schema PostgreSQL hiện có 25 bảng vật lý, được chia theo bảy miền nghiệp vụ sau. Tên trong cột “Bảng” là tên thật trong `database/schema.sql`.
+Schema PostgreSQL hiện có 31 bảng vật lý, được chia theo chín miền nghiệp vụ sau. Tên trong cột “Bảng” là tên thật trong `database/schema.sql`.
 
 | Miền | Bảng | Nội dung |
 | --- | --- | --- |
-| Khách hàng và xác thực | `customers`, `admins`, `refresh_tokens`, `password_reset_tokens` | Hồ sơ, vai trò nội bộ, phiên refresh và token đặt lại mật khẩu |
-| Danh mục và nhà cung cấp | `categories`, `products`, `suppliers` | Danh mục, giá, tồn kho, thuộc tính sản phẩm và nhà cung cấp |
-| Giỏ hàng và đơn hàng | `cart_items`, `wishlists`, `customer_addresses`, `orders`, `order_items` | Giỏ, yêu thích, địa chỉ, đơn và dòng sản phẩm |
-| Thanh toán | `payments`, `payment_attempts`, `payment_webhook_events` | Trạng thái thanh toán, lần tạo link và sự kiện webhook chống xử lý lặp |
-| CRM | `feedback`, `customer_notifications` | Đánh giá, phản hồi và thông báo trong web |
-| Khảo sát | `survey_definitions`, `survey_questions`, `survey_responses`, `survey_answers`, `survey_recipients`, `survey_notified_customers` | Khảo sát, câu hỏi, câu trả lời, đối tượng và người đã thông báo |
-| Khuyến mãi | `store_vouchers`, `voucher_usages` | Voucher, điều kiện áp dụng, chủ sở hữu và lịch sử sử dụng |
+| Khách hàng và xác thực | `customers`, `admins`, `refresh_tokens`, `password_reset_tokens` | Hồ sơ, tài khoản nội bộ, phiên và mã đặt lại |
+| Danh mục và nhà cung cấp | `categories`, `products`, `suppliers` | Danh mục, sản phẩm, tồn kho và nhà cung cấp |
+| Giỏ hàng và đơn hàng | `cart_items`, `wishlists`, `customer_addresses`, `orders`, `order_items`, `order_return_events` | Giỏ, yêu thích, địa chỉ, đơn hàng và lịch sử đổi trả |
+| Thanh toán | `payments`, `payment_attempts`, `payment_webhook_events`, `order_refunds` | Giao dịch, lần thanh toán, webhook và sổ ghi nhận hoàn tiền |
+| CRM | `feedback`, `customer_notifications` | Đánh giá, phản hồi và thông báo Customer |
+| Khảo sát | `survey_definitions`, `survey_questions`, `survey_responses`, `survey_answers`, `survey_recipients`, `survey_notified_customers` | Khảo sát, câu hỏi, câu trả lời và đối tượng nhận |
+| Khuyến mãi | `store_vouchers`, `voucher_usages` | Voucher và lịch sử sử dụng |
+| Chăm sóc và hỗ trợ | `customer_care_notes`, `customer_care_tasks`, `support_tickets` | Ghi chú, task chăm sóc và phiếu hỗ trợ |
+| Kiểm toán | `audit_logs` | Nhật ký hành động và thay đổi dữ liệu |
 
 ### 8.2. Quy tắc chính
 
@@ -183,11 +219,13 @@ Schema PostgreSQL hiện có 25 bảng vật lý, được chia theo bảy miề
 - Không tạo đơn với sản phẩm không tồn tại hoặc số lượng không hợp lệ.
 - Tổng tiền lấy từ `order_items`, không tin giá trị do frontend gửi lên.
 - Đơn hàng lưu phương thức, trạng thái thanh toán, số tiền, thời hạn và mã voucher; thông tin payment link/lần thử thanh toán nằm trong `payments` và `payment_attempts`.
-- `PENDING`/`PENDING_PAYMENT` chưa được xem là đã thanh toán. Với PayOS, chỉ webhook hợp lệ mới xác nhận payment và cho phép tiếp tục luồng đơn hàng; COD theo luồng riêng.
+- Đơn mới được tạo với trạng thái đơn `PENDING`. `PENDING_PAYMENT` là giá trị cũ còn trong tập trạng thái được chấp nhận nhưng `OrderService.create` không còn tạo. Với PayOS, webhook hợp lệ chỉ cập nhật `paymentStatus=PAID`; Manager chuyển đơn `PENDING` sang `CONFIRMED` qua chức năng quản lý đơn hàng. COD xử lý theo luồng riêng.
 - Xử lý webhook phải idempotent: xác thực nội dung/chữ ký, đối chiếu order và số tiền, ghi khóa sự kiện duy nhất trong `payment_webhook_events`; callback lặp lại không được ghi nhận thanh toán lần hai.
 - Webhook hợp lệ lần đầu hoặc đã xử lý phải trả HTTP 2xx; chữ ký, `orderCode` hoặc số tiền không hợp lệ phải bị từ chối và không cập nhật đơn.
-- Scheduled job phải đánh dấu payment PayOS quá hạn là `EXPIRED`; theo chính sách vòng đời đơn đã chọn, đơn phải được hủy và tồn kho đã giữ phải được giải phóng đúng một lần. Đây là tiêu chí nghiệm thu cần được kiểm tra, không suy ra từ việc Issue đã đóng.
+- Link PayOS có hạn 15 phút. `OrderService.cleanupExpired` đánh dấu payment quá hạn; `AbandonedOrderScheduler` chạy theo `app.payos.auto-cancel-ms` (mặc định 300000 ms). Khi `PAYOS_AUTO_CANCEL_ENABLED=true`, `AbandonedOrderWorker` xét hủy sau thời gian chờ `PAYOS_AUTO_CANCEL_GRACE_HOURS` (mặc định 24 giờ) kể từ hạn mới nhất của đơn, payment và các lần thử. Chỉ khi đối soát xác nhận chưa thanh toán và hủy thành công, giao dịch mới giải phóng tồn kho và voucher đúng một lần; nếu chưa xác minh được, đơn vẫn giữ tồn kho/voucher và cần đối soát. Cờ mặc định là `false`; demo/nghiệm thu đặt cờ `true` và grace `24` giờ. Spring Boot không tự đọc `.env`; biến phải nằm trong môi trường tiến trình backend.
 - Khóa ngoại không được tạo bản ghi mồ côi.
+- Customer xác nhận nhận hàng khi đơn `DELIVERED` và `returnStatus` là `NONE` hoặc null; đơn chuyển `COMPLETED`. Gọi lại khi đã `COMPLETED` trả kết quả hiện có (idempotent).
+- Đổi trả đi theo `REQUESTED` → `APPROVED` → `COMPLETED` hoặc `REQUESTED` → `REJECTED`.
 - Trạng thái đơn hàng chỉ chuyển theo luồng đã thống nhất.
 - Survey chỉ nhận response khi đã phát hành và còn hiệu lực.
 
@@ -237,17 +275,17 @@ API dùng JSON và status code phù hợp `200`, `201`, `400`, `401`, `403`, `40
 | API base URL | `https://api-merchant.payos.vn` |
 | Tạo payment link | `POST /v2/payment-requests` với `orderCode` số nguyên duy nhất, `amount`, `description`, `items`, `returnUrl`, `cancelUrl`, `expiredAt` |
 | Biến môi trường backend | Bắt buộc: `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`; `PAYOS_RETURN_URL` và `PAYOS_CANCEL_URL` có giá trị mặc định local trong `application.yml` |
-| Tạo giao dịch | Backend tạo order trước, lưu `PENDING_PAYMENT`, tạo `orderCode`/payment link duy nhất và trả `checkoutUrl` cho frontend |
+| Tạo giao dịch | `OrderService.create` tạo đơn ở trạng thái `PENDING`; giao dịch PayOS có số tiền dương đặt `paymentStatus=PENDING` và tạo link 15 phút. COD dùng `paymentStatus=COD`; đơn tổng tiền 0 được đánh dấu đã thanh toán. `PENDING_PAYMENT` là trạng thái cũ, không còn được tạo mới |
 | Số tiền | Gửi trực tiếp theo số tiền VND của đơn hàng |
 | Chữ ký tạo link | Dùng HMAC-SHA256 với checksum key, chuỗi dữ liệu sắp xếp theo alphabet; secret chỉ nằm ở backend |
 | Return/cancel URL | Nhận query params để hiển thị kết quả cho Customer; không dùng làm nguồn duy nhất để chốt đơn |
 | Webhook | Backend nhận tại `/api/payments/payos/webhook`; triển khai qua HTTPS public và đăng ký URL đầy đủ ở cấu hình webhook của merchant PayOS. `PAYOS_WEBHOOK_URL` không phải biến môi trường được backend hiện tại đọc |
 | Webhook acknowledgment | Webhook hợp lệ hoặc đã xử lý trả HTTP 2xx; chữ ký/dữ liệu sai trả lỗi và không cập nhật order |
-| Thành công | `success=true`, webhook `code=00` và giao dịch hợp lệ → `PAID`/`CONFIRMED` |
-| Thất bại/hủy/hết hạn | Cập nhật `FAILED`, `CANCELLED` hoặc `EXPIRED`, giải phóng phần tồn kho đã reserve |
+| Thành công | Webhook hợp lệ cập nhật `paymentStatus=PAID`. Manager chuyển trạng thái đơn `PENDING` → `CONFIRMED` qua `AdminOrderService`; webhook không chuyển trạng thái đơn |
+| Thất bại/hủy/hết hạn | Webhook không thành công cập nhật payment thành `EXPIRED` hoặc `CANCELLED`; job hết hạn đánh dấu `EXPIRED`. Đơn chỉ bị tự hủy sau thời gian chờ theo mục 8.2 |
 | Idempotency | Lưu khóa sự kiện duy nhất trong `payment_webhook_events`; callback lặp lại không ghi nhận payment lần hai |
-| Hết hạn | Payment link hết hạn được đánh dấu `EXPIRED`; đơn và tồn kho được xử lý theo chính sách hết hạn, không giữ tồn kho vô thời hạn |
-| Local demo | Có thể dùng COD cho smoke test. Với PayOS, cần URL HTTPS public (ví dụ tunnel) đã đăng ký làm webhook ở merchant |
+| Hết hạn | Link PayOS hết hạn sau 15 phút. `AbandonedOrderScheduler` kiểm tra theo `app.payos.auto-cancel-ms` (mặc định 300000 ms). Khi `PAYOS_AUTO_CANCEL_ENABLED=true`, Worker xét hủy sau `PAYOS_AUTO_CANCEL_GRACE_HOURS` (mặc định 24 giờ) kể từ hạn mới nhất. Tồn kho và voucher chỉ được giải phóng đúng một lần sau khi đối soát xác nhận chưa thanh toán và hủy thành công; nếu chưa xác minh được, chúng vẫn được giữ để đối soát. Demo/nghiệm thu đặt cờ `true` và grace `24` giờ. |
+| Local demo/nghiệm thu | COD là luồng smoke test mặc định. PayOS không có sandbox; chỉ thử giao dịch thật sau khi người phụ trách xác nhận. Cấu hình tự hủy theo mục 8.2 qua biến môi trường của tiến trình backend; Spring Boot không tự đọc `.env` |
 
 Không commit `PAYOS_CLIENT_ID`, `PAYOS_API_KEY` hoặc `PAYOS_CHECKSUM_KEY` vào repository. Dùng biến môi trường hoặc file local bị `.gitignore` loại trừ. Tài liệu tham khảo: [payOS API](https://payos.vn/docs/api/), [payOS webhook](https://payos.vn/docs/du-lieu-tra-ve/webhook/), [payOS signature](https://payos.vn/docs/tich-hop-webhook/kiem-tra-du-lieu-voi-signature/), [payOS test environment](https://payos.vn/docs/moi-truong-test/).
 

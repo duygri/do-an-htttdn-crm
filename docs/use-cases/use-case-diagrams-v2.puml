@@ -1,0 +1,73 @@
+@startuml
+title Use Case Customer v2
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+actor "Khách vãng lai" as Guest
+actor Customer
+actor PayOS
+Customer -|> Guest
+
+package "Tài khoản" {
+  usecase "UC-01\nĐăng ký tài khoản" as C01
+  usecase "UC-02\nĐăng nhập Customer" as C02
+  usecase "UC-03\nCập nhật hồ sơ" as C03
+  usecase "UC-09\nĐặt lại mật khẩu (khi được bật)" as C09
+  usecase "UC-10\nĐổi mật khẩu" as C10
+  usecase "UC-11\nQuản lý sổ địa chỉ" as C11
+  usecase "UC-13\nXem thông báo" as C13
+}
+package "Sản phẩm" {
+  usecase "UC-06\nTìm kiếm và xem sản phẩm" as C06
+  usecase "UC-04\nGửi đánh giá sản phẩm" as C04
+  usecase "UC-12\nQuản lý wishlist" as C12
+}
+package "Mua hàng và khuyến mãi" {
+  usecase "UC-07\nGiỏ hàng và đặt hàng" as C07
+  usecase "UC-08\nTheo dõi đơn hàng" as C08
+  usecase "UC-15\nHủy đơn hàng" as C15
+  usecase "UC-16\nXác nhận nhận hàng" as C16
+  usecase "UC-17\nYêu cầu đổi trả" as C17
+  usecase "UC-18\nThanh toán lại/đồng bộ" as C18
+  usecase "UC-14\nXem ví voucher" as C14
+  usecase "UC-05\nTrả lời khảo sát" as C05
+}
+package "Hỗ trợ" {
+  usecase "UC-19\nGửi và theo dõi phiếu hỗ trợ" as C19
+}
+Guest --> C06
+Guest --> C01
+Customer --> C02
+Customer --> C03
+Customer --> C04
+Customer --> C05
+Customer --> C07
+Customer --> C08
+Guest --> C09
+Customer --> C10
+Customer --> C11
+Customer --> C12
+Customer --> C13
+Customer --> C14
+Customer --> C15
+Customer --> C16
+Customer --> C17
+Customer --> C18
+Customer --> C19
+PayOS --> C07
+PayOS --> C18
+C16 .> C08 : <<extend>>\n[khi đơn DELIVERED]
+C15 .> C08 : <<extend>>\n[khi đơn đủ điều kiện hủy]
+C17 .> C08 : <<extend>>\n[khi đơn đủ điều kiện đổi trả]
+C18 .> C08 : <<extend>>\n[khi thanh toán cần xử lý lại/đồng bộ]
+note bottom of C09
+Chỉ khả dụng khi dịch vụ email sẵn sàng, hoặc đồng thời
+profile development và DEV_PASSWORD_RESET_ENABLED=true.
+Email dùng liên kết một lần; chế độ dev hỗ trợ mã thử nghiệm.
+end note
+note bottom of C08
+UC-07 bao gồm giỏ hàng và đặt hàng trong cùng một Use Case; UC-14 chỉ xem ví voucher.
+Không có Use Case con bắt buộc riêng để tạo quan hệ include.
+UC-15, UC-16, UC-17 và UC-18 mở rộng UC-08 khi có điều kiện tương ứng.
+end note
+@enduml

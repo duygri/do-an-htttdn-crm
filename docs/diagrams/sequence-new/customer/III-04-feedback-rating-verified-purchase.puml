@@ -1,0 +1,43 @@
+@startuml
+title III-04 - Feedback for a product in a completed order
+
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Customer
+boundary "Customer Portal" as Web
+control "Feedback API" as API
+database "CRM Database" as DB
+
+Customer -> Web: Select purchased product; enter rating and comment
+Web -> API: POST /api/products/{productId}/feedback\n(JWT, orderId, rating, comment)
+API -> API: Require Customer identity; validate rating 1-5\nand optional comment up to 4000 characters
+alt Invalid identity or input
+  API --> Web: Authentication/validation error
+else Authenticated Customer
+  API -> DB: Lock order by orderId and check ownership
+  alt Order not owned or product absent from order
+    API --> Web: 404 ORDER_NOT_FOUND
+  else Order is not COMPLETED
+    API --> Web: 403 RECEIPT_REQUIRED
+  else Completed order contains product
+    API -> DB: Check existing feedback for order_id and product_id
+    alt Feedback already exists
+      API --> Web: 409 DUPLICATE_FEEDBACK
+    else First feedback for this order/product
+      API -> DB: Save feedback with order_id, customer_id, product_id\nrating, content and status=NEW
+      DB --> API: Feedback created
+      API --> Web: 201 FeedbackView
+      Web --> Customer: Show submitted review
+    end
+  end
+end
+note over API,DB
+  Only COMPLETED orders grant review eligibility.
+  UNIQUE(order_id, product_id) protects each purchased product per order.
+  Another completed order may have another review for the same product.
+end note
+@enduml

@@ -1,0 +1,38 @@
+@startuml
+title Manager thống kê kết quả khảo sát
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+actor MANAGER as Manager
+boundary "Thống kê khảo sát" as Web
+control "Survey stats / Analytics API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Mở thống kê khảo sát
+Web -> API: GET /api/manager/surveys/stats
+API -> DB: Đếm khảo sát chưa xóa: total, draft, published
+DB --> API: Các bộ đếm
+API --> Web: 200 SurveyStats
+Manager -> Web: Chọn khảo sát
+Web -> API: GET /api/manager/reports/surveys/{id}/results
+API -> DB: Đọc câu hỏi, phản hồi và câu trả lời
+DB --> API: Dữ liệu khảo sát
+API -> API: Đếm responses; mỗi câu: answered, skipped, invalid\nĐếm lựa chọn và percent = count / answered * 100
+API --> Web: 200 Results (questions, options, invalidOptions)
+Web --> Manager: Hiển thị số lượng và tỷ lệ lựa chọn
+opt Câu hỏi văn bản từ dữ liệu hiện có
+  Manager -> Web: Xem câu trả lời văn bản
+  Web -> API: GET /api/manager/reports/surveys/{id}/questions/{questionId}/answers?page&size
+  API -> DB: Đọc câu trả lời không rỗng có phân trang
+  DB --> API: content, totalElements, totalPages
+  API --> Web: 200 AnswerPage
+  Web --> Manager: Hiển thị câu trả lời
+end
+note right of API
+  invalid là tập con của answered.
+  Khảo sát nhiều lựa chọn có thể có tổng tỷ lệ > 100%.
+  Không tự tính CSAT.
+end note
+@enduml

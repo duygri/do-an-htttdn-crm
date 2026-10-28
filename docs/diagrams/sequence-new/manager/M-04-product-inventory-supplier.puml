@@ -1,0 +1,47 @@
+@startuml
+title M-04 - Manager quản lý sản phẩm, tồn kho và nhà cung cấp
+autonumber
+hide footbox
+skinparam monochrome true
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+actor Manager
+boundary "Product Management Page" as Web
+control "Product API" as API
+database "CRM Database" as DB
+
+Manager -> Web: Mở danh sách sản phẩm và bộ lọc
+Web -> API: GET /api/manager/products?q&category&stock&page&size
+API -> DB: Truy vấn sản phẩm, giá và tồn kho
+DB --> API: ProductPage
+API --> Web: 200 ProductPage
+Web --> Manager: Hiển thị danh sách
+
+alt Thêm hoặc sửa sản phẩm
+  Manager -> Web: Nhập thông tin sản phẩm
+  Web -> API: POST /api/manager/products (tạo mới)\nhoặc PUT /api/manager/products/{id} (cập nhật)
+  API -> DB: Validate và lưu sản phẩm
+  DB --> API: Product saved
+  API --> Web: 200/201 Product
+  Web --> Manager: Hiển thị thành công
+else Cập nhật tồn kho
+  Manager -> Web: Nhập số lượng tồn kho
+  Web -> API: PATCH /api/manager/products/{id}/stock
+  API -> DB: Kiểm tra tồn kho không âm và cập nhật
+  DB --> API: Stock updated
+  API --> Web: 200 Product
+  Web --> Manager: Hiển thị tồn kho mới
+else Quản lý nhà cung cấp
+  Manager -> Web: Tạo/sửa nhà cung cấp
+  Web -> API: POST/PUT /api/manager/suppliers/{id}
+  API -> DB: Lưu nhà cung cấp
+  DB --> API: Supplier saved
+  API --> Web: 200/201 Supplier
+  Manager -> Web: Gán nhà cung cấp cho sản phẩm
+  Web -> API: PATCH /api/manager/products/{id}/supplier
+  API -> DB: Cập nhật liên kết sản phẩm-nhà cung cấp
+  DB --> API: Product updated
+  API --> Web: 200 Product
+end
+@enduml
