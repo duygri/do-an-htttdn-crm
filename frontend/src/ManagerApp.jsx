@@ -400,7 +400,7 @@ export default function ManagerApp() {
         {section === "orders" && <Orders notify={notify} />}{" "}
         {section === "refunds" && <ManagerRefunds/>}
         {section === "feedback" && <Feedback notify={notify} />}{" "}
-        {section==='support-tickets'&&<SupportTickets manager location={path} navigate={go}/>}
+        {section==='support-tickets'&&<SupportTickets manager admin={admin} location={path} navigate={go}/>}
         {section === "surveys" && <Surveys notify={notify} location={path} go={go} />}
         {section === "reports" && <Reports go={go} />}
         {section === "vouchers" && <AdminVouchers />}

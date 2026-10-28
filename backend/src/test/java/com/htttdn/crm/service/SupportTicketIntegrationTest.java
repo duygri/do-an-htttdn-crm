@@ -44,6 +44,17 @@ class SupportTicketIntegrationTest {
         assertThrows(ApiException.class,()->service.reply(actor(buyer),detail.ticket().id(),new SupportTicketService.Reply("Another",false,key())));
         for(var log:logs.findAll())assertFalse((log.getBeforeData()+log.getAfterData()).contains("PRIVATE_"));
     }
+    @Test void assigneeDefaultsToActingManagerAndKeepsExistingOwner(){
+        var buyer=user("CUSTOMER");var one=user("MANAGER");var two=user("MANAGER");
+        var fresh=service.create(actor(buyer),input(null,null,null)).ticket();assertNull(fresh.assigneeId());
+        fresh=service.update(actor(one),fresh.id(),new SupportTicketService.Update(null,"IN_PROGRESS",fresh.version(),"",null)).ticket();
+        assertEquals(one.getId(),fresh.assigneeId());
+        fresh=service.update(actor(two),fresh.id(),new SupportTicketService.Update(null,"WAITING_CUSTOMER",fresh.version(),"Please clarify",key())).ticket();
+        assertEquals(one.getId(),fresh.assigneeId());
+        var second=service.create(actor(buyer),input(null,null,null)).ticket();
+        service.reply(actor(two),second.id(),new SupportTicketService.Reply("First response",false,key()));
+        assertEquals(two.getId(),service.detail(actor(two),second.id()).ticket().assigneeId());
+    }
     @Test void managerCreatesForLockedCustomerButMustUseOwnedOrderAndActiveAssignee(){
         var buyer=user("CUSTOMER");buyer.setLocked(true);var other=user("CUSTOMER");var manager=user("MANAGER");var inactive=user("MANAGER");inactive.setLocked(true);
         var order=new Order();order.setCustomer(buyer);order.setOrderCode(554411L);order.setTotalAmount(BigDecimal.TEN);order.setPaymentMethod("COD");order.setPaymentStatus("COD");order.setStatus("DELIVERED");em.persist(order);em.flush();
