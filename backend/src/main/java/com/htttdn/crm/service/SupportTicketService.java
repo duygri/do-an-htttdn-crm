@@ -37,8 +37,9 @@ public class SupportTicketService {
     private void append(SupportTicket t,Message message){var items=messages(t);int limit="RESOLVED".equals(t.status)?201:200;if(items.size()>=limit)throw bad("Phiếu đã đạt 200 tin nhắn trao đổi. Vui lòng tạo phiếu mới và ghi mã phiếu cũ.");items.add(message);try{t.messages=json.writeValueAsString(items);}catch(Exception e){throw new IllegalStateException(e);}}
     private Map<String,Object> snapshot(SupportTicket t){var data=new TreeMap<String,Object>();data.put("customerId",t.customerId);data.put("orderId",t.orderId);data.put("assigneeId",t.assigneeId);data.put("status",t.status);data.put("messageCount",messages(t).size());data.put("version",t.version);return data;}
     private void log(User manager,String action,SupportTicket t,Map<String,Object> before){audit.recordAs(new AuditTrail.Actor(manager.getId(),manager.getFullName(),manager.getRole()),action,"SUPPORT_TICKET",t.id,before,snapshot(t));}
-    private void notify(User who,SupportTicket t,String title,String type){notifications.createSupport(who,title,"Phiếu hỗ trợ #"+t.id+": "+title,type,t.id);}
-    private void notifyAssignee(SupportTicket t){if(t.assigneeId!=null){var u=em.find(User.class,t.assigneeId);if(u!=null&&u.getDeletedAt()==null&&!u.isLocked()&&"MANAGER".equals(u.getRole()))notify(u,t,"Phiếu hỗ trợ cần xử lý","SUPPORT_ASSIGNED");}}
+    private static String statusLabel(String status){return switch(status){case "NEW"->"Mới tiếp nhận";case "IN_PROGRESS"->"Đang xử lý";case "WAITING_CUSTOMER"->"Chờ khách";case "RESOLVED"->"Đã giải quyết";default->status;};}
+    private void notify(User who,SupportTicket t,String title,String type,String emailDetail,boolean sendEmail){notifications.createSupport(who,title,"Phiếu hỗ trợ #"+t.id+" - "+t.title+" ("+statusLabel(t.status)+")",type,t.id,emailDetail,sendEmail);}
+    private void notifyAssignee(SupportTicket t,Long actorId,String emailDetail){if(t.assigneeId!=null){var u=em.find(User.class,t.assigneeId);if(u!=null&&u.getDeletedAt()==null&&!u.isLocked()&&"MANAGER".equals(u.getRole()))notify(u,t,"Phiếu hỗ trợ cần xử lý","SUPPORT_ASSIGNED",emailDetail,!Objects.equals(actorId,t.assigneeId));}}
     @Transactional public Detail create(Actor a,Create input){
         User creator=actor(a);if(!a.manager()&&(input.customerId()!=null||input.assigneeId()!=null))throw bad("Không được chỉ định khách hàng hoặc nhân viên từ tài khoản khách.");
         em.lock(creator,LockModeType.PESSIMISTIC_WRITE);
@@ -47,7 +48,7 @@ public class SupportTicketService {
         if(!previous.isEmpty()){var t=previous.getFirst();if(!t.customerId.equals(owner.getId())||!Objects.equals(t.orderId,input.orderId())||!t.title.equals(title)||!t.description.equals(description))throw conflict("Mã gửi đã được dùng cho nội dung khác.");return detail(a,t.id);}
         if(input.orderId()!=null){var order=em.find(Order.class,input.orderId());if(order==null||!order.getCustomer().getId().equals(owner.getId()))throw bad("Đơn hàng không thuộc khách hàng của phiếu.");}
         staff(input.assigneeId());var t=new SupportTicket();t.customerId=owner.getId();t.orderId=input.orderId();t.assigneeId=a.manager()?input.assigneeId():null;t.createdBy=a.id();t.requestKey=request;t.title=title;t.description=description;t.createdAt=Instant.now();t.updatedAt=t.createdAt;em.persist(t);em.flush();
-        notify(owner,t,"Đã tiếp nhận yêu cầu hỗ trợ","SUPPORT_CREATED");notifyAssignee(t);if(a.manager())log(creator,"CREATE",t,Map.of());return detail(a,t.id);
+        notify(owner,t,"Đã tiếp nhận yêu cầu hỗ trợ","SUPPORT_CREATED",null,true);notifyAssignee(t,a.id(),null);if(a.manager())log(creator,"CREATE",t,Map.of());return detail(a,t.id);
     }
     @Transactional public Detail update(Actor a,long id,Update input){
         User manager=actor(a);if(!a.manager())throw new ApiException(HttpStatus.FORBIDDEN,"MANAGER_REQUIRED","Chỉ quản lý được xử lý phiếu.");var t=ticket(a,id,true);
@@ -66,7 +67,7 @@ public class SupportTicketService {
         if(same&&Objects.equals(t.assigneeId,assignee)&&reply.isEmpty())return detail(a,id);
         var before=snapshot(t);boolean reassigned=!Objects.equals(t.assigneeId,assignee);t.assigneeId=assignee;t.status=status;t.updatedAt=Instant.now();if("RESOLVED".equals(status))t.resolvedAt=t.updatedAt;
         if(!reply.isEmpty())append(t,new Message(request,"ANH LỚN SHOP",reply,false,t.updatedAt));em.flush();log(manager,"UPDATE",t,before);
-        if(!same||!reply.isEmpty())notify(customer(t.customerId,false),t,"Phiếu hỗ trợ đã được cập nhật","SUPPORT_UPDATED");if(reassigned)notifyAssignee(t);return detail(a,id);
+        if(!same||!reply.isEmpty())notify(customer(t.customerId,false),t,"Phiếu hỗ trợ đã được cập nhật","SUPPORT_UPDATED",reply.isEmpty()?null:reply,true);if(reassigned)notifyAssignee(t,a.id(),null);return detail(a,id);
     }
     @Transactional public Detail reply(Actor a,long id,Reply input){
         User sender=actor(a);var t=ticket(a,id,true);if(!a.manager()&&input.internal())throw bad("Khách hàng không được gửi ghi chú nội bộ.");
@@ -75,7 +76,7 @@ public class SupportTicketService {
         if("RESOLVED".equals(t.status))throw conflict("Phiếu đã giải quyết. Hãy tạo phiếu mới nếu cần hỗ trợ thêm.");
         var before=snapshot(t);t.updatedAt=Instant.now();if(a.manager()&&t.assigneeId==null)t.assigneeId=a.id();append(t,new Message(request,author,content,input.internal(),t.updatedAt));
         if(!a.manager()&&"WAITING_CUSTOMER".equals(t.status))t.status="IN_PROGRESS";em.flush();
-        if(a.manager()){log(sender,"UPDATE",t,before);if(!input.internal())notify(customer(t.customerId,false),t,"Shop đã trả lời phiếu hỗ trợ","SUPPORT_REPLY");}else notifyAssignee(t);
+        if(a.manager()){log(sender,"UPDATE",t,before);if(!input.internal())notify(customer(t.customerId,false),t,"Shop đã trả lời phiếu hỗ trợ","SUPPORT_REPLY",content,true);}else notifyAssignee(t,a.id(),content);
         return detail(a,id);
     }
     public Detail detail(Actor a,long id){var t=ticket(a,id,false);return new Detail(row(t,a.manager()),t.description,messages(t).stream().filter(m->a.manager()||!m.internal()).toList());}

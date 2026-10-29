@@ -15,7 +15,7 @@
 - Trước khi xử lý phải phân công; người mới được giao phải là MANAGER đang hoạt động. Có thể giữ người phụ trách cũ không còn hoạt động để kết thúc lịch sử; Manager có thể giao lại cho người đang hoạt động.
 - Đổi sang Chờ khách/Đã giải quyết phải có nội dung công khai gửi khách. Ghi chú nội bộ và trả lời của Manager có thể ghi riêng; ghi chú nội bộ không tạo thông báo cho khách.
 - Phiếu đã giải quyết chỉ xem; nếu cần hỗ trợ thêm, tạo phiếu mới. Không có xóa cứng/xóa mềm hoặc tự đóng theo thời gian ở bản này.
-- Tiêu đề 1–150, nội dung/tin nhắn 1–4.000 ký tự sau trim. Tối đa 200 tin nhắn trao đổi/ghi chú, cho phép thêm một tin chốt khi giải quyết. Hội thoại lưu dạng JSON text trong cùng phiếu; chưa hỗ trợ file, ảnh, email, chat realtime hay SLA.
+- Tiêu đề 1–150, nội dung/tin nhắn 1–4.000 ký tự sau trim. Tối đa 200 tin nhắn trao đổi/ghi chú, cho phép thêm một tin chốt khi giải quyết. Hội thoại lưu dạng JSON text trong cùng phiếu; chưa hỗ trợ file, ảnh, chat realtime hay SLA.
 - Mọi thay đổi khóa phiếu trong transaction. Cập nhật dùng `version`; xung đột trả 409 và giữ bản nháp trên web. Mã UUID cho lần tạo và mỗi tin nhắn chống trùng khi gửi lại sau mất phản hồi. Không tự sửa/hủy/thu tiền/hoàn tiền đơn liên quan hoặc đổi trạng thái việc chăm sóc.
 
 ## API
@@ -31,6 +31,7 @@
 ## Thông báo, nhật ký và giao diện
 
 - Dùng thông báo sẵn có cho khách khi tiếp nhận/có trả lời/cập nhật. Người được giao nhận thông báo khi phân công và khi khách trả lời. Phiếu chưa phân công xuất hiện trong hàng chờ Manager, không phát thông báo hàng loạt cho mọi nhân viên.
+- Nếu dịch vụ email đang bật, thông báo phiếu hỗ trợ cũng được gửi email: khách nhận email khi tiếp nhận/yêu cầu được cập nhật/shop trả lời công khai, kèm liên kết `/ho-tro/{id}`; manager phụ trách nhận email khi được phân công hoặc khi khách trả lời, kèm liên kết `/manager/support-tickets?id={id}`. Ghi chú nội bộ không bao giờ gửi email; manager không nhận email cho thao tác tự phân công chính mình. Email là best-effort sau commit, lỗi gửi không làm hỏng nghiệp vụ và thông báo trong web vẫn còn.
 - Chuông Manager hiển thị chung nhắc việc và thông báo phiếu; hết áp dụng khi giải quyết/đổi người phụ trách. Thông báo cũ vẫn giữ lịch sử.
 - Nhật ký ghi CREATE/UPDATE, loại SUPPORT_TICKET, chỉ metadata (ID khách/đơn/người phụ trách, trạng thái, phiên bản, số tin). Không lưu nội dung hội thoại hoặc ghi chú vào audit. Khách gửi tin không bị ghi giả thành thao tác Manager.
 - Chỉ màn hình đang mở polling 5 giây; dừng khi ẩn tab, khi nhập bản nháp hoặc đang gửi. Giữ nội dung khi lỗi, không gửi chồng và bỏ kết quả sau khi rời trang. Có trạng thái tải/rỗng/lỗi/thử lại, form và thẻ responsive sáng/tối.

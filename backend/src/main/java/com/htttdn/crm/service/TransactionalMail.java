@@ -150,13 +150,14 @@ public class TransactionalMail {
         }
         return new DeliveryFailure(status,reason);
     }
-    public record OrderEmail(String recipient,String subject,String text,String key) {}
+    public record Notice(String recipient,String subject,String text,String key) {}
     @Async("transactionalMailExecutor")
     @TransactionalEventListener(phase=TransactionPhase.AFTER_COMMIT)
-    public void afterOrderCommit(OrderEmail message) {
-        if(!permits(message.recipient())) return;
-        try { send(message.recipient(),message.subject(),message.text(),message.key()); }
-        catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Order email delivery failed (provider={}, status={}, reason={}); in-app notification retained",provider,e instanceof DeliveryFailure f?f.status:0,e instanceof DeliveryFailure f?f.reason:"TRANSPORT_OR_INTERNAL"); }
+    public void afterNoticeCommit(Notice message) { deliver(message.recipient(),message.subject(),message.text(),message.key()); }
+    private void deliver(String recipient,String subject,String text,String key) {
+        if(!permits(recipient)) return;
+        try { send(recipient,subject,text,key); }
+        catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Email delivery failed (provider={}, status={}, reason={}); in-app notification retained",provider,e instanceof DeliveryFailure f?f.status:0,e instanceof DeliveryFailure f?f.reason:"TRANSPORT_OR_INTERNAL"); }
     }
     @Configuration @EnableAsync
     static class MailExecutorConfig {

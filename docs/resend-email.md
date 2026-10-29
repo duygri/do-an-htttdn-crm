@@ -19,6 +19,8 @@ Mỗi địa chỉ email đã chuẩn hóa có thời gian chờ 60 giây trư�
 
 Mã khôi phục ngẫu nhiên 256 bit, hạn mặc định 15 phút; DB chỉ lưu SHA-256. Email mới chứa địa chỉ công khai `/dat-lai-mat-khau` không có token và mã riêng để dán vào form. Không đưa mã bí mật vào link theo dõi của nhà cung cấp. Nếu chuyển hướng email lỗi, sao chép địa chỉ website và mở trực tiếp. Link cũ có token trong fragment vẫn được hỗ trợ và xóa fragment khỏi thanh địa chỉ sau khi đọc. Không lưu token vào session/localStorage. Refresh form cần nhập lại mã từ email. Mỗi customer có thời gian chờ 60 giây giữa hai lần cấp; cấp mới làm mất hiệu lực mã cũ. Đổi mật khẩu khóa customer trong transaction, đánh dấu token đã dùng và thu hồi refresh token. Không log link, token, API key hoặc nội dung phản hồi provider.
 
+Ngoài email đơn hàng, hệ thống gửi email cho phiếu hỗ trợ (tiếp nhận, shop trả lời công khai, khách trả lời cho manager phụ trách), thanh toán thất bại/hết hạn, yêu cầu và từ chối hoàn tiền, khóa tài khoản, xác nhận đổi/đặt lại mật khẩu và voucher thưởng khảo sát. Ghi chú nội bộ của phiếu hỗ trợ không được gửi; email khóa tài khoản dùng câu chung, không chứa lý do do admin nhập.
+
 Thông báo tạo đơn, trạng thái giao hàng, hủy/hoàn thành và đổi trả được gửi sau commit bằng hàng đợi giới hạn trong bộ nhớ. Rollback không gửi email. Có idempotency key theo thông báo. Lỗi/đầy hàng đợi không làm thất bại đơn hàng; thông báo trong web vẫn còn. Đây là best-effort, chưa phải outbox bền vững: restart có thể làm mất email đang chờ, chưa có chức năng tự phát lại. Không tự gửi bù các thông báo lịch sử.
 
 ## Bật thật sau này

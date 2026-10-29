@@ -20,10 +20,11 @@ class ResendRecoveryTest {
     private final PasswordEncoder encoder=mock(PasswordEncoder.class);
     private final TransactionalMail mail=mock(TransactionalMail.class);
     private final ApplicationEventPublisher events=mock(ApplicationEventPublisher.class);
+    private final NotificationService notifications=mock(NotificationService.class);
     private AuthService service() {
         var service=new AuthService(users,sessions,tokens,encoder,null,null);
         ReflectionTestUtils.setField(service,"mail",mail);ReflectionTestUtils.setField(service,"resetCodeMinutes",15L);
-        ReflectionTestUtils.setField(service,"events",events);
+        ReflectionTestUtils.setField(service,"events",events);ReflectionTestUtils.setField(service,"notifications",notifications);
         when(mail.available()).thenReturn(true);when(mail.permits("owner@example.com")).thenReturn(true);
         when(mail.link(anyString())).thenAnswer(a->"https://example.com"+a.getArgument(0));
         return service;
@@ -103,6 +104,7 @@ class ResendRecoveryTest {
         when(encoder.encode("Password123")).thenReturn("encoded");
         service.resetPassword("owner@example.com",secret,"Password123");
         assertNotNull(token.getUsedAt());verify(sessions).revokeByUserId(7L);
+        verify(notifications).accountNotice(eq(user),eq("Mật khẩu đã được thay đổi"),anyString());
         assertThrows(ApiException.class,()->service.resetPassword("owner@example.com",secret,"Password123"));
         verify(sessions,times(1)).revokeByUserId(7L);
     }
