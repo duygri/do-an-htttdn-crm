@@ -427,53 +427,46 @@ entity audit_logs {
 }
 }
 
-categories ||--o{ products : category_id
-suppliers |o--o{ products : supplier_id
-customers ||--o{ customer_addresses : customer_id
-customers ||--o{ orders : customer_id
-customers ||--o{ cart_items : customer_id
-customers ||--o{ wishlists : customer_id
-customers ||--o{ feedback : customer_id
-customers ||--o{ survey_responses : customer_id
-customers ||--o{ survey_recipients : customer_id
-customers ||--o{ survey_notified_customers : customer_id
-customers ||--o{ customer_care_notes : customer_id
-customers ||--o{ customer_care_notes : author_id
-customers ||--o{ customer_care_tasks : customer_id
-customers ||--o{ customer_care_tasks : assignee_id
-customers ||--o{ customer_care_tasks : created_by
-customers ||--o{ customer_care_tasks : updated_by
-customers ||--o{ support_tickets : customer_id
-customers |o--o{ support_tickets : assignee_id
-customers ||--o{ support_tickets : created_by
-customers ||--o{ customer_notifications : customer_id
-customers ||--o{ refresh_tokens : customer_id
-customers ||--o{ password_reset_tokens : customer_id
-customers |o--o{ order_return_events : manager_id
-admins |o--o{ feedback : admin_id
-products ||--o{ order_items : product_id
-products ||--o{ cart_items : product_id
-products ||--o{ wishlists : product_id
-products |o--o{ feedback : product_id
-orders ||--o{ order_items : order_id
-orders ||--o{ order_return_events : order_id
-orders ||--o{ order_refunds : order_id
-orders ||--o| payments : order_id
-orders ||--o{ payment_attempts : order_id
-orders ||--o| voucher_usages : order_id
-orders |o--o{ support_tickets : order_id
-orders |o--o{ feedback : order_id
-orders |o--o{ customer_notifications : order_id
-store_vouchers ||--o{ voucher_usages : voucher_id
-customers |o--o{ store_vouchers : owner_customer_id
-survey_definitions |o--o{ store_vouchers : reward_survey_id
-survey_definitions ||--o{ survey_questions : survey_id
-survey_definitions ||--o{ survey_responses : survey_id
-survey_definitions ||--o{ survey_recipients : survey_id
-survey_definitions ||--o{ survey_notified_customers : survey_id
-survey_responses ||--o{ survey_answers : response_id
-survey_questions ||--o{ survey_answers : question_id
-customer_care_tasks |o--o| customer_care_tasks : parent_task_id
-customer_care_tasks |o--o{ customer_notifications : care_task_id
-support_tickets |o--o{ customer_notifications : support_ticket_id
+categories ||--o{ products
+suppliers |o--o{ products
+customers ||--o{ customer_addresses
+customers ||--o{ orders
+customers ||--o{ cart_items
+customers ||--o{ wishlists
+customers ||--o{ feedback
+customers ||--o{ survey_responses
+customers ||--o{ survey_recipients
+customers ||--o{ survey_notified_customers
+customers ||--o{ customer_care_notes
+customers ||--o{ customer_care_tasks
+customers ||--o{ support_tickets
+customers ||--o{ customer_notifications
+customers ||--o{ refresh_tokens
+customers ||--o{ password_reset_tokens
+admins |o--o{ feedback
+products ||--o{ order_items
+products ||--o{ cart_items
+products ||--o{ wishlists
+products |o--o{ feedback
+orders ||--o{ order_items
+orders ||--o{ order_return_events
+orders ||--o{ order_refunds
+orders ||--o| payments
+orders ||--o{ payment_attempts
+orders ||--o| voucher_usages
+orders |o--o{ support_tickets
+orders |o--o{ feedback
+orders |o--o{ customer_notifications
+store_vouchers ||--o{ voucher_usages
+customers |o--o{ store_vouchers
+survey_definitions |o--o{ store_vouchers
+survey_definitions ||--o{ survey_questions
+survey_definitions ||--o{ survey_responses
+survey_definitions ||--o{ survey_recipients
+survey_definitions ||--o{ survey_notified_customers
+survey_responses ||--o{ survey_answers
+survey_questions ||--o{ survey_answers
+customer_care_tasks |o--o| customer_care_tasks
+customer_care_tasks |o--o{ customer_notifications
+support_tickets |o--o{ customer_notifications
 @enduml
