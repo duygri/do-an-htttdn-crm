@@ -12,6 +12,8 @@ legend bottom left
 endlegend
 skinparam ranksep 35
 skinparam nodesep 20
+skinparam pageMargin 50
+scale max 3600 width
 skinparam entity {
   BackgroundColor #F8FAFC
   BorderColor #334155
