@@ -57,7 +57,7 @@ export default function SystemAdminApp() {
       }
     }
   );
-  const [form, setForm] = useState({ email: 'admin@shop.com', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [overview, setOverview] = useState(null);
   const [retry, setRetry] = useState(0);
 
@@ -378,16 +378,14 @@ export default function SystemAdminApp() {
 
                   <div className="internal-kpi-card emerald">
                     <div className="internal-kpi-header">
-                      <span className="internal-kpi-title">Hạ tầng hệ thống</span>
+                      <span className="internal-kpi-title">Đối tác cung ứng</span>
                       <div className="internal-kpi-icon emerald">
-                        <Activity size={20} />
+                        <Layers size={20} />
                       </div>
                     </div>
-                    <div className="internal-kpi-value">100%</div>
+                    <div className="internal-kpi-value">{overview ? overview.suppliers ?? 0 : '—'}</div>
                     <div className="internal-kpi-footer">
-                      <span className="internal-live-indicator">
-                        <i /> API & Database ổn định
-                      </span>
+                      <span>Đối tác cung ứng đang kết nối</span>
                     </div>
                   </div>
                 </div>
@@ -470,7 +468,7 @@ export default function SystemAdminApp() {
                         <span className="spec-label">
                           <Database size={14} /> Cơ sở dữ liệu
                         </span>
-                        <span className="spec-val">PostgreSQL 16 Enterprise</span>
+                        <span className="spec-val">PostgreSQL</span>
                       </div>
                       <div className="internal-spec-row">
                         <span className="spec-label">
@@ -482,7 +480,7 @@ export default function SystemAdminApp() {
                         <span className="spec-label">
                           <Shield size={14} /> Quyền hạn tài khoản
                         </span>
-                        <span className="spec-val badge">ROOT_ADMINISTRATOR</span>
+                        <span className="spec-val badge">ADMIN / MANAGER</span>
                       </div>
                     </div>
                   </div>

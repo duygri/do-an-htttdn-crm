@@ -15,7 +15,7 @@ import java.util.Map;
 
 @Service
 public class AdminOrderService extends AdminServiceSupport {
-    private static final Set<String> STATUSES = Set.of("PENDING_PAYMENT", "PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "COMPLETED", "CANCELLED");
+    private static final Set<String> STATUSES = Set.of("PENDING_PAYMENT", "PENDING", "CONFIRMED", "PREPARING", "SHIPPED", "DELIVERING", "DELIVERED", "COMPLETED", "CANCELLED");
     private static final Map<String, Integer> PROGRESS = Map.of("PENDING_PAYMENT", 0, "PENDING", 1, "CONFIRMED", 2, "PREPARING", 3, "SHIPPED", 4, "DELIVERING", 4, "DELIVERED", 5, "COMPLETED", 6);
     private static boolean canAdvance(String current, String next) {
         if ("COMPLETED".equals(next)) return false;

@@ -195,6 +195,9 @@ describe("admin navigation", () => {
     adminApi.mockImplementation(async url => url === "/api/manager/orders/9" ? { id: 9, orderCode: 9009, status: "CONFIRMED", customer: { fullName: "Khách thử" }, paymentMethod: "COD", paymentStatus: "COD", totalAmount: 299000, items: [] } : { content: [{ id: 9, orderCode: 9009, status: "CONFIRMED", customer: { fullName: "Khách thử" }, totalAmount: 299000 }], totalPages: 2, totalElements: 11 });
     render(<AdminApp />, { wrapper });
     await waitFor(() => expect(screen.getAllByText("#9009").length).toBeGreaterThan(0));
+    const statusOptions = Array.from(screen.getAllByLabelText("Cập nhật trạng thái đơn 9009")[0].options).map((option) => option.textContent);
+    expect(statusOptions).toContain("Đang chuẩn bị");
+    expect(statusOptions.filter((label) => label === "Đang giao")).toHaveLength(1);
     fireEvent.change(screen.getByLabelText("Lọc trạng thái"), { target: { value: "CONFIRMED" } });
     await waitFor(() => expect(adminApi.mock.calls.some(([url]) => url.includes("status=CONFIRMED"))).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "Sau" }));

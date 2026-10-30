@@ -19,6 +19,14 @@ server:
     include-message: never
     include-stacktrace: never
 app:
+  request:
+    max-body-bytes: ${MAX_BODY_BYTES:1048576}
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    per-minute: ${RATE_LIMIT_PER_MINUTE:120}
+    auth-max-attempts: ${AUTH_MAX_ATTEMPTS:5}
+    auth-window-minutes: ${AUTH_WINDOW_MINUTES:15}
+    trust-forwarded-for: ${RATE_LIMIT_TRUST_FORWARDED_FOR:true}
   auth:
     jwt-secret: ${JWT_SECRET}
     access-minutes: 15

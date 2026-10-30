@@ -315,7 +315,7 @@ Tài liệu từng đợt có thể ghi kết quả kiểm tra ở thời điể
 ## Giới hạn và lưu ý triển khai
 
 - Đây là đồ án mô phỏng; cần rà soát bảo mật, cấu hình, hiệu năng, sao lưu/khôi phục và vận hành trước khi dùng thực tế.
-- Chưa tích hợp email gửi mã khôi phục mật khẩu. Luồng khôi phục công khai mặc định bị khóa; chế độ xem mã chỉ dành cho môi trường `development` và phải bật rõ `DEV_PASSWORD_RESET_ENABLED=true`. Không bật chế độ này khi triển khai thật.
+- Email giao dịch (khôi phục/đổi mật khẩu, đơn hàng, phiếu hỗ trợ, hoàn tiền, khóa tài khoản, voucher khảo sát) chỉ hoạt động khi cấu hình nhà cung cấp và `PUBLIC_ORIGIN` HTTPS; chế độ thử chỉ gửi tới địa chỉ cấu hình. Luồng khôi phục công khai bị khóa nếu chưa cấu hình; chế độ xem mã chỉ dành cho môi trường `development` và phải bật rõ `DEV_PASSWORD_RESET_ENABLED=true`. Không bật chế độ này khi triển khai thật.
 - Chưa có email marketing, thông báo hệ điều hành, hoàn tiền tự động hoặc chiến dịch tự phát voucher. Nhắc việc và thông báo hiện tại nằm trong web.
 - Báo cáo mua lại toàn thời gian chưa phải phân tích giữ chân theo cohort; giá trị đơn không phải tiền thực thu hay lợi nhuận.
 - Giao diện quản lý nhà cung cấp không nằm trong menu hiện tại; database/API có thể còn thành phần tương thích từ các phiên bản trước.

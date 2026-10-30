@@ -8,9 +8,7 @@ import java.nio.charset.StandardCharsets; import java.security.*; import java.ti
 @Service
 public class AuthService {
     @org.springframework.beans.factory.annotation.Autowired private TransactionalMail mail;
-    @org.springframework.beans.factory.annotation.Autowired private org.springframework.context.ApplicationEventPublisher events;
     @org.springframework.beans.factory.annotation.Autowired private NotificationService notifications;
-    private final PasswordResetThrottle resetThrottle = new PasswordResetThrottle();
     @org.springframework.beans.factory.annotation.Autowired private org.springframework.core.env.Environment environment;
     @Value("${DEV_PASSWORD_RESET_ENABLED:false}") private boolean developmentResetEnabled;
     private boolean developmentRecovery(){return developmentResetEnabled && environment!=null && environment.acceptsProfiles(org.springframework.core.env.Profiles.of("development"));}
@@ -50,39 +48,26 @@ public class AuthService {
     }
     @Transactional public void logout(String raw){if(raw==null||raw.isBlank())return;refreshTokens.findForUpdate(hash(raw)).filter(t->!"ADMIN".equals(t.getAudience())).ifPresent(t->{if("ACTIVE".equals(t.getStatus())){t.setStatus("REVOKED");t.setRevokeReason("LOGOUT");t.setRevokedAt(Instant.now());refreshTokens.save(t);}});}
     @Transactional public User saveProfile(User user){return users.save(user);}
-    @Transactional public void changePassword(User user,String currentPassword,String newPassword){if(!encoder.matches(currentPassword==null?"":currentPassword,user.getPasswordHash()))throw new ApiException(HttpStatus.BAD_REQUEST,"CURRENT_PASSWORD_INVALID","Mật khẩu hiện tại không đúng.");validatePassword(newPassword);user.setPasswordHash(encoder.encode(newPassword));users.save(user);refreshTokens.revokeByUserId(user.getId());passwordChanged(user);}
     private void passwordChanged(User user){notifications.accountNotice(user,"Mật khẩu đã được thay đổi","Mật khẩu tài khoản của bạn đã được thay đổi lúc "+DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(Instant.now())+" (giờ Việt Nam). Nếu không phải bạn, hãy liên hệ cửa hàng ngay.");}
+    @Transactional public void changePassword(User user,String currentPassword,String newPassword){if(!encoder.matches(currentPassword==null?"":currentPassword,user.getPasswordHash()))throw new ApiException(HttpStatus.BAD_REQUEST,"CURRENT_PASSWORD_INVALID","Mật khẩu hiện tại không đúng.");validatePassword(newPassword);user.setPasswordHash(encoder.encode(newPassword));users.save(user);refreshTokens.revokeByUserId(user.getId());passwordChanged(user);}
     @Transactional public String requestPasswordReset(String email){
         requirePasswordRecovery();String normalized=email==null?"":email.trim().toLowerCase(Locale.ROOT);
-        if(!resetThrottle.permits(normalized)) return null;
         boolean deliver=mail!=null && mail.available();
-        if(deliver){
-            if(mail.permits(normalized)) events.publishEvent(new PasswordResetRequested(normalized));
-            return null;
-        }
-        return issuePasswordReset(normalized,false);
-    }
-    public record PasswordResetRequested(String email) {}
-    @org.springframework.scheduling.annotation.Async("transactionalMailExecutor")
-    @org.springframework.context.event.EventListener
-    @Transactional
-    public void deliverPasswordReset(PasswordResetRequested request){
-        if(mail.permits(request.email())) issuePasswordReset(request.email(),true);
-    }
-    private String issuePasswordReset(String normalized,boolean deliver){
+        if(deliver && !mail.permits(normalized)) return null;
         User user=users.findForPasswordReset(normalized).orElse(null);
         if(user==null||!"CUSTOMER".equals(user.getRole())||user.isLocked()||user.getDeletedAt()!=null)return null;
         var previous=resetTokens.findFirstByCustomerIdOrderByCreatedAtDesc(user.getId());
         if(previous.isPresent() && previous.get().getCreatedAt().isAfter(Instant.now().minusSeconds(60))) return null;
         byte[] bytes=new byte[32];new SecureRandom().nextBytes(bytes);
         String code=deliver?Base64.getUrlEncoder().withoutPadding().encodeToString(bytes):String.format("%06d",new SecureRandom().nextInt(1_000_000));
+        PasswordResetToken token=new PasswordResetToken();token.setCustomer(user);token.setTokenHash(hash(code));token.setExpiresAt(Instant.now().plus(Duration.ofMinutes(resetCodeMinutes)));
+        resetTokens.saveAndFlush(token);
         if(deliver){
-            String link=mail.link("/dat-lai-mat-khau");
-            try { mail.send(normalized,"ANH LỚN SHOP — Đặt lại mật khẩu","Mở trang sau để đặt lại mật khẩu:\n"+link+"\n\nNhập email tài khoản và dán toàn bộ mã khôi phục sau:\n"+code+"\n\nMã có hiệu lực "+resetCodeMinutes+" phút, dùng một lần. Không chia sẻ mã này. Nếu nút trong email báo lỗi, hãy sao chép địa chỉ trang ở trên và mở trực tiếp trong trình duyệt. Nếu không yêu cầu, bạn có thể bỏ qua email này.","password-reset-"+UUID.randomUUID()); }
-            catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Password reset email delivery failed (status={}, reason={})",e instanceof TransactionalMail.DeliveryFailure f?f.status:0,e instanceof TransactionalMail.DeliveryFailure f?f.reason:"TRANSPORT_OR_INTERNAL"); return null; }
+            String link=mail.link("/dat-lai-mat-khau#email="+java.net.URLEncoder.encode(normalized,StandardCharsets.UTF_8)+"&code="+code);
+            try { mail.send(normalized,"ANH LỚN SHOP — Đặt lại mật khẩu","Mở liên kết để đặt lại mật khẩu:\n"+link+"\n\nLiên kết có hiệu lực "+resetCodeMinutes+" phút, dùng một lần. Nếu không yêu cầu, bạn có thể bỏ qua email này.","password-reset-"+UUID.randomUUID()); }
+            catch(RuntimeException e) { resetTokens.delete(token);resetTokens.flush();org.slf4j.LoggerFactory.getLogger(getClass()).warn("Password reset email delivery failed; new token discarded"); return null; }
         }
-        resetTokens.deleteByCustomerId(user.getId());resetTokens.flush();
-        PasswordResetToken token=new PasswordResetToken();token.setCustomer(user);token.setTokenHash(hash(code));token.setExpiresAt(Instant.now().plus(Duration.ofMinutes(resetCodeMinutes)));resetTokens.save(token);
+        resetTokens.deleteByCustomerIdAndTokenHashNot(user.getId(),token.getTokenHash());
         return deliver?null:code;
     }
     @Transactional public void resetPassword(String email,String code,String newPassword){
@@ -95,8 +80,10 @@ public class AuthService {
         user.setPasswordHash(encoder.encode(newPassword));users.save(user);token.setUsedAt(Instant.now());resetTokens.save(token);refreshTokens.revokeByUserId(user.getId());passwordChanged(user);
     }
     private ApiException invalidReset(){return new ApiException(HttpStatus.BAD_REQUEST,"RESET_CODE_INVALID","Liên kết đặt lại mật khẩu đã hết hạn hoặc không hợp lệ.");}
-    public ResponseCookie cookie(String raw){return ResponseCookie.from("refreshToken",raw).httpOnly(true).secure(secureCookie).sameSite("Lax").path("/api/auth").maxAge(Duration.ofDays(refreshDays)).build();}
-    public ResponseCookie clearCookie(){return ResponseCookie.from("refreshToken","").httpOnly(true).secure(secureCookie).sameSite("Lax").path("/api/auth").maxAge(Duration.ZERO).build();}
+    public ResponseCookie cookie(String raw){return cookie(raw,false);}
+    public ResponseCookie cookie(String raw,boolean https){return ResponseCookie.from("refreshToken",raw).httpOnly(true).secure(secureCookie||https).sameSite("Lax").path("/api/auth").maxAge(Duration.ofDays(refreshDays)).build();}
+    public ResponseCookie clearCookie(){return clearCookie(false);}
+    public ResponseCookie clearCookie(boolean https){return ResponseCookie.from("refreshToken","").httpOnly(true).secure(secureCookie||https).sameSite("Lax").path("/api/auth").maxAge(Duration.ZERO).build();}
     public User requireCustomer(String authorization){
         JwtTokenService.Claims claims=jwt.parse(authorization); if(!"CUSTOMER".equals(claims.role())) throw new ApiException(HttpStatus.FORBIDDEN,"CUSTOMER_REQUIRED","Customer token required.");
         User user=users.findById(claims.userId()).orElseThrow(()->new ApiException(HttpStatus.UNAUTHORIZED,"UNAUTHORIZED","Vui lòng đăng nhập."));

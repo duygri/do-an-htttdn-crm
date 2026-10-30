@@ -4,7 +4,7 @@ public final class AdminDtos {
  private AdminDtos(){}
  public record UserRequest(@NotBlank String fullName,String phone,String preferences){}
  public record LockRequest(boolean locked,@Size(max=2000) String reason){}
- public record FeedbackRequest(String status,String adminResponse,Boolean hidden){}
+ public record FeedbackRequest(@Size(max=30) String status,@Size(max=4000) String adminResponse,Boolean hidden){}
  public record StatusRequest(@NotBlank String status,String reason){}
  public record StockRequest(@Min(0) int quantity){}
  public record ProductRequest(@NotBlank String name,String category,String description,@NotNull @DecimalMin("0.0") BigDecimal price,@Min(0) int stock,String imageUrl){}

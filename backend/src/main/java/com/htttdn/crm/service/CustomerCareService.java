@@ -1,5 +1,6 @@
 package com.htttdn.crm.service;
 
+import jakarta.validation.constraints.*;
 import com.htttdn.crm.entity.*;
 import com.htttdn.crm.repository.UserRepository;
 import com.htttdn.crm.exception.ApiException;
@@ -26,15 +27,15 @@ public class CustomerCareService {
     public record Staff(long id,String fullName,String email) {}
     public record Task(long id,long customerId,String customerName,long assigneeId,String assigneeName,boolean assigneeActive,
         String title,String description,String status,Instant dueAt,boolean overdue,Instant createdAt,Instant updatedAt,Instant completedAt,long version,String sourceType,Long sourceId,String outcome,String resultNote,Long parentTaskId,Long followUpTaskId) {}
-    public record CreateTask(Long customerId,Long assigneeId,String title,String description,Instant dueAt,String sourceType,Long sourceId) {
+    public record CreateTask(@NotNull Long customerId,@NotNull Long assigneeId,@NotBlank @Size(max=255) String title,@Size(max=4000) String description,@NotNull Instant dueAt,@Size(max=30) String sourceType,Long sourceId) {
         public CreateTask(Long customerId,Long assigneeId,String title,String description,Instant dueAt){this(customerId,assigneeId,title,description,dueAt,null,null);}
     }
     public record Source(String sourceType,long sourceId,long customerId,String customerName,String title,Long openTaskId) {}
-    public record UpdateTask(Long assigneeId,String title,String description,Instant dueAt,String status,Long version,String outcome,String resultNote) {
+    public record UpdateTask(Long assigneeId,@NotBlank @Size(max=255) String title,@Size(max=4000) String description,@NotNull Instant dueAt,@Size(max=30) String status,@NotNull Long version,@Size(max=30) String outcome,@Size(max=4000) String resultNote) {
         public UpdateTask(Long assigneeId,String title,String description,Instant dueAt,String status,Long version){this(assigneeId,title,description,dueAt,status,version,null,null);}
     }
-    public record FollowUp(Long assigneeId,String title,String description,Instant dueAt) {}
-    public record NoteInput(String content) {}
+    public record FollowUp(@NotNull Long assigneeId,@NotBlank @Size(max=255) String title,@Size(max=4000) String description,@NotNull Instant dueAt) {}
+    public record NoteInput(@NotBlank @Size(max=4000) String content) {}
     public record Filters(String q,Long customerId,Long assigneeId,String status,Boolean overdue,int page,int size,String sourceType,Long sourceId,String outcome,java.time.LocalDate completedFrom,java.time.LocalDate completedTo) {
         public Filters(String q,Long customerId,Long assigneeId,String status,Boolean overdue,int page,int size){this(q,customerId,assigneeId,status,overdue,page,size,null,null,null,null,null);}
         public Filters(String q,Long customerId,Long assigneeId,String status,Boolean overdue,int page,int size,String sourceType,Long sourceId){this(q,customerId,assigneeId,status,overdue,page,size,sourceType,sourceId,null,null,null);}

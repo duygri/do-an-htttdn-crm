@@ -103,7 +103,9 @@ const statusLabels = {
   PENDING_PAYMENT: "Chờ thanh toán",
   PENDING: "Chờ xác nhận",
   CONFIRMED: "Đã xác nhận",
+  PREPARING: "Đang chuẩn bị",
   SHIPPED: "Đang giao",
+  DELIVERING: "Đang giao",
   DELIVERED: "Đã giao — chờ khách xác nhận",
   COMPLETED: "Khách đã nhận hàng",
   CANCELLED: "Đã hủy",
@@ -112,12 +114,15 @@ const statusColors = {
   PENDING_PAYMENT: "#f59e0b",
   PENDING: "#d97706",
   CONFIRMED: "#8b5cf6",
+  PREPARING: "#6366f1",
   SHIPPED: "#3b82f6",
+  DELIVERING: "#2563eb",
   DELIVERED: "#10b981",
   COMPLETED: "#14b8a6",
   CANCELLED: "#ef4444",
 };
-const orderStatuses = Object.entries(statusLabels);
+// DELIVERING is a display-only synonym of SHIPPED, so it is never offered as a second dropdown choice.
+const orderStatuses = Object.entries(statusLabels).filter(([value]) => value !== "DELIVERING");
 const orderStatusOptions = (current,order) => [
   [
     current,
@@ -752,7 +757,7 @@ function RecentOrders({ go }) {
       </div>
     );
   const orders = pageData(data);
-  const counts = Object.entries({...statusLabels,RETURN:'Đổi trả'}).filter(([status])=>status!=='PENDING_PAYMENT').map(([status, label]) => ({
+  const counts = Object.entries({...Object.fromEntries(orderStatuses),RETURN:'Đổi trả'}).filter(([status])=>status!=='PENDING_PAYMENT').map(([status, label]) => ({
     status,
     label,
     count: Number.isFinite(summary?.ALL) ? (summary[status]||0) : orders.filter((order) => status==='RETURN'?showReturn(order):!showReturn(order)&&order.status === status).length,
@@ -1658,6 +1663,7 @@ function Orders({ notify }) {
     { key: "", label: "Tất cả", color: "#64748b" },
     { key: "PENDING", label: "Chờ xác nhận", color: "#d97706" },
     { key: "CONFIRMED", label: "Đã xác nhận", color: "#8b5cf6" },
+    { key: "PREPARING", label: "Đang chuẩn bị", color: "#6366f1" },
     { key: "SHIPPED", label: "Đang giao", color: "#3b82f6" },
     { key: "DELIVERED", label: "Đã giao", color: "#10b981" },
     { key: "COMPLETED", label: "Khách đã nhận", color: "#14b8a6" },
