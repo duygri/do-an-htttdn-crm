@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, it, expect, vi } from 'vitest';
 beforeEach(() => { vi.resetModules(); vi.stubEnv('VITE_API_BASE_URL', ''); vi.stubGlobal('fetch', vi.fn()); });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
-const response = (status, body) => ({ ok: status < 400, status, json: async () => body });
+const response = (status, body) => ({ ok: status < 400, status, json: async () => body, text: async () => body === undefined ? '' : JSON.stringify(body) });
 it('uses the configured backend origin for all three portals', async () => {
   vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8082/');
   const { api, adminApi } = await import('./api');
