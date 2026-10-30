@@ -43,8 +43,10 @@ public class ManagerAuthService {
     }
 
     @Transactional public void logout(String raw) { if (raw == null || raw.isBlank()) return; refreshTokens.findForUpdate(AuthService.hash(raw)).filter(t -> "MANAGER".equals(t.getAudience())).ifPresent(t -> { if ("ACTIVE".equals(t.getStatus())) { t.setStatus("REVOKED"); t.setRevokeReason("LOGOUT"); t.setRevokedAt(Instant.now()); refreshTokens.save(t); } }); }
-    public ResponseCookie cookie(String raw) { return ResponseCookie.from("managerRefreshToken", raw).httpOnly(true).secure(secureCookie).sameSite("Lax").path("/api/manager/auth").maxAge(Duration.ofDays(refreshDays)).build(); }
-    public ResponseCookie clearCookie() { return ResponseCookie.from("managerRefreshToken", "").httpOnly(true).secure(secureCookie).sameSite("Lax").path("/api/manager/auth").maxAge(Duration.ZERO).build(); }
+    public ResponseCookie cookie(String raw) { return cookie(raw, false); }
+    public ResponseCookie cookie(String raw, boolean https) { return ResponseCookie.from("managerRefreshToken", raw).httpOnly(true).secure(secureCookie || https).sameSite("Lax").path("/api/manager/auth").maxAge(Duration.ofDays(refreshDays)).build(); }
+    public ResponseCookie clearCookie() { return clearCookie(false); }
+    public ResponseCookie clearCookie(boolean https) { return ResponseCookie.from("managerRefreshToken", "").httpOnly(true).secure(secureCookie || https).sameSite("Lax").path("/api/manager/auth").maxAge(Duration.ZERO).build(); }
     private Session issue(User user, String family) { String raw = UUID.randomUUID() + "." + UUID.randomUUID(); RefreshToken token = new RefreshToken(); token.setUser(user); token.setAudience("MANAGER"); token.setFamilyId(family); token.setTokenHash(AuthService.hash(raw)); token.setExpiresAt(Instant.now().plus(Duration.ofDays(refreshDays))); refreshTokens.save(token); return new Session(jwt.issue(user.getId(), "MANAGER"), raw, user); }
     private ApiException invalidRefresh() { return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "Phiên manager không hợp lệ hoặc đã hết hạn."); }
     public record Session(String accessToken, String refreshToken, User user) {}

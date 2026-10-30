@@ -30,6 +30,29 @@ class AdminOrderServiceTest {
         service.updateStatus(9L,new StatusRequest("DELIVERED",null));
         assertEquals("DELIVERED",shipped.getStatus());
     }
+    @Test void acceptsPreparingAndDeliveringTransitions() {
+        Order preparing = order("CONFIRMED");
+        service.updateStatus(9L, new StatusRequest("PREPARING", null));
+        assertEquals("PREPARING", preparing.getStatus());
+        verify(notifications).create(eq(preparing.getCustomer()), eq("Cập nhật đơn hàng"), contains("Đang xử lý"), eq("ORDER_STATUS"), isNull());
+        service.updateStatus(9L, new StatusRequest("SHIPPED", null));
+        assertEquals("SHIPPED", preparing.getStatus());
+        service.updateStatus(9L, new StatusRequest("DELIVERED", null));
+        assertEquals("DELIVERED", preparing.getStatus());
+
+        Order delivering = order("CONFIRMED");
+        service.updateStatus(9L, new StatusRequest("DELIVERING", null));
+        assertEquals("DELIVERING", delivering.getStatus());
+        verify(notifications).create(eq(delivering.getCustomer()), eq("Cập nhật đơn hàng"), contains("Đang giao"), eq("ORDER_STATUS"), isNull());
+    }
+
+    @Test void preparingOrdersCanStillBeCancelled() {
+        Order order = order("PREPARING");
+        service.updateStatus(9L, new StatusRequest("CANCELLED", "Khách đổi ý"));
+        assertEquals("CANCELLED", order.getStatus());
+        verify(notifications).create(eq(order.getCustomer()), eq("Đơn hàng đã bị hủy"), contains("Khách đổi ý"), eq("ORDER_CANCELLED"), isNull());
+    }
+
     final OrderRepository orders = mock(OrderRepository.class);
     final NotificationService notifications = mock(NotificationService.class);
     final PaymentRepository payments = mock(PaymentRepository.class);

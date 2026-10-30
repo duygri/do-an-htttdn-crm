@@ -30,6 +30,10 @@ final class RateLimitStore {
     synchronized boolean tryConsumeGlobal(String ipHash) {
         Instant now = clock.instant();
         evictIdle(global, now, IDLE_TIMEOUT, b -> b.lastAccess);
+        if (global.size() >= capacity && !global.containsKey(ipHash)) {
+            var eldest = global.entrySet().iterator();
+            if (eldest.hasNext()) { eldest.next(); eldest.remove(); }
+        }
         Bucket bucket = global.computeIfAbsent(ipHash, k -> new Bucket(perMinute, now));
         double ratePerSecond = perMinute / 60.0;
         long elapsedMillis = Duration.between(bucket.lastRefill, now).toMillis();
@@ -81,12 +85,11 @@ final class RateLimitStore {
     }
 
     private static <T> void evictIdle(Map<String, T> map, Instant now, Duration timeout, Function<T, Instant> lastAccessOf) {
-        var entries = map.entrySet().iterator();
-        while (entries.hasNext()) {
-            if (!lastAccessOf.apply(entries.next().getValue()).isBefore(now.minus(timeout))) break;
-            entries.remove();
-        }
+        Instant cutoff = now.minus(timeout);
+        map.entrySet().removeIf(entry -> lastAccessOf.apply(entry.getValue()).isBefore(cutoff));
     }
+
+    synchronized int globalSize() { return global.size(); }
 
     private static final class Bucket {
         double tokens;

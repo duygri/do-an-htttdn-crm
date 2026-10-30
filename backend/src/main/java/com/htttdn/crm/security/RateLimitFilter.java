@@ -24,33 +24,38 @@ final class RateLimitFilter extends OncePerRequestFilter {
     private final RateLimitStore store;
     private final ObjectMapper mapper;
     private final boolean enabled;
+    private final boolean trustForwardedFor;
     private final int maxBodyBytes;
 
-    RateLimitFilter(RateLimitStore store, ObjectMapper mapper, boolean enabled, int maxBodyBytes) {
+    RateLimitFilter(RateLimitStore store, ObjectMapper mapper, boolean enabled, boolean trustForwardedFor, int maxBodyBytes) {
         this.store = store;
         this.mapper = mapper;
         this.enabled = enabled;
+        this.trustForwardedFor = trustForwardedFor;
         this.maxBodyBytes = maxBodyBytes;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         String path = request.getRequestURI();
-        boolean webhook = "POST".equals(request.getMethod()) && WEBHOOK_PATH.equals(path);
-        if (!enabled || "OPTIONS".equalsIgnoreCase(request.getMethod()) || webhook) { chain.doFilter(request, response); return; }
+        String method = request.getMethod();
+        boolean webhook = "POST".equals(method) && WEBHOOK_PATH.equals(path);
+        boolean hasBody = "POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method);
+        CachedBodyRequest wrapped = hasBody ? new CachedBodyRequest(request, maxBodyBytes) : null;
+        if (wrapped != null && wrapped.bodyTooLarge()) { writeJsonError(response, 413, "PAYLOAD_TOO_LARGE", "Payload quá lớn. Giới hạn " + maxBodyBytes / 1024 + " KB.", null); return; }
+        HttpServletRequest effective = wrapped != null ? wrapped : request;
+        if (!enabled || "OPTIONS".equalsIgnoreCase(method) || webhook) { chain.doFilter(effective, response); return; }
 
-        CachedBodyRequest wrapped = new CachedBodyRequest(request, maxBodyBytes);
-        if (wrapped.bodyTooLarge()) { writeJsonError(response, 413, "PAYLOAD_TOO_LARGE", "Payload quá lớn. Giới hạn " + maxBodyBytes / 1024 + " KB.", null); return; }
         String ipHash = AuthService.hash(clientIp(request));
         if (!store.tryConsumeGlobal(ipHash)) { write429(response, store.globalRetryAfterSeconds(ipHash)); return; }
 
         String authKey = null;
-        if ("POST".equals(request.getMethod()) && AUTH_PATHS.contains(path)) {
+        if ("POST".equals(method) && AUTH_PATHS.contains(path)) {
             authKey = authKey(ipHash, wrapped);
             if (store.isAuthBlocked(authKey)) { write429(response, store.authRetryAfterSeconds(authKey)); return; }
         }
 
-        chain.doFilter(wrapped, response);
+        chain.doFilter(effective, response);
         if (authKey != null && response.getStatus() >= 400) store.recordAuthFailure(authKey);
     }
 
@@ -67,13 +72,31 @@ final class RateLimitFilter extends OncePerRequestFilter {
         return ipHash + ":" + AuthService.hash(email.trim().toLowerCase(Locale.ROOT));
     }
 
-    private static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            return (comma >= 0 ? forwarded.substring(0, comma) : forwarded).trim();
+    /** Behind a proxy the client-supplied hops come first; the last hop is the address added by the trusted proxy. */
+    private String clientIp(HttpServletRequest request) {
+        if (!trustForwardedFor) return request.getRemoteAddr();
+        String forwarded = forwardedFor(request);
+        if (forwarded == null || forwarded.isBlank()) return request.getRemoteAddr();
+        String last = null;
+        for (String hop : forwarded.split(",")) if (!hop.isBlank()) last = hop.trim();
+        return last == null ? request.getRemoteAddr() : last;
+    }
+
+    /** Spring's ForwardedHeaderFilter hides these headers from downstream filters, so fall back to the original request. */
+    private static String forwardedFor(HttpServletRequest request) {
+        String value = request.getHeader("X-Forwarded-For");
+        if (value != null) return value;
+        jakarta.servlet.ServletRequest current = request;
+        while (current instanceof jakarta.servlet.ServletRequestWrapper wrapper) {
+            jakarta.servlet.ServletRequest next = wrapper.getRequest();
+            if (next == null || next == current) break;
+            if (next instanceof HttpServletRequest http) {
+                value = http.getHeader("X-Forwarded-For");
+                if (value != null) return value;
+            }
+            current = next;
         }
-        return request.getRemoteAddr();
+        return null;
     }
 
     private static void write429(HttpServletResponse response, long retryAfterSeconds) throws IOException {

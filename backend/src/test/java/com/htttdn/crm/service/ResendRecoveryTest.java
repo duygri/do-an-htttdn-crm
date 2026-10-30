@@ -18,9 +18,10 @@ class ResendRecoveryTest {
     private final RefreshTokenRepository sessions=mock(RefreshTokenRepository.class);
     private final PasswordEncoder encoder=mock(PasswordEncoder.class);
     private final TransactionalMail mail=mock(TransactionalMail.class);
+    private final NotificationService notifications=mock(NotificationService.class);
     private AuthService service() {
         var service=new AuthService(users,sessions,tokens,encoder,null,null);
-        ReflectionTestUtils.setField(service,"mail",mail);ReflectionTestUtils.setField(service,"resetCodeMinutes",15L);
+        ReflectionTestUtils.setField(service,"mail",mail);ReflectionTestUtils.setField(service,"notifications",notifications);ReflectionTestUtils.setField(service,"resetCodeMinutes",15L);
         when(mail.available()).thenReturn(true);when(mail.permits("owner@example.com")).thenReturn(true);
         when(mail.link(anyString())).thenAnswer(a->"https://example.com"+a.getArgument(0));
         return service;
@@ -30,23 +31,35 @@ class ResendRecoveryTest {
         var service=service();when(users.findForPasswordReset("owner@example.com")).thenReturn(Optional.of(customer()));
         when(tokens.findFirstByCustomerIdOrderByCreatedAtDesc(7L)).thenReturn(Optional.empty());
         assertNull(service.requestPasswordReset(" OWNER@example.com "));
-        var token=ArgumentCaptor.forClass(PasswordResetToken.class);verify(tokens).save(token.capture());
-        var text=ArgumentCaptor.forClass(String.class);verify(mail).send(eq("owner@example.com"),anyString(),text.capture(),anyString());
+        var token=ArgumentCaptor.forClass(PasswordResetToken.class);
+        var text=ArgumentCaptor.forClass(String.class);
+        var ordered=inOrder(tokens,mail);
+        ordered.verify(tokens).saveAndFlush(token.capture());
+        ordered.verify(mail).send(eq("owner@example.com"),anyString(),text.capture(),anyString());
         var code=text.getValue().split("&code=")[1].split("\\n")[0];
         assertEquals(43,code.length());assertEquals(AuthService.hash(code),token.getValue().getTokenHash());
         assertFalse(token.getValue().getTokenHash().contains(code));
+        ordered.verify(tokens).deleteByCustomerIdAndTokenHashNot(7L,token.getValue().getTokenHash());
     }
     @Test void excludesOtherRecipientsAndDoesNotRedirect(){
         var service=service();assertNull(service.requestPasswordReset("other@example.com"));
         verifyNoInteractions(users,tokens);verify(mail,never()).send(anyString(),anyString(),anyString(),anyString());
     }
-    @Test void cooldownAndMailFailurePreserveExistingToken(){
+    @Test void cooldownPreservesExistingToken(){
         var service=service();when(users.findForPasswordReset("owner@example.com")).thenReturn(Optional.of(customer()));
         var recent=new PasswordResetToken();when(tokens.findFirstByCustomerIdOrderByCreatedAtDesc(7L)).thenReturn(Optional.of(recent));
-        assertNull(service.requestPasswordReset("owner@example.com"));verify(tokens,never()).deleteByCustomerId(anyLong());
+        assertNull(service.requestPasswordReset("owner@example.com"));
+        verify(tokens,never()).saveAndFlush(any());verify(tokens,never()).deleteByCustomerIdAndTokenHashNot(anyLong(),anyString());
+        verify(mail,never()).send(anyString(),anyString(),anyString(),anyString());
+    }
+    @Test void mailFailureDiscardsNewTokenAndPreservesPreviousToken(){
+        var service=service();when(users.findForPasswordReset("owner@example.com")).thenReturn(Optional.of(customer()));
         when(tokens.findFirstByCustomerIdOrderByCreatedAtDesc(7L)).thenReturn(Optional.empty());
         doThrow(new IllegalStateException("provider error")).when(mail).send(anyString(),anyString(),anyString(),anyString());
-        assertNull(service.requestPasswordReset("owner@example.com"));verify(tokens,never()).save(any());
+        assertNull(service.requestPasswordReset("owner@example.com"));
+        var token=ArgumentCaptor.forClass(PasswordResetToken.class);verify(tokens).saveAndFlush(token.capture());
+        verify(tokens).delete(token.getValue());verify(tokens).flush();
+        verify(tokens,never()).deleteByCustomerIdAndTokenHashNot(anyLong(),anyString());
     }
     @Test void tokenIsSingleUseAndRevokesSessions(){
         var service=service();var user=customer();var token=new PasswordResetToken();token.setCustomer(user);token.setExpiresAt(Instant.now().plusSeconds(900));
@@ -56,8 +69,10 @@ class ResendRecoveryTest {
         when(encoder.encode("Password123")).thenReturn("encoded");
         service.resetPassword("owner@example.com",secret,"Password123");
         assertNotNull(token.getUsedAt());verify(sessions).revokeByUserId(7L);
+        verify(notifications).accountNotice(eq(user),eq("Mật khẩu đã được thay đổi"),anyString());
         assertThrows(ApiException.class,()->service.resetPassword("owner@example.com",secret,"Password123"));
         verify(sessions,times(1)).revokeByUserId(7L);
+        verify(notifications,times(1)).accountNotice(any(),anyString(),anyString());
     }
     @Test void sandboxAndOriginMustBeConfigured(){
         var real=new TransactionalMail(new com.fasterxml.jackson.databind.ObjectMapper());

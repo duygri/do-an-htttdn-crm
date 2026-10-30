@@ -9,6 +9,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -50,6 +51,23 @@ class ApiPayloadValidationIntegrationTest {
         mvc.perform(post("/api/auth/login").with(from("10.0.20.5")).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"nobody@example.com\",\"password\":\"WrongPass1\"}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test void securityHeadersArePresentOnApiResponses() throws Exception {
+        mvc.perform(get("/api/products").with(from("10.0.20.10")))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("X-Frame-Options", "DENY"))
+                .andExpect(header().string("Referrer-Policy", "no-referrer"))
+                .andExpect(header().string("Permissions-Policy", "camera=(), microphone=(), geolocation=()"))
+                .andExpect(header().string("Content-Security-Policy", containsString("default-src 'none'")))
+                .andExpect(header().doesNotExist("Strict-Transport-Security"));
+    }
+
+    @Test void oversizedWebhookPayloadReturns413() throws Exception {
+        String huge = "{\"data\":\"" + "a".repeat(1_100_000) + "\"}";
+        mvc.perform(post("/api/payments/payos/webhook").with(from("10.0.20.9")).contentType(MediaType.APPLICATION_JSON).content(huge))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value("PAYLOAD_TOO_LARGE"));
     }
 
     @Test void unknownApiRouteReturnsJson404() throws Exception {

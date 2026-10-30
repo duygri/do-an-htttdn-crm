@@ -12,6 +12,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -75,6 +77,33 @@ class RateLimitFilterIntegrationTest {
                     .andExpect(result -> assertNotEquals(429, result.getResponse().getStatus()));
         }
         mvc.perform(get("/api/products").with(from("10.0.4.1"))).andExpect(status().isOk());
+    }
+
+    @Test void refreshCookieIsSecureOnlyBehindHttps() throws Exception {
+        customer();
+        String body = "{\"email\":\"" + EMAIL + "\",\"password\":\"" + PASSWORD + "\"}";
+        mvc.perform(post("/api/auth/login").with(from("10.0.10.1")).header("X-Forwarded-Proto", "https")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("Secure")));
+        mvc.perform(post("/api/auth/login").with(from("10.0.10.2"))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", not(containsString("Secure"))));
+    }
+
+    @Test void forwardedForUsesTheLastProxyHop() throws Exception {
+        String url = "/api/auth/login";
+        String bad = "{\"email\":\"forward@rate.test\",\"password\":\"WrongPass1\"}";
+        mvc.perform(post(url).with(from("10.0.9.1")).header("X-Forwarded-For", "203.0.113.1, 10.0.8.1")
+                .contentType(MediaType.APPLICATION_JSON).content(bad)).andExpect(status().isUnauthorized());
+        mvc.perform(post(url).with(from("10.0.9.1")).header("X-Forwarded-For", "203.0.113.2, 10.0.8.1")
+                .contentType(MediaType.APPLICATION_JSON).content(bad)).andExpect(status().isUnauthorized());
+        mvc.perform(post(url).with(from("10.0.9.1")).header("X-Forwarded-For", "203.0.113.3, 10.0.8.1")
+                .contentType(MediaType.APPLICATION_JSON).content(bad))
+                .andExpect(status().isTooManyRequests());
+        mvc.perform(post(url).with(from("10.0.9.1")).header("X-Forwarded-For", "203.0.113.4, 10.0.8.2")
+                .contentType(MediaType.APPLICATION_JSON).content(bad)).andExpect(status().isUnauthorized());
     }
 
     @Test void optionsRequestsAreNeverBlocked() throws Exception {

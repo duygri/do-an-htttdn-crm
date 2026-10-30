@@ -40,6 +40,28 @@ class RateLimitStoreTest {
         assertTrue(store.tryConsumeGlobal("ip2"));
     }
 
+    @Test void globalCapacityEvictsEldestKey() {
+        var clock = clockAt(START);
+        var store = new RateLimitStore(clock, 1, 1, 5, 15);
+        assertTrue(store.tryConsumeGlobal("ip1"));
+        assertTrue(store.tryConsumeGlobal("ip2"));
+        assertEquals(1, store.globalSize());
+        assertTrue(store.tryConsumeGlobal("ip1"));
+        assertEquals(1, store.globalSize());
+    }
+
+    @Test void evictIdleRemovesExpiredEntriesBehindActiveOnes() {
+        var clock = clockAt(START);
+        var store = new RateLimitStore(clock, 10, 120, 5, 15);
+        assertTrue(store.tryConsumeGlobal("ip1"));
+        assertTrue(store.tryConsumeGlobal("ip2"));
+        when(clock.instant()).thenReturn(START.plusSeconds(50 * 60));
+        assertTrue(store.tryConsumeGlobal("ip1"));
+        when(clock.instant()).thenReturn(START.plusSeconds(61 * 60));
+        assertTrue(store.tryConsumeGlobal("ip3"));
+        assertEquals(2, store.globalSize());
+    }
+
     @Test void authBlocksAfterMaxAttemptsAndResetsAfterWindow() {
         var clock = clockAt(START);
         var store = new RateLimitStore(clock, 10, 120, 2, 15);
