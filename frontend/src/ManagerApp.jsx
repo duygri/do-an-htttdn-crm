@@ -1224,12 +1224,13 @@ function Products({ notify }) {
     }
   };
 
-  const archive = async (id) => {
+  const changeVisibility = async (product) => {
     if(productWriteLock.current)return;
     productWriteLock.current=true;setSaving(true);
     try {
-      await adminApi(adminEndpoints.product(id), { method: "DELETE" });
-      notify("Đã ẩn sản phẩm.");
+      const restoring=product.active===false;
+      await adminApi(restoring?adminEndpoints.restoreProduct(product.id):adminEndpoints.product(product.id), { method: restoring?"PATCH":"DELETE" });
+      notify(restoring?"Đã hiển thị lại sản phẩm.":"Đã ẩn sản phẩm.");
       setConfirmArchive(null);
       load();
     } catch (error) {
@@ -1377,10 +1378,10 @@ function Products({ notify }) {
                 </button>
                 <button
                   type="button"
-                  className="admin-action danger-text"
+                  className={product.active===false?"admin-action":"admin-action danger-text"}
                   onClick={() => setConfirmArchive(product)}
                 >
-                  Ẩn
+                  {product.active===false?"Hiển thị lại":"Ẩn"}
                 </button>
               </div>
             </td>
@@ -1546,21 +1547,22 @@ function Products({ notify }) {
         </div>
       )}
 
-      {/* Confirmation dialog when archiving product */}
+      {/* Confirmation dialog for product visibility changes */}
       {confirmArchive && (
         <div
           className="admin-dialog-backdrop"
-          onClick={() => setConfirmArchive(null)}
+          onClick={() => {if(!saving)setConfirmArchive(null);}}
         >
           <div
             className="admin-dialog"
             role="dialog"
             aria-modal="true"
+            aria-labelledby="product-visibility-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2>Xác nhận ẩn sản phẩm</h2>
+            <h2 id="product-visibility-title">{confirmArchive.active===false?"Xác nhận hiển thị lại sản phẩm":"Xác nhận ẩn sản phẩm"}</h2>
             <p>
-              Bạn có chắc chắn muốn ẩn sản phẩm <b>{confirmArchive.name}</b> khỏi storefront không?
+              {confirmArchive.active===false?"Bạn có chắc chắn muốn hiển thị lại sản phẩm ":"Bạn có chắc chắn muốn ẩn sản phẩm "}<b>{confirmArchive.name}</b>{confirmArchive.active===false?" trên cửa hàng không?":" khỏi storefront không?"}
             </p>
             <div className="admin-dialog-actions">
               <button
@@ -1573,11 +1575,11 @@ function Products({ notify }) {
               </button>
               <button
                 type="button"
-                className="admin-danger-button"
+                className={confirmArchive.active===false?"admin-primary":"admin-danger-button"}
                 disabled={saving}
-                onClick={() => archive(confirmArchive.id)}
+                onClick={() => changeVisibility(confirmArchive)}
               >
-                Xác nhận ẩn
+                {saving?"Đang xử lý...":confirmArchive.active===false?"Xác nhận hiển thị lại":"Xác nhận ẩn"}
               </button>
             </div>
           </div>

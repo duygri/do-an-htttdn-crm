@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React, { StrictMode } from "react";
-import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AdminApp, { useAdminList } from "./ManagerApp";
 import { adminApi, adminRefreshSession } from "./manager-api";
@@ -119,6 +119,50 @@ describe('product archive confirmation', () => {
     fireEvent.click(screen.getByRole('button',{name:'Xác nhận ẩn',exact:true}));
     await screen.findByText('Đã ẩn sản phẩm.');
     expect(screen.queryByRole('heading',{name:'Xác nhận ẩn sản phẩm'})).toBeNull();
+  });
+});
+describe('restoring hidden products', () => {
+  const hidden={id:7,name:'Hidden product',active:false,stock:0,price:100000};
+  const active={id:8,name:'Active product',active:true,stock:8,price:120000};
+  it.each(['true','false','ALL'])('shows the correct visibility action in the %s filter',async filter=>{
+    window.history.replaceState({},'',`/manager/products?active=${filter}`);
+    adminApi.mockImplementation(async url=>url.endsWith('/categories')?[]:{content:filter==='ALL'?[hidden,active]:filter==='false'?[hidden]:[active],totalPages:1});
+    render(<AdminApp/>,{wrapper});
+    await screen.findByText(filter==='true'?'Active product':'Hidden product');
+    if(filter!=='true')expect(within(screen.getByText('Hidden product').closest('tr')).getByRole('button',{name:'Hiển thị lại',exact:true})).toBeTruthy();
+    if(filter!=='false')expect(within(screen.getByText('Active product').closest('tr')).getByRole('button',{name:'Ẩn',exact:true})).toBeTruthy();
+  });
+  it('confirms restore, blocks double submit and removes the product from hidden results while preserving filters',async()=>{
+    window.history.replaceState({},'','/manager/products?active=false&q=Hidden&page=1');
+    const pending=deferred();let restored=false;
+    adminApi.mockImplementation((url,options={})=>{
+      if(options.method==='PATCH')return pending.promise.then(()=>{restored=true;return null;});
+      return Promise.resolve(url.endsWith('/categories')?[]:{content:restored?[]:[hidden],totalPages:3,totalElements:restored?20:21});
+    });
+    render(<AdminApp/>,{wrapper});await screen.findByText('Hidden product');
+    fireEvent.click(screen.getByRole('button',{name:'Hiển thị lại',exact:true}));
+    expect(screen.getByRole('dialog',{name:'Xác nhận hiển thị lại sản phẩm'})).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'Hủy',exact:true}));
+    expect(adminApi.mock.calls.some(([,o])=>o?.method==='PATCH')).toBe(false);
+    fireEvent.click(screen.getByRole('button',{name:'Hiển thị lại',exact:true}));
+    const confirm=screen.getByRole('button',{name:'Xác nhận hiển thị lại',exact:true});fireEvent.click(confirm);fireEvent.click(confirm);
+    expect(confirm.disabled).toBe(true);expect(adminApi.mock.calls.filter(([,o])=>o?.method==='PATCH')).toHaveLength(1);
+    await act(async()=>pending.resolve(null));await screen.findByText('Đã hiển thị lại sản phẩm.');
+    await waitFor(()=>expect(screen.queryByText('Hidden product')).toBeNull());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(adminApi).toHaveBeenCalledWith('/api/manager/products/7/restore',{method:'PATCH'});
+    const filters=new URLSearchParams(window.location.search);expect(filters.get('active')).toBe('false');expect(filters.get('q')).toBe('Hidden');expect(filters.get('page')).toBe('1');
+  });
+  it('keeps restore confirmation on error and permits retry',async()=>{
+    window.history.replaceState({},'','/manager/products?active=false');const pending=deferred();
+    adminApi.mockImplementation((url,options={})=>options.method==='PATCH'?pending.promise:Promise.resolve(url.endsWith('/categories')?[]:{content:[hidden],totalPages:1}));
+    render(<AdminApp/>,{wrapper});await screen.findByText('Hidden product');fireEvent.click(screen.getByRole('button',{name:'Hiển thị lại',exact:true}));
+    fireEvent.click(screen.getByRole('button',{name:'Xác nhận hiển thị lại',exact:true}));
+    await act(async()=>pending.reject(new Error('Không thể hiển thị lại.')));await screen.findByText('Không thể hiển thị lại.');
+    expect(screen.getByRole('dialog',{name:'Xác nhận hiển thị lại sản phẩm'})).toBeTruthy();
+    expect(screen.getByRole('button',{name:'Xác nhận hiển thị lại',exact:true}).disabled).toBe(false);
+    adminApi.mockResolvedValueOnce(null);fireEvent.click(screen.getByRole('button',{name:'Xác nhận hiển thị lại',exact:true}));
+    await screen.findByText('Đã hiển thị lại sản phẩm.');expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
 describe("admin navigation", () => {

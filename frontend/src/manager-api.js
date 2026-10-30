@@ -91,6 +91,7 @@ export const adminEndpoints = {
   deleteUser: id => `/api/manager/users/${id}`,
   products: ({ q = '', page = 0, size = 10,...filters } = {}) => `/api/manager/products?${managerQuery({q,page,size,...filters})}`,
   product: id => `/api/manager/products/${id}`,
+  restoreProduct: id => `/api/manager/products/${id}/restore`,
   productStock: id => `/api/manager/products/${id}/stock`,
   orders: ({ status = '', page = 0, size = 10,...filters } = {}) => `/api/manager/orders?${managerQuery({status,page,size,...filters})}`,
   order: id => `/api/manager/orders/${id}`,
