@@ -49,13 +49,14 @@ public class TransactionalMail {
         } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException("Email delivery interrupted"); }
         catch (java.io.IOException e) { throw new IllegalStateException("Email delivery unavailable"); }
     }
-    public record OrderEmail(String recipient,String subject,String text,String key) {}
+    public record Notice(String recipient,String subject,String text,String key) {}
     @Async("transactionalMailExecutor")
     @TransactionalEventListener(phase=TransactionPhase.AFTER_COMMIT)
-    public void afterOrderCommit(OrderEmail message) {
-        if(!permits(message.recipient())) return;
-        try { send(message.recipient(),message.subject(),message.text(),message.key()); }
-        catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Order email delivery failed; in-app notification retained"); }
+    public void afterNoticeCommit(Notice message) { deliver(message.recipient(),message.subject(),message.text(),message.key()); }
+    private void deliver(String recipient,String subject,String text,String key) {
+        if(!permits(recipient)) return;
+        try { send(recipient,subject,text,key); }
+        catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Transactional email delivery failed; in-app notification retained"); }
     }
     @Configuration @EnableAsync
     static class MailExecutorConfig {
@@ -63,7 +64,7 @@ public class TransactionalMail {
         ThreadPoolTaskExecutor executor() {
             var executor=new ThreadPoolTaskExecutor(); executor.setCorePoolSize(1); executor.setMaxPoolSize(1);
             executor.setQueueCapacity(100); executor.setThreadNamePrefix("transactional-mail-");
-            executor.setRejectedExecutionHandler((task,pool)->org.slf4j.LoggerFactory.getLogger(TransactionalMail.class).warn("Order email queue full; in-app notification retained"));
+            executor.setRejectedExecutionHandler((task,pool)->org.slf4j.LoggerFactory.getLogger(TransactionalMail.class).warn("Email queue full; in-app notification retained"));
             return executor;
         }
     }

@@ -43,6 +43,7 @@ public class RefundService {
         if(existing.isPresent()){var r=existing.get();if(!Objects.equals(r.reasonType,type)||!Objects.equals(r.note,note)||input.amount()==null||r.amount.compareTo(input.amount())!=0)throw conflict("Mã yêu cầu đã được dùng cho nội dung khác.");return view(r);}
         if("CANCEL".equals(type)?!"CANCELLED".equals(o.getStatus()):!Set.of("APPROVED","COMPLETED").contains(String.valueOf(o.getReturnStatus())))throw conflict("Đơn chưa đủ điều kiện hoàn tiền.");
         OrderRefund r=insert(o,type,input.amount(),note,key,a.id());
+        notifications.create(o.getCustomer(),"Đã ghi nhận yêu cầu hoàn tiền","Đơn #"+o.getOrderCode()+": yêu cầu hoàn "+r.amount.toPlainString()+" đ đang chờ xử lý.","REFUND_REQUEST",id);
         audit.record("REFUND_REQUEST","ORDER",id,Map.of(),Map.of("refundId",r.id,"amount",r.amount,"reasonType",type));return view(r);
     }
     @Transactional(propagation=Propagation.MANDATORY) public void requestCancellation(Order o){
@@ -65,6 +66,7 @@ public class RefundService {
         if(!"PENDING".equals(r.status)){if(next.equals(r.status)&&note.equals(r.processingNote)&&reference.equals(r.bankReference))return view(r);throw conflict("Khoản hoàn đã được xử lý với nội dung khác.");}
         var before=Map.<String,Object>of("refundId",r.id,"status",r.status);r.status=next;r.processingNote=note;r.bankReference=reference;r.processedBy=a.id();r.processedAt=Instant.now();refunds.saveAndFlush(r);recompute(o);
         if(complete)notifications.create(o.getCustomer(),"Đã ghi nhận hoàn tiền","Đơn #"+o.getOrderCode()+": đã hoàn "+r.amount.toPlainString()+" đ; tổng đã hoàn "+o.refundedAmount.toPlainString()+" đ.","REFUND_COMPLETED",oid);
+        else notifications.create(o.getCustomer(),"Yêu cầu hoàn tiền chưa được chấp thuận","Đơn #"+o.getOrderCode()+": yêu cầu hoàn "+r.amount.toPlainString()+" đ chưa được chấp thuận. Vui lòng liên hệ cửa hàng để biết thêm chi tiết.","REFUND_REJECTED",oid);
         audit.record(complete?"REFUND_COMPLETE":"REFUND_REJECT","ORDER",oid,before,Map.of("refundId",r.id,"status",next,"amount",r.amount));return view(r);
     }
     private void recompute(Order o){o.refundedAmount=refunds.total(o.getId(),"COMPLETED");o.refundPendingAmount=refunds.total(o.getId(),"PENDING");o.refundStatus=o.refundedAmount.signum()>0?(o.refundedAmount.compareTo(collected(o))>=0?"FULL":"PARTIAL"):o.refundPendingAmount.signum()>0?"PENDING":"NONE";orders.save(o);}

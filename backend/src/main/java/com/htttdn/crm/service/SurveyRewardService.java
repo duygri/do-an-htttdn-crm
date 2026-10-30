@@ -24,7 +24,7 @@ public class SurveyRewardService {
         validate(r);StoreVoucher v=new StoreVoucher();
         AdminVoucherService.apply(v,input(r,"KS-"+UUID.randomUUID().toString().replace("-","").toUpperCase(),Instant.now()));
         v.setOwnerCustomerId(customer.getId());v.setRewardSurveyId(survey.getId());v.setPerCustomerLimit(1);vouchers.saveAndFlush(v);
-        notifications.create(customer,"Bạn nhận được voucher khảo sát","Mã "+v.getCode()+" đã được thêm vào Voucher của tôi.","SURVEY_REWARD",survey.getId());
+        notifications.createVoucher(customer,"Bạn nhận được voucher khảo sát","Mã "+v.getCode()+" đã được thêm vào Voucher của tôi.");
         return v;
     }
 }
