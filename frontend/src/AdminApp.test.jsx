@@ -82,6 +82,45 @@ const pages = [
   ["Khách hàng", "users"], ["Sản phẩm", "products"],
   ["Đơn hàng", "orders"], ["Phản hồi", "feedback"], ["Khảo sát", "surveys"],
 ];
+describe('product archive confirmation', () => {
+  function setupProducts(deleteResult) {
+    window.history.replaceState({}, '', '/manager/products?q=Archive&page=1');
+    adminApi.mockImplementation((url, options={}) => {
+      if (options.method === 'DELETE') return deleteResult;
+      if (url.includes('/categories')) return Promise.resolve([]);
+      return Promise.resolve({ content: [{ id: 7, name: 'Archive product', price: 100000, stock: 8 }], totalPages: 3, totalElements: 21 });
+    });
+    return render(<AdminApp />, { wrapper });
+  }
+  it('accepts no-content success, closes confirmation and reloads without losing filters', async () => {
+    const pending=deferred();setupProducts(pending.promise);
+    await screen.findByText('Archive product');
+    fireEvent.click(screen.getByRole('button',{name:'Ẩn',exact:true}));
+    const confirm=screen.getByRole('button',{name:'Xác nhận ẩn',exact:true});
+    fireEvent.click(confirm);fireEvent.click(confirm);
+    expect(adminApi.mock.calls.filter(([,o])=>o?.method==='DELETE')).toHaveLength(1);
+    expect(confirm.disabled).toBe(true);
+    const before=adminApi.mock.calls.filter(([url,o])=>url.startsWith('/api/manager/products?')&&!o?.method).length;
+    await act(async()=>pending.resolve(null));
+    await screen.findByText('Đã ẩn sản phẩm.');
+    expect(screen.queryByRole('heading',{name:'Xác nhận ẩn sản phẩm'})).toBeNull();
+    await waitFor(()=>expect(adminApi.mock.calls.filter(([url,o])=>url.startsWith('/api/manager/products?')&&!o?.method).length).toBeGreaterThan(before));
+    expect(window.location.search).toContain('q=Archive');expect(window.location.search).toContain('page=1');
+  });
+  it('keeps the confirmation on failure and permits retry', async () => {
+    const pending=deferred();setupProducts(pending.promise);
+    await screen.findByText('Archive product');fireEvent.click(screen.getByRole('button',{name:'Ẩn',exact:true}));
+    fireEvent.click(screen.getByRole('button',{name:'Xác nhận ẩn',exact:true}));
+    await act(async()=>pending.reject(new Error('Không thể ẩn sản phẩm.')));
+    await screen.findByText('Không thể ẩn sản phẩm.');
+    expect(screen.getByRole('heading',{name:'Xác nhận ẩn sản phẩm'})).toBeTruthy();
+    expect(screen.getByRole('button',{name:'Xác nhận ẩn',exact:true}).disabled).toBe(false);
+    adminApi.mockResolvedValueOnce(null);
+    fireEvent.click(screen.getByRole('button',{name:'Xác nhận ẩn',exact:true}));
+    await screen.findByText('Đã ẩn sản phẩm.');
+    expect(screen.queryByRole('heading',{name:'Xác nhận ẩn sản phẩm'})).toBeNull();
+  });
+});
 describe("admin navigation", () => {
   it("requires a reason before locking a customer and sends it to the admin API", async () => {
     window.history.replaceState({}, "", "/manager/users");

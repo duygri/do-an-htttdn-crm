@@ -22,8 +22,20 @@ let adminAccessToken = null;
 let adminRefreshing = null;
 
 async function parseResponse(response) {
-  if (response.ok) return response.status === 204 ? null : response.json();
-  const data = await response.json().catch(() => ({}));
+  if (response.status === 204 && response.ok) return null;
+  const text = await response.text();
+  let data;
+  try { data = text.trim() ? JSON.parse(text) : null; }
+  catch {
+    if (response.ok) {
+      const error = new Error('Máy chủ trả về dữ liệu không hợp lệ. Vui lòng tải lại danh sách để kiểm tra kết quả thao tác.');
+      error.code = 'INVALID_RESPONSE';
+      error.status = response.status;
+      throw error;
+    }
+  }
+  if (response.ok) return data;
+  data = data && typeof data === 'object' ? data : {};
   const error = new Error(data.message || `Yêu cầu thất bại (${response.status})`);
   error.code = data.code;
   error.status = response.status;

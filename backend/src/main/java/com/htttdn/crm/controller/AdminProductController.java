@@ -5,5 +5,5 @@ import com.htttdn.crm.entity.Product; import com.htttdn.crm.dto.admin.AdminDtos.
  @GetMapping("/categories") public java.util.List<String> categories(){return service.categoryNames();}
  @PostMapping public Product create(@Valid @RequestBody ProductRequest r){return service.create(r);}
  @PutMapping("/{id}") public Product update(@PathVariable Long id,@Valid @RequestBody ProductRequest r){return service.update(id,r);}
- @DeleteMapping("/{id}") public void archive(@PathVariable Long id){service.archive(id);}
+ @DeleteMapping("/{id}") @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT) public void archive(@PathVariable Long id){service.archive(id);}
  @PatchMapping("/{id}/stock") public Product stock(@PathVariable Long id,@Valid @RequestBody StockRequest r){return service.stock(id,r);} }
