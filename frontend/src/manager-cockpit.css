@@ -4,7 +4,10 @@
 .manager-login.admin-login {
   --admin-bg: #f1f5f3;
   --admin-card: #ffffff;
-  --admin-sidebar-bg: #0c1714;
+  --admin-sidebar-bg: #f8fcfa;
+  --manager-sidebar-muted: #52665d;
+  --manager-sidebar-accent: #11694f;
+  --manager-sidebar-danger: #b4483a;
   --admin-text: #14211d;
   --admin-muted: #6e7d77;
   --admin-border: #dce5e1;
@@ -29,6 +32,9 @@
   --admin-bg: #07100d;
   --admin-card: #0e1a16;
   --admin-sidebar-bg: #050c0a;
+  --manager-sidebar-muted: #b0c4ba;
+  --manager-sidebar-accent: #75e3bc;
+  --manager-sidebar-danger: #f1a99f;
   --admin-text: #edf7f2;
   --admin-muted: #8fa29a;
   --admin-border: #20352e;
@@ -53,19 +59,19 @@
   width: 264px;
   padding: 18px 14px;
   border: 0;
-  border-right: 1px solid rgb(255 255 255 / 7%);
+  border-right: 1px solid var(--admin-border);
   background:
     radial-gradient(circle at 0 0, rgb(89 213 169 / 12%), transparent 20rem),
     var(--admin-sidebar-bg);
-  color: #e9f4ef;
+  color: var(--admin-text);
 }
 
 .manager-shell.admin-shell .admin-brand {
   flex-shrink: 0;
   min-height: 66px;
   padding: 10px 10px 18px;
-  border-bottom: 1px solid rgb(255 255 255 / 9%);
-  color: #f5fbf8;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text);
   font-size: 16px;
 }
 
@@ -79,14 +85,17 @@
 }
 
 .manager-shell.admin-shell .admin-brand small {
-  color: #65dcb3;
+  color: var(--manager-sidebar-accent);
   font-size: 9px;
 }
 
 .manager-shell.admin-shell .admin-sidebar nav {
   flex: 1 1 0;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   margin: 0;
   gap: 5px;
@@ -96,64 +105,74 @@
 .manager-shell.admin-shell .admin-sidebar nav::before {
   content: "WORKSPACE";
   padding: 0 12px 9px;
-  color: #60756d;
+  color: var(--manager-sidebar-muted);
   font: 600 9px/1 var(--admin-mono);
   letter-spacing: .16em;
 }
 
 .manager-shell.admin-shell .admin-sidebar nav button {
+  min-width: 0;
+  width: 100%;
   min-height: 44px;
   padding: 0 13px;
   border-radius: 12px;
-  color: #91a39c;
+  color: var(--manager-sidebar-muted);
   font-size: 13px;
+}
+.manager-shell.admin-shell .admin-sidebar nav button svg { flex-shrink: 0; }
+.manager-shell.admin-shell .admin-sidebar nav button:focus-visible { outline-offset: -3px; }
+.manager-shell.admin-shell .admin-nav-label {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .manager-shell.admin-shell .admin-sidebar nav button:hover {
-  background: rgb(255 255 255 / 6%);
-  color: #edf7f2;
+  background: var(--admin-primary-soft);
+  color: var(--admin-text);
 }
 
 .manager-shell.admin-shell .admin-sidebar nav button.active {
-  border: 1px solid rgb(89 213 169 / 20%);
-  border-left: 1px solid rgb(89 213 169 / 20%);
-  background: linear-gradient(90deg, rgb(89 213 169 / 18%), rgb(89 213 169 / 7%));
-  color: #75e3bc;
-  box-shadow: inset 3px 0 0 #59d5a9;
+  border: 1px solid color-mix(in srgb, var(--admin-primary) 25%, transparent);
+  background: var(--admin-primary-soft);
+  color: var(--manager-sidebar-accent);
+  box-shadow: inset 3px 0 0 var(--admin-primary);
 }
 
 .manager-shell.admin-shell .admin-profile {
   margin: 0 0 10px;
   padding: 13px;
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid var(--admin-border);
   border-radius: 15px;
-  background: rgb(255 255 255 / 4%);
+  background: var(--admin-card);
 }
 
 .manager-shell.admin-shell .admin-profile > span {
-  border: 1px solid rgb(255 255 255 / 14%);
-  background: #253d35;
-  color: #73dfb9;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-primary-soft);
+  color: var(--manager-sidebar-accent);
 }
-.manager-shell.admin-shell .admin-profile b { color: #eef7f3; }
-.manager-shell.admin-shell .admin-profile small { color: #82948d; }
+.manager-shell.admin-shell .admin-profile b { color: var(--admin-text); }
+.manager-shell.admin-shell .admin-profile small { color: var(--manager-sidebar-muted); }
 .manager-shell.admin-shell .manager-sidebar-footer {
   flex-shrink: 0;
   margin-top: auto;
   padding-top: 12px;
-  border-top: 1px solid rgb(255 255 255 / 9%);
+  border-top: 1px solid var(--admin-border);
 }
 .manager-shell.admin-shell .manager-sidebar-footer .admin-profile > div { min-width: 0; }
 .manager-shell.admin-shell .manager-sidebar-footer .admin-logout { width: 100%; }
 
 .manager-shell.admin-shell .admin-logout {
   margin: 0;
-  border-color: rgb(255 255 255 / 9%);
-  color: #f1a99f;
+  border-color: var(--admin-border);
+  background: var(--admin-input);
+  color: var(--manager-sidebar-danger);
 }
 .manager-shell.admin-shell .admin-logout:hover {
-  border-color: rgb(255 142 127 / 25%);
-  background: rgb(255 142 127 / 10%);
+  border-color: color-mix(in srgb, var(--manager-sidebar-danger) 30%, transparent);
+  background: color-mix(in srgb, var(--manager-sidebar-danger) 10%, var(--admin-card));
 }
 
 .manager-shell.admin-shell .admin-main {
@@ -504,9 +523,9 @@
 .manager-shell.admin-shell .admin-page-heading { padding: 0 0 0 17px; margin: 32px 0 24px; }
 .manager-shell.admin-shell .admin-page-heading h1 { font-size: clamp(26px,2.4vw,36px); line-height: 1.3; }
 .manager-shell.admin-shell .admin-panel-title h2 { font-size: 20px; }
-.manager-shell.admin-shell .admin-sidebar nav::before { content: "KHÔNG GIAN QUẢN LÝ"; color: #a7bcb2; font-size: 10px; letter-spacing: .08em; }
-.manager-shell.admin-shell .admin-sidebar nav button { color: #b0c4ba; margin-bottom: 0; }
-.manager-shell.admin-shell .admin-profile small { color: #b0c4ba; }
+.manager-shell.admin-shell .admin-sidebar nav::before { content: "KHÔNG GIAN QUẢN LÝ"; color: var(--manager-sidebar-muted); font-size: 10px; letter-spacing: .08em; }
+.manager-shell.admin-shell .admin-sidebar nav button { color: var(--manager-sidebar-muted); margin-bottom: 0; }
+.manager-shell.admin-shell .admin-profile small { color: var(--manager-sidebar-muted); }
 .manager-shell.admin-shell .manager-theme-toggle { min-height: 40px; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 11px; background: var(--admin-card); color: var(--admin-text); }
 .manager-shell.admin-shell .admin-primary { color: #fff; }
 .manager-shell.admin-shell[data-theme="dark"] .admin-primary { background: var(--admin-primary); color: #07100d; }
@@ -556,15 +575,15 @@
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid var(--admin-border);
   border-radius: 9px;
-  background: rgb(255 255 255 / 5%);
-  color: #b0c4ba;
+  background: var(--admin-input);
+  color: var(--manager-sidebar-muted);
   cursor: pointer;
 }
 .manager-shell.admin-shell .admin-brand .admin-collapse-toggle:hover {
-  background: rgb(255 255 255 / 11%);
-  color: #edf7f2;
+  background: var(--admin-primary-soft);
+  color: var(--admin-text);
 }
 .manager-shell.admin-shell .admin-brand-copy {
   flex: 1;
