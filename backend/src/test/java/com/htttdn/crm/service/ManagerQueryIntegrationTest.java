@@ -34,6 +34,15 @@ class ManagerQueryIntegrationTest {
   assertEquals(0,query.list(filter(null,"%",null,0,10)).totalElements());
   assertEquals(1002L,query.list(filter(null,"",null,1,1)).content().getFirst().orderCode());
  }
+ @Test void preparingBucketIsSeparateFromConfirmed(){
+  order(1001,"CONFIRMED","NONE","COD");order(1002,"PREPARING","NONE","COD");order(1003,"PENDING","NONE","COD");em.flush();
+  var confirmed=query.list(filter("CONFIRMED","",null,0,10));
+  assertEquals(1,confirmed.totalElements());assertEquals(1001L,confirmed.content().getFirst().orderCode());
+  var preparing=query.list(filter("PREPARING","",null,0,10));
+  assertEquals(1,preparing.totalElements());assertEquals(1002L,preparing.content().getFirst().orderCode());
+  var counts=query.summary(filter(null,"",null,0,10));
+  assertEquals(1L,counts.get("CONFIRMED"));assertEquals(1L,counts.get("PREPARING"));assertEquals(3L,counts.get("ALL"));
+ }
  @Test void datesUseInclusiveStartAndExclusiveEndAndRejectUnsafeFilters(){
   var o=order(1001,"PENDING","NONE","COD");Instant start=Instant.parse("2026-10-05T17:00:00Z");o.setCreatedAt(start);em.flush();
   assertEquals(1,query.list(new ManagerOrderQuery.Filter(null,"",null,start,start.plusSeconds(86400),"createdAt","DESC",0,20)).totalElements());

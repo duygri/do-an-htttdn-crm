@@ -70,7 +70,7 @@ export async function adminRefreshSession() {
     adminRefreshing = request(`${API_BASE}/api/admin/auth/refresh`, { method: 'POST', credentials: 'include' })
       .then(parseResponse)
       .then(data => { adminAccessToken = data.accessToken; return data; })
-      .catch(error => { if ([401,403,423].includes(error.status)) { adminAccessToken=null; return null; } throw error; })
+      .catch(error => { if ([401,403,423].includes(error.status)) { const hadSession=Boolean(adminAccessToken); adminAccessToken=null; if (hadSession && typeof window !== 'undefined') window.dispatchEvent(new Event('admin-session-expired')); return null; } throw error; })
       .finally(() => { adminRefreshing = null; });
   }
   return adminRefreshing;

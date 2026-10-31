@@ -39,6 +39,22 @@ const menuIcons = {
   'audit-logs': Activity,
 };
 
+const readStorage = (key) => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const writeStorage = (key, value) => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Keep the portal usable in memory when persistence is unavailable.
+  }
+};
+
 export default function SystemAdminApp() {
   const managerUrl = `${(import.meta.env.VITE_SAME_ORIGIN === 'true' ? window.location.origin : (import.meta.env.VITE_MANAGER_ORIGIN || 'http://localhost:5175')).replace(/\/+$/, '')}/manager`;
   const storefrontUrl = `${(import.meta.env.VITE_SAME_ORIGIN === 'true' ? window.location.origin : (import.meta.env.VITE_USER_ORIGIN || 'http://localhost:5173')).replace(/\/+$/, '')}/`;
@@ -47,19 +63,12 @@ export default function SystemAdminApp() {
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [theme, setTheme] = useState(() => localStorage.getItem('admin-theme') || 'dark');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => {
-      try {
-        return localStorage.getItem('admin-sidebar-collapsed') === 'true';
-      } catch {
-        return false;
-      }
-    }
-  );
+  const [theme, setTheme] = useState(() => readStorage('admin-theme') || 'dark');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readStorage('admin-sidebar-collapsed') === 'true');
   const [form, setForm] = useState({ email: '', password: '' });
   const [overview, setOverview] = useState(null);
   const [retry, setRetry] = useState(0);
+  const sessionExpired = React.useRef(false);
 
   const go = (url, replace = false) => {
     window.history[replace ? 'replaceState' : 'pushState']({}, '', url);
@@ -111,15 +120,22 @@ export default function SystemAdminApp() {
   }, [checking, session, path, error, section]);
 
   useEffect(() => {
-    localStorage.setItem('admin-theme', theme);
+    const onExpired = () => {
+      sessionExpired.current = true;
+      setSession(null);
+      setError('');
+      go('/admin/login', true);
+    };
+    window.addEventListener('admin-session-expired', onExpired);
+    return () => window.removeEventListener('admin-session-expired', onExpired);
+  }, []);
+
+  useEffect(() => {
+    writeStorage('admin-theme', theme);
   }, [theme]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('admin-sidebar-collapsed', String(sidebarCollapsed));
-    } catch {
-      // Keep the sidebar usable in memory when persistence is unavailable.
-    }
+    writeStorage('admin-sidebar-collapsed', String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
   useEffect(() => {
@@ -130,7 +146,7 @@ export default function SystemAdminApp() {
         if (alive) setOverview(d);
       })
       .catch((e) => {
-        if (alive) setError(e.message);
+        if (alive && !sessionExpired.current) setError(e.message);
       });
     return () => {
       alive = false;
@@ -143,6 +159,7 @@ export default function SystemAdminApp() {
     setError('');
     try {
       const s = await adminSignIn(form);
+      sessionExpired.current = false;
       setSession(s.admin);
       go('/admin');
     } catch (e) {

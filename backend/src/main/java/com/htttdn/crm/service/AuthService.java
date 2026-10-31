@@ -9,7 +9,9 @@ import java.nio.charset.StandardCharsets; import java.security.*; import java.ti
 public class AuthService {
     @org.springframework.beans.factory.annotation.Autowired private TransactionalMail mail;
     @org.springframework.beans.factory.annotation.Autowired private NotificationService notifications;
+    @org.springframework.beans.factory.annotation.Autowired(required=false) private org.springframework.transaction.support.TransactionTemplate transactions;
     @org.springframework.beans.factory.annotation.Autowired private org.springframework.core.env.Environment environment;
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(AuthService.class);
     @Value("${DEV_PASSWORD_RESET_ENABLED:false}") private boolean developmentResetEnabled;
     private boolean developmentRecovery(){return developmentResetEnabled && environment!=null && environment.acceptsProfiles(org.springframework.core.env.Profiles.of("development"));}
     public boolean passwordRecoveryEnabled(){return mail!=null && mail.available() || developmentRecovery();}
@@ -50,10 +52,22 @@ public class AuthService {
     @Transactional public User saveProfile(User user){return users.save(user);}
     private void passwordChanged(User user){notifications.accountNotice(user,"Mật khẩu đã được thay đổi","Mật khẩu tài khoản của bạn đã được thay đổi lúc "+DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(Instant.now())+" (giờ Việt Nam). Nếu không phải bạn, hãy liên hệ cửa hàng ngay.");}
     @Transactional public void changePassword(User user,String currentPassword,String newPassword){if(!encoder.matches(currentPassword==null?"":currentPassword,user.getPasswordHash()))throw new ApiException(HttpStatus.BAD_REQUEST,"CURRENT_PASSWORD_INVALID","Mật khẩu hiện tại không đúng.");validatePassword(newPassword);user.setPasswordHash(encoder.encode(newPassword));users.save(user);refreshTokens.revokeByUserId(user.getId());passwordChanged(user);}
-    @Transactional public String requestPasswordReset(String email){
+    public String requestPasswordReset(String email){
         requirePasswordRecovery();String normalized=email==null?"":email.trim().toLowerCase(Locale.ROOT);
         boolean deliver=mail!=null && mail.available();
         if(deliver && !mail.permits(normalized)) return null;
+        Issued issued=transactions==null?issueResetToken(normalized,deliver):transactions.execute(status->issueResetToken(normalized,deliver));
+        if(issued==null) return null;
+        if(!deliver) return issued.code();
+        boolean sent=sendResetLink(normalized,issued.code());
+        try {
+            Runnable cleanup=() -> {if(sent)resetTokens.deleteByCustomerIdAndTokenHashNot(issued.userId(),issued.tokenHash());else{resetTokens.delete(issued.token());resetTokens.flush();}};
+            if(transactions==null)cleanup.run();else transactions.executeWithoutResult(status->cleanup.run());
+        } catch(RuntimeException e) { log.warn("Password reset token cleanup failed",e); }
+        return null;
+    }
+    /** Runs in its own short transaction: holds the user row lock only while issuing the token, never while calling the mail provider. */
+    private Issued issueResetToken(String normalized,boolean deliver){
         User user=users.findForPasswordReset(normalized).orElse(null);
         if(user==null||!"CUSTOMER".equals(user.getRole())||user.isLocked()||user.getDeletedAt()!=null)return null;
         var previous=resetTokens.findFirstByCustomerIdOrderByCreatedAtDesc(user.getId());
@@ -62,14 +76,15 @@ public class AuthService {
         String code=deliver?Base64.getUrlEncoder().withoutPadding().encodeToString(bytes):String.format("%06d",new SecureRandom().nextInt(1_000_000));
         PasswordResetToken token=new PasswordResetToken();token.setCustomer(user);token.setTokenHash(hash(code));token.setExpiresAt(Instant.now().plus(Duration.ofMinutes(resetCodeMinutes)));
         resetTokens.saveAndFlush(token);
-        if(deliver){
-            String link=mail.link("/dat-lai-mat-khau#email="+java.net.URLEncoder.encode(normalized,StandardCharsets.UTF_8)+"&code="+code);
-            try { mail.send(normalized,"ANH LỚN SHOP — Đặt lại mật khẩu","Mở liên kết để đặt lại mật khẩu:\n"+link+"\n\nLiên kết có hiệu lực "+resetCodeMinutes+" phút, dùng một lần. Nếu không yêu cầu, bạn có thể bỏ qua email này.","password-reset-"+UUID.randomUUID()); }
-            catch(RuntimeException e) { resetTokens.delete(token);resetTokens.flush();org.slf4j.LoggerFactory.getLogger(getClass()).warn("Password reset email delivery failed; new token discarded"); return null; }
-        }
-        resetTokens.deleteByCustomerIdAndTokenHashNot(user.getId(),token.getTokenHash());
-        return deliver?null:code;
+        if(!deliver) resetTokens.deleteByCustomerIdAndTokenHashNot(user.getId(),token.getTokenHash());
+        return new Issued(user.getId(),code,token.getTokenHash(),token);
     }
+    private boolean sendResetLink(String normalized,String code){
+        String link=mail.link("/dat-lai-mat-khau#email="+java.net.URLEncoder.encode(normalized,StandardCharsets.UTF_8)+"&code="+code);
+        try { mail.send(normalized,"ANH LỚN SHOP — Đặt lại mật khẩu","Mở liên kết để đặt lại mật khẩu:\n"+link+"\n\nLiên kết có hiệu lực "+resetCodeMinutes+" phút, dùng một lần. Nếu không yêu cầu, bạn có thể bỏ qua email này.","password-reset-"+UUID.randomUUID()); return true; }
+        catch(RuntimeException e) { log.warn("Password reset email delivery failed; new token discarded",e); return false; }
+    }
+    private record Issued(Long userId,String code,String tokenHash,PasswordResetToken token){}
     @Transactional public void resetPassword(String email,String code,String newPassword){
         requirePasswordRecovery();validatePassword(newPassword);String normalized=email==null?"":email.trim().toLowerCase(Locale.ROOT);
         if(mail!=null && mail.available() && (code==null || !code.matches("[A-Za-z0-9_-]{43}")))throw invalidReset();

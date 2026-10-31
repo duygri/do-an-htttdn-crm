@@ -35,6 +35,19 @@ it('removes manager supplier tools and redirects the retired route', async () =>
   expect(adminApi.mock.calls.some(([url]) => url.includes('/suppliers'))).toBe(false);
 });
 
+it("uses the server summary for the PREPARING bucket and links to the filtered list", async () => {
+  adminApi.mockImplementation(async (url) => {
+    if (url === "/api/manager/orders/summary") return { ALL: 4, PENDING: 0, CONFIRMED: 2, PREPARING: 1, SHIPPED: 1, DELIVERED: 0, COMPLETED: 0, CANCELLED: 0, RETURN: 0 };
+    return { content: [] };
+  });
+  render(<AdminApp />, { wrapper });
+  const chip = await screen.findByRole("button", { name: /Đang chuẩn bị/ });
+  expect(within(chip).getByText("1")).toBeTruthy();
+  fireEvent.click(chip);
+  await waitFor(() => expect(window.location.pathname).toBe("/manager/orders"));
+  expect(window.location.search).toBe("?status=PREPARING");
+});
+
 describe("admin list lifecycle", () => {
   it("mounts and cleans up under StrictMode without returning a Promise cleanup", async () => {
     const { result, unmount } = renderHook(() => useAdminList(endpoint), { wrapper });
