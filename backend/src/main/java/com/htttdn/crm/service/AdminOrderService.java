@@ -61,6 +61,13 @@ public class AdminOrderService extends AdminServiceSupport {
             throw new ApiException(HttpStatus.CONFLICT, "INVALID_ORDER_TRANSITION", "Không thể chuyển ngược trạng thái hoặc cập nhật đơn đã hủy/hoàn thành. Vui lòng tải lại đơn hàng.");
         }
         if (request.status().equals(order.getStatus()) && !"CANCELLED".equals(request.status())) return order;
+        if ("PAYOS".equals(order.getPaymentMethod()) && !"CANCELLED".equals(request.status())) {
+            if (order.paymentReviewRequired)
+                throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_NEEDS_REVIEW", "Cần đối chiếu thanh toán trước khi xử lý đơn.");
+            // Checkout also records zero-value orders as PAID without a provider transaction.
+            if (!"PAID".equals(order.getPaymentStatus()))
+                throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_NOT_PAID", "Đơn PayOS cần thanh toán thành công trước khi xử lý.");
+        }
         if ("CANCELLED".equals(request.status())) {
             if ("CANCELLED".equals(order.getStatus()) && order.getCancelReason() != null && !order.getCancelReason().isBlank()) {
                 if (reason.equals(order.getCancelReason())) return order;

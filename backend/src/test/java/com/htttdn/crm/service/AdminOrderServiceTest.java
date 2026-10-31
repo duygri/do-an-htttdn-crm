@@ -8,6 +8,11 @@ import com.htttdn.crm.exception.ApiException;
 import com.htttdn.crm.repository.OrderRepository;
 import com.htttdn.crm.repository.PaymentRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import java.math.BigDecimal;
 import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -132,5 +137,155 @@ class AdminOrderServiceTest {
             assertThrows(ApiException.class, () -> service.updateStatus(9L,new StatusRequest(pair[1], null)));
             assertEquals(pair[0],order.getStatus()); verify(orders,never()).save(any());
         }
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"PENDING", "EXPIRED", "FAILED", "CANCELLED", "COD", ""})
+    void unpaidPayosCannotEnterOrAdvanceFulfillment(String paymentStatus) {
+        for (String[] transition : new String[][]{{"PENDING", "CONFIRMED"},
+                {"CONFIRMED", "PREPARING"}, {"CONFIRMED", "SHIPPED"}, {"CONFIRMED", "DELIVERING"},
+                {"PREPARING", "SHIPPED"}, {"PREPARING", "DELIVERING"},
+                {"SHIPPED", "DELIVERED"}, {"DELIVERING", "DELIVERED"}}) {
+            Order order = payosOrder(transition[0], paymentStatus);
+            var updatedAt = order.getUpdatedAt();
+
+            ApiException error = assertThrows(ApiException.class,
+                () -> service.updateStatus(9L, new StatusRequest(transition[1], null)),
+                transition[0] + " -> " + transition[1]);
+
+            assertEquals(409, error.status().value());
+            assertEquals("PAYMENT_NOT_PAID", error.code());
+            assertEquals(transition[0], order.getStatus());
+            assertEquals(paymentStatus, order.getPaymentStatus());
+            assertEquals(updatedAt, order.getUpdatedAt());
+        }
+        verify(orders, never()).save(any());
+        verifyNoInteractions(payments, stock, notifications);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"PENDING_PAYMENT, CONFIRMED", "PENDING_PAYMENT, PENDING",
+        "PENDING_PAYMENT, SHIPPED", "PENDING_PAYMENT, DELIVERED",
+        "PENDING, SHIPPED", "CONFIRMED, DELIVERED", "SHIPPED, CONFIRMED",
+        "CANCELLED, CONFIRMED", "DELIVERED, COMPLETED", "COMPLETED, SHIPPED"})
+    void payosPaymentDoesNotOverrideTransitionRules(String current, String next) {
+        for (String paymentStatus : new String[]{"PENDING", "PAID"}) {
+            Order order = payosOrder(current, paymentStatus);
+            ApiException error = assertThrows(ApiException.class,
+                () -> service.updateStatus(9L, new StatusRequest(next, null)));
+            assertEquals("INVALID_ORDER_TRANSITION", error.code());
+            assertEquals(current, order.getStatus());
+        }
+        verify(orders, never()).save(any());
+        verifyNoInteractions(payments, stock, notifications);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"PAYOS, PAID", "COD, COD", "COD, PENDING"})
+    void paidPayosAndUncollectedCodCanCompleteFulfillment(String method, String paymentStatus) {
+        Order order = order("PENDING");
+        order.setPaymentMethod(method);
+        order.setPaymentStatus(paymentStatus);
+        order.setTotalAmount(new BigDecimal("100000"));
+        for (String next : new String[]{"CONFIRMED", "PREPARING", "SHIPPED", "DELIVERED"}) {
+            assertSame(order, service.updateStatus(9L, new StatusRequest(next, null)));
+            assertEquals(next, order.getStatus());
+            assertEquals(paymentStatus, order.getPaymentStatus());
+        }
+        verify(orders, times(4)).save(order);
+        verifyNoInteractions(payments, stock);
+    }
+
+    @Test void zeroValuePayosUsesCheckoutPaidEvidenceWithoutPaidTimestampOrProviderLink() {
+        Order order = payosOrder("PENDING", "PAID");
+        order.setTotalAmount(BigDecimal.ZERO);
+        assertNull(order.paidAt);
+        for (String next : new String[]{"CONFIRMED", "PREPARING", "DELIVERING", "DELIVERED"}) {
+            service.updateStatus(9L, new StatusRequest(next, null));
+            assertEquals(next, order.getStatus());
+        }
+        assertEquals("PAID", order.getPaymentStatus());
+        verifyNoInteractions(payments, stock);
+    }
+
+    @Test void zeroTotalAloneIsNotPaidEvidence() {
+        Order order = payosOrder("PENDING", "PENDING");
+        order.setTotalAmount(BigDecimal.ZERO);
+        ApiException error = assertThrows(ApiException.class,
+            () -> service.updateStatus(9L, new StatusRequest("CONFIRMED", null)));
+        assertEquals("PAYMENT_NOT_PAID", error.code());
+        assertEquals("PENDING", order.getStatus());
+        verify(orders, never()).save(any());
+        verifyNoInteractions(payments, stock, notifications);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING", "PAID"})
+    void reviewFlagBlocksPayosFulfillmentEvenWhenPaid(String paymentStatus) {
+        for (String[] transition : new String[][]{{"PENDING", "CONFIRMED"},
+                {"CONFIRMED", "PREPARING"}, {"PREPARING", "SHIPPED"},
+                {"CONFIRMED", "DELIVERING"}, {"SHIPPED", "DELIVERED"}}) {
+            Order order = payosOrder(transition[0], paymentStatus);
+            order.paymentReviewRequired = true;
+            ApiException error = assertThrows(ApiException.class,
+                () -> service.updateStatus(9L, new StatusRequest(transition[1], null)));
+            assertEquals(409, error.status().value());
+            assertEquals("PAYMENT_NEEDS_REVIEW", error.code());
+            assertEquals(transition[0], order.getStatus());
+        }
+        verify(orders, never()).save(any());
+        verifyNoInteractions(payments, stock, notifications);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING_PAYMENT", "PENDING", "CONFIRMED", "PREPARING", "SHIPPED", "DELIVERED"})
+    void repeatedPayosStatusRemainsNoOpEvenWhenUnpaidAndUnderReview(String status) {
+        Order order = payosOrder(status, "PENDING");
+        order.paymentReviewRequired = true;
+        var updatedAt = order.getUpdatedAt();
+        assertSame(order, service.updateStatus(9L, new StatusRequest(status, null)));
+        assertEquals(updatedAt, order.getUpdatedAt());
+        verify(orders, never()).save(any());
+        verifyNoInteractions(payments, stock, notifications);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING_PAYMENT", "PENDING", "CONFIRMED", "PREPARING"})
+    void unpaidPayosCancellationRemainsIdempotent(String status) {
+        Order order = payosOrder(status, "PENDING");
+        Payment payment = new Payment();
+        when(payments.findByOrderId(order.getId())).thenReturn(Optional.of(payment));
+        service.updateStatus(9L, new StatusRequest("CANCELLED", "Khách đổi ý"));
+        service.updateStatus(9L, new StatusRequest("CANCELLED", "Khách đổi ý"));
+        assertEquals("CANCELLED", order.getStatus());
+        assertEquals("CANCELLED", order.getPaymentStatus());
+        assertEquals("CANCELLED", payment.getStatus());
+        verify(orders).save(order);
+        verify(payments).save(payment);
+        verify(stock).release(order);
+        verify(notifications).create(any(), anyString(), anyString(), eq("ORDER_CANCELLED"), isNull());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING", "PAID"})
+    void reviewFlagStillBlocksPayosCancellation(String paymentStatus) {
+        Order order = payosOrder("CONFIRMED", paymentStatus);
+        order.paymentReviewRequired = true;
+        ApiException error = assertThrows(ApiException.class,
+            () -> service.updateStatus(9L, new StatusRequest("CANCELLED", "Khách đổi ý")));
+        assertEquals("PAYMENT_NEEDS_REVIEW", error.code());
+        assertEquals("CONFIRMED", order.getStatus());
+        assertEquals(paymentStatus, order.getPaymentStatus());
+        verify(orders, never()).save(any());
+        verifyNoInteractions(payments, stock, notifications);
+    }
+
+    Order payosOrder(String status, String paymentStatus) {
+        Order order = order(status);
+        order.setPaymentMethod("PAYOS");
+        order.setPaymentStatus(paymentStatus);
+        order.setTotalAmount(new BigDecimal("100000"));
+        return order;
     }
 }

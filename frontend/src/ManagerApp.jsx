@@ -1149,6 +1149,7 @@ function Products({ notify }) {
   const [saving, setSaving] = useState(false);
   const productWriteLock = useRef(false);
   const [editing, setEditing] = useState(null);
+  const [originalStock, setOriginalStock] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(null);
   useManagerReadPause(dialogOpen || !!confirmArchive);
   const [form, setForm] = useState({
@@ -1175,6 +1176,7 @@ function Products({ notify }) {
 
   const openEdit = (product) => {
     setEditing(product.id);
+    setOriginalStock(Number(product.stock));
     setForm({
       name: product.name,
       category: product.category || "",
@@ -1197,18 +1199,28 @@ function Products({ notify }) {
     if(productWriteLock.current)return;
     productWriteLock.current=true;
     setSaving(true);
+    let stockUpdatePending = false;
     try {
+      const { stock: quantity, ...catalog } = form;
       await adminApi(
         editing ? adminEndpoints.product(editing) : "/api/manager/products",
         {
           method: editing ? "PUT" : "POST",
           body: {
-            ...form,
+            ...catalog,
             price: Number(form.price),
-            stock: Number(form.stock),
+            ...(!editing ? { stock: Number(quantity) } : {}),
           },
         }
       );
+      if (editing && Number(quantity) !== originalStock) {
+        stockUpdatePending = true;
+        await adminApi(adminEndpoints.productStock(editing), {
+          method: "PATCH",
+          body: { quantity: Number(quantity) },
+        });
+        stockUpdatePending = false;
+      }
       setForm({
         name: "",
         category: "",
@@ -1222,7 +1234,9 @@ function Products({ notify }) {
       notify(editing ? "Đã cập nhật sản phẩm." : "Đã thêm sản phẩm mới.");
       load();
     } catch (error) {
-      notify(error.message, "error");
+      notify(stockUpdatePending
+        ? `Đã lưu thông tin sản phẩm nhưng chưa cập nhật được tồn kho. Vui lòng thử lại. ${error.message}`
+        : error.message, "error");
     } finally {
       productWriteLock.current=false;
       setSaving(false);

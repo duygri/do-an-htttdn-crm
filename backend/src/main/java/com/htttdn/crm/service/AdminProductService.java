@@ -16,9 +16,11 @@ import java.time.Instant;
 public class AdminProductService extends AdminServiceSupport {
     private final ProductRepository products;
     private final CategoryRepository categories;
-    public AdminProductService(ProductRepository products, CategoryRepository categories) {
+    private final StockService stockService;
+    public AdminProductService(ProductRepository products, CategoryRepository categories, StockService stockService) {
         this.products = products;
         this.categories = categories;
+        this.stockService = stockService;
     }
     public Page<Product> list(String q, int page, int size) { return products.findByNameContainingIgnoreCaseAndActiveTrue(q, page(page, size)); }
     public Page<Product> search(String q,String category,java.math.BigDecimal minPrice,java.math.BigDecimal maxPrice,String stock,String active,String sort,String direction,int page,int size){
@@ -36,18 +38,19 @@ public class AdminProductService extends AdminServiceSupport {
         },org.springframework.data.domain.PageRequest.of(page,size,org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.fromString(direction),sort).and(org.springframework.data.domain.Sort.by("id").descending())));
     }
     public java.util.List<String> categoryNames(){return categories.findAll().stream().map(Category::getName).sorted().toList();}
-    @Transactional public Product create(ProductRequest request) { Product product = new Product(); copy(product, request);products.save(product);audit("CREATE","PRODUCT",product.getId(),java.util.Map.of(),product); return product; }
+    @Transactional public Product create(ProductRequest request) { Product product = new Product(); copy(product, request);product.setStock(request.stock());products.save(product);audit("CREATE","PRODUCT",product.getId(),java.util.Map.of(),product); return product; }
     @Transactional public Product update(Long id, ProductRequest request) { Product product = get(id);var before=snapshot(product); copy(product, request); product.setUpdatedAt(Instant.now());audit("UPDATE","PRODUCT",id,before,product); return products.save(product); }
     @Transactional public void archive(Long id) { Product product = get(id);var before=snapshot(product); product.setActive(false); products.save(product);if(!before.equals(snapshot(product)))audit("ARCHIVE","PRODUCT",id,before,product); }
     @Transactional public void restore(Long id) {
-        Product product=products.findLockedById(id).orElseThrow();
+        Product product=get(id);
         if(product.isActive())return;
         var before=snapshot(product);product.setActive(true);product.setUpdatedAt(Instant.now());
         products.save(product);audit("RESTORE","PRODUCT",id,before,product);
     }
     @Transactional public Product stock(Long id, StockRequest request) { Product product = get(id);var before=snapshot(product); product.setStock(request.quantity()); product.setUpdatedAt(Instant.now());if(!before.equals(snapshot(product)))audit("STOCK","PRODUCT",id,before,product); return products.save(product); }
-    private Product get(Long id) { return products.findById(id).orElseThrow(); }
+    private Product get(Long id) { return stockService.lockProduct(id).orElseThrow(); }
     private void copy(Product p, ProductRequest r) {
+        // Edit forms can carry stale quantities. Only create and the explicit stock API set stock.
         p.setName(r.name());
         if (r.category() != null && !r.category().isBlank()) {
             Category category = categories.findByNameIgnoreCase(r.category().trim())
@@ -60,7 +63,6 @@ public class AdminProductService extends AdminServiceSupport {
         }
         p.setDescription(r.description());
         p.setPrice(r.price());
-        p.setStock(r.stock());
         p.setImageUrl(r.imageUrl());
     }
 }
