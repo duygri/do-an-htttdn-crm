@@ -14,7 +14,7 @@ import java.util.*;
 public class ManagerOrderQuery {
     private final NamedParameterJdbcTemplate db;
     public ManagerOrderQuery(NamedParameterJdbcTemplate db){this.db=db;}
-    private static final String GROUP="CASE WHEN o.status='CANCELLED' THEN 'CANCELLED' WHEN coalesce(o.return_status,'NONE')<>'NONE' THEN 'RETURN' WHEN o.status IN ('PENDING','PENDING_PAYMENT') THEN 'PENDING' WHEN o.status IN ('CONFIRMED','PREPARING') THEN 'CONFIRMED' WHEN o.status IN ('SHIPPED','DELIVERING') THEN 'SHIPPED' ELSE o.status END";
+    private static final String GROUP="CASE WHEN o.status='CANCELLED' THEN 'CANCELLED' WHEN coalesce(o.return_status,'NONE')<>'NONE' THEN 'RETURN' WHEN o.status IN ('PENDING','PENDING_PAYMENT') THEN 'PENDING' WHEN o.status='PREPARING' THEN 'PREPARING' WHEN o.status='CONFIRMED' THEN 'CONFIRMED' WHEN o.status IN ('SHIPPED','DELIVERING') THEN 'SHIPPED' ELSE o.status END";
     private static final String JOIN=" FROM orders o JOIN customers c ON c.customer_id=o.customer_id ";
     private static final Set<String> STATUSES=Set.of("PENDING","PENDING_PAYMENT","CONFIRMED","PREPARING","SHIPPED","DELIVERING","DELIVERED","COMPLETED","CANCELLED","RETURN","RETURN_REQUESTED","RETURN_APPROVED","RETURN_REJECTED","RETURN_COMPLETED");
     public record Filter(String status,String q,String paymentStatus,Instant from,Instant to,String sort,String direction,int page,int size,String refundStatus,Boolean paymentReview){
@@ -40,7 +40,7 @@ public class ManagerOrderQuery {
         if(includeStatus&&f.status()!=null&&!f.status().isBlank()){
             if(!STATUSES.contains(f.status()))throw invalid();
             if(f.status().startsWith("RETURN_")){args.put("return",f.status().substring(7));parts.add("o.status<>'CANCELLED' AND o.return_status=:return");}
-            else {args.put("status",switch(f.status()){case "PENDING_PAYMENT"->"PENDING";case "PREPARING"->"CONFIRMED";case "DELIVERING"->"SHIPPED";default->f.status();});parts.add("("+GROUP+")=:status");}
+            else {args.put("status",switch(f.status()){case "PENDING_PAYMENT"->"PENDING";case "DELIVERING"->"SHIPPED";default->f.status();});parts.add("("+GROUP+")=:status");}
         }
         return " WHERE "+String.join(" AND ",parts);
     }
@@ -55,7 +55,7 @@ public class ManagerOrderQuery {
     }
     public Map<String,Long> summary(Filter f){
         var args=new HashMap<String,Object>();String where=where(f,args,false);var result=new LinkedHashMap<String,Long>();
-        for(String key:List.of("PENDING","CONFIRMED","SHIPPED","DELIVERED","COMPLETED","CANCELLED","RETURN"))result.put(key,0L);
+        for(String key:List.of("PENDING","CONFIRMED","PREPARING","SHIPPED","DELIVERED","COMPLETED","CANCELLED","RETURN"))result.put(key,0L);
         db.query("SELECT "+GROUP+" AS bucket,count(*) AS amount"+JOIN+where+" GROUP BY "+GROUP,args,r->{result.put(r.getString("bucket"),r.getLong("amount"));});
         result.put("ALL",result.values().stream().mapToLong(Long::longValue).sum());return result;
     }
