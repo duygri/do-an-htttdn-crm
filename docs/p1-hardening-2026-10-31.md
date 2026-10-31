@@ -28,3 +28,9 @@ Thông tin sản phẩm và điều chỉnh tồn có chủ ý dùng hai request
 `PUT /api/manager/products/{id}` chỉ sửa thông tin sản phẩm, không áp dụng trường `stock` trong payload cũ. Chỉnh tồn dùng `PATCH /api/manager/products/{id}/stock` với `{ "quantity": 12 }`. `POST /api/manager/products` vẫn nhận tồn ban đầu như trước.
 
 Không thử khai thác quyền, sửa sản phẩm hoặc xử lý thanh toán trên production. Theo yêu cầu phát hành tiếp theo của chủ repository, commit bản vá lên `codex/free-demo-deployment` và triển khai chỉ dịch vụ `anhlonshop`. Frontend và backend được phát hành cùng một Docker image; không chạy migration hoặc thay đổi bí mật.
+
+## Kiểm tra trình duyệt khi phát hành
+
+Smoke test sau rollout phát hiện policy `default-src 'none'` từ bản hardening trước đó áp dụng cả trang HTML và chặn JavaScript của SPA. Tạm rollback về bản hoạt động trước để khôi phục giao diện, rồi sửa filter: API vẫn dùng CSP nghiêm ngặt; trang/tài nguyên web dùng policy tương thích với React, giữ chống nhúng, object, base và form không cùng nguồn. Các header `nosniff`, HSTS và quyền thiết bị không đổi.
+
+Test hồi quy mới tái hiện sáu lỗi trước sửa, đạt đủ mười trường hợp sau sửa (trang User/Admin/Manager, asset, API, context path và matrix parameter). Kiểm tra lại validation, rate limit, phân quyền và route deployment cùng bản vá; frontend không đổi sau bộ 320 test/build đã đạt. Review độc lập bản sửa CSP không có phát hiện cần sửa.
