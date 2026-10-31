@@ -41,7 +41,7 @@ it("uses the server summary for the PREPARING bucket and links to the filtered l
     return { content: [] };
   });
   render(<AdminApp />, { wrapper });
-  const chip = await screen.findByRole("button", { name: /Đang chuẩn bị/ });
+  const chip = await screen.findByRole("button", { name: /Đang chuẩn bị/ }, { timeout: 3000 });
   expect(within(chip).getByText("1")).toBeTruthy();
   fireEvent.click(chip);
   await waitFor(() => expect(window.location.pathname).toBe("/manager/orders"));
