@@ -13,6 +13,8 @@ RUN mvn -B dependency:go-offline
 COPY backend/src/main/java ./src/main/java
 # Deliberately never copy local application.yml or local environment files.
 COPY deploy/application.yml ./src/main/resources/application.yml
+# Idempotent migrations applied by spring.sql.init before Hibernate validates the schema.
+COPY database/migration_supplier_receipts_invoices.sql ./src/main/resources/db/migration_supplier_receipts_invoices.sql
 COPY --from=web /web/dist ./src/main/resources/static
 RUN mvn -B -DskipTests package
 

@@ -12,6 +12,11 @@ spring:
     open-in-view: false
     properties:
       hibernate.jdbc.time_zone: UTC
+  # Idempotent migrations run before Hibernate validates the schema on every boot.
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/migration_supplier_receipts_invoices.sql
 server:
   port: ${PORT:10000}
   forward-headers-strategy: framework
