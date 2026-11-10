@@ -1,6 +1,6 @@
 # CRM Admin Backend
 
-Java 21 / Spring Boot REST backend for the Vietnamese men's clothing customer portal and the existing admin CRM module. PostgreSQL is accessed through Spring Data JPA; Hibernate creates/updates the development schema. The default database is `htttdn`.
+Java 21 / Spring Boot REST backend for the Vietnamese men's clothing customer portal and the Admin/Manager CRM portals. PostgreSQL is accessed through Spring Data JPA. Hibernate `ddl-auto` defaults to `validate`: apply the schema and required migrations from the repository's `database/` directory before startup; the backend does not create or update the schema. The default database is `htttdn`.
 
 ## Package structure
 
