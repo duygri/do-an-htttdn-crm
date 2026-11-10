@@ -6,6 +6,7 @@ import com.htttdn.crm.entity.Category;
 import com.htttdn.crm.entity.Product;
 import com.htttdn.crm.repository.CategoryRepository;
 import com.htttdn.crm.repository.ProductRepository;
+import com.htttdn.crm.repository.SupplierRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,10 +18,12 @@ public class AdminProductService extends AdminServiceSupport {
     private final ProductRepository products;
     private final CategoryRepository categories;
     private final StockService stockService;
-    public AdminProductService(ProductRepository products, CategoryRepository categories, StockService stockService) {
+    private final SupplierRepository suppliers;
+    public AdminProductService(ProductRepository products, CategoryRepository categories, StockService stockService, SupplierRepository suppliers) {
         this.products = products;
         this.categories = categories;
         this.stockService = stockService;
+        this.suppliers = suppliers;
     }
     public Page<Product> list(String q, int page, int size) { return products.findByNameContainingIgnoreCaseAndActiveTrue(q, page(page, size)); }
     public Page<Product> search(String q,String category,java.math.BigDecimal minPrice,java.math.BigDecimal maxPrice,String stock,String active,String sort,String direction,int page,int size){
@@ -64,5 +67,8 @@ public class AdminProductService extends AdminServiceSupport {
         p.setDescription(r.description());
         p.setPrice(r.price());
         p.setImageUrl(r.imageUrl());
+        if (r.supplierId() != null && !suppliers.existsById(r.supplierId()))
+            throw new com.htttdn.crm.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "SUPPLIER_NOT_FOUND", "Không tìm thấy nhà cung cấp.");
+        p.setSupplierId(r.supplierId());
     }
 }

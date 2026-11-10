@@ -12,8 +12,8 @@ import java.util.*;
 public class PaymentReconciliationService {
     public enum Result { UNPAID, PAID, NEEDS_REVIEW, RETRY }
     private final PayosService payos; private final PaymentAttemptRepository attempts; private final PaymentRepository payments;
-    private final NotificationService notifications; private final RefundService refunds;
-    public PaymentReconciliationService(PayosService payos,PaymentAttemptRepository attempts,PaymentRepository payments,NotificationService notifications,RefundService refunds){this.payos=payos;this.attempts=attempts;this.payments=payments;this.notifications=notifications;this.refunds=refunds;}
+    private final NotificationService notifications;
+    public PaymentReconciliationService(PayosService payos,PaymentAttemptRepository attempts,PaymentRepository payments,NotificationService notifications){this.payos=payos;this.attempts=attempts;this.payments=payments;this.notifications=notifications;}
     public static void review(Order o,String reason){o.paymentReviewRequired=true;o.paymentReviewReason=reason;o.paymentReviewAt=Instant.now();}
     public static void clearReview(Order o){o.paymentReviewRequired=false;o.paymentReviewReason=null;o.paymentReviewAt=null;}
     @Transactional(propagation=Propagation.MANDATORY) public void paid(Order o,Payment p,PaymentAttempt attempt){
@@ -22,9 +22,7 @@ public class PaymentReconciliationService {
         if(attempt!=null){attempt.setStatus("PAID");attempt.setUpdatedAt(Instant.now());attempts.save(attempt);}
         o.setPaymentStatus("PAID");p.setStatus("PAID");o.setUpdatedAt(Instant.now());p.setUpdatedAt(Instant.now());payments.save(p);
         if(!wasPaid)notifications.create(o.getCustomer(),"CANCELLED".equals(o.getStatus())?"Thanh toán sau khi hủy đơn":"Thanh toán thành công",
-            "Đơn #"+o.getOrderCode()+("CANCELLED".equals(o.getStatus())?" đã nhận tiền sau khi hủy; cửa hàng sẽ xử lý hoàn tiền thủ công.":" đã thanh toán thành công."),"CANCELLED".equals(o.getStatus())?"PAYMENT_AFTER_CANCEL":"PAYMENT_CONFIRMED",o.getId());
-        // Existing PAID legacy orders are not backfilled merely by reconciling again.
-        if(!wasPaid)refunds.requestCancellation(o);
+            "Đơn #"+o.getOrderCode()+("CANCELLED".equals(o.getStatus())?" đã nhận tiền sau khi hủy; cửa hàng sẽ liên hệ hỗ trợ.":" đã thanh toán thành công."),"CANCELLED".equals(o.getStatus())?"PAYMENT_AFTER_CANCEL":"PAYMENT_CONFIRMED",o.getId());
     }
     private record Link(PaymentAttempt attempt,long code,String id){}
     private boolean matches(Order o,Link link,PayosService.ProviderPayment r){return r.orderCode()==link.code&&r.amount()==o.getTotalAmount().longValueExact()&&link.id.equals(r.paymentLinkId());}

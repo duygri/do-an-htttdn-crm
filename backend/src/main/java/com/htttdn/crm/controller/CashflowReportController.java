@@ -6,5 +6,5 @@ import java.time.Instant;
 public class CashflowReportController {
     private final CashflowReportService service;
     public CashflowReportController(CashflowReportService service){this.service=service;}
-    @GetMapping("/cashflow") public CashflowReportService.View get(@RequestParam(required=false)Instant from,@RequestParam(required=false)Instant to,@RequestParam(defaultValue="day")String groupBy){return service.report(from,to,groupBy);}
+    @GetMapping({"/revenue","/cashflow"}) public CashflowReportService.View get(@RequestParam(required=false)Instant from,@RequestParam(required=false)Instant to,@RequestParam(defaultValue="month")String groupBy){return service.report(from,to,groupBy);}
 }

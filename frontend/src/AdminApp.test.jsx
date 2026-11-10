@@ -26,13 +26,16 @@ beforeEach(() => {
   adminApi.mockResolvedValue({ content: [] });
 });
 afterEach(cleanup);
-it('removes manager supplier tools and redirects the retired route', async () => {
+it('opens supplier management at the suppliers route and loads real suppliers', async () => {
   window.history.replaceState({}, '', '/manager/suppliers');
-  render(<AdminApp/>);
-  await waitFor(() => expect(window.location.pathname).toBe('/manager'));
-  expect(screen.queryByText(/nhà cung cấp/i)).toBeNull();
-  expect(screen.queryByText('Đối tác cung cấp')).toBeNull();
-  expect(adminApi.mock.calls.some(([url]) => url.includes('/suppliers'))).toBe(false);
+  adminApi.mockImplementation(async (url) => {
+    if (url.includes('/api/manager/suppliers')) return { content: [{ id: 1, code: 'NCC01', name: 'Nhà cung cấp thử', active: true, createdAt: new Date().toISOString() }], totalPages: 1, totalElements: 1 };
+    return { content: [] };
+  });
+  render(<AdminApp />, { wrapper });
+  expect(await screen.findByRole('heading', { name: 'Nhà cung cấp' })).toBeTruthy();
+  expect(await screen.findByText(/NCC01/)).toBeTruthy();
+  expect(adminApi.mock.calls.some(([url]) => url.includes('/api/manager/suppliers'))).toBe(true);
 });
 
 it("uses the server summary for the PREPARING bucket and links to the filtered list", async () => {
@@ -387,7 +390,7 @@ describe("admin navigation", () => {
 
   it("renders actual report values and recent orders, and opens their management page", async () => {
     adminApi.mockImplementation(async (url) => {
-      if (url.includes("reports/revenue")) return { totalRevenue: 1250000, orders: 7 };
+      if (url.includes("reports/summary")) return { totalRevenue: 1250000, orders: 7 };
       if (url.includes("reports/users")) return { customers: 42, admins: 2, lockedCustomers: 1 };
       if (url.includes("surveys/stats")) return { total: 4, published: 3, draft: 1 };
       return { content: [{ id: 11, orderCode: "ORDER-11", customer: { fullName: "Khách kiểm thử" }, totalAmount: 1250000, status: "CONFIRMED" }] };

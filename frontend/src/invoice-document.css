@@ -1,0 +1,21 @@
+.invoice-document{background:#fff;color:#111;padding:1.5rem;border-radius:10px;max-width:900px;margin:1rem auto;font-size:.95rem}
+.invoice-head{display:flex;justify-content:space-between;gap:1.5rem;flex-wrap:wrap;border-bottom:2px solid #111;padding-bottom:1rem}
+.invoice-head h1{font-size:1.25rem;margin:0 0 .4rem}
+.invoice-head h2{margin:0 0 .35rem}
+.invoice-head p{margin:.2rem 0}
+.invoice-parties{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.invoice-parties h3{margin:0 0 .4rem;font-size:.95rem;text-transform:uppercase}
+.invoice-parties p{margin:.2rem 0}
+.invoice-table{width:100%;border-collapse:collapse;margin:.5rem 0 1rem}
+.invoice-table th,.invoice-table td{border:1px solid #999;padding:.5rem;text-align:left;vertical-align:top}
+.invoice-table th{background:#eee}
+.invoice-totals{margin-left:auto;max-width:340px}
+.invoice-totals p{display:flex;justify-content:space-between;gap:1rem;margin:.3rem 0}
+.invoice-grand{border-top:2px solid #111;padding-top:.4rem;font-size:1.05rem}
+.invoice-note{margin-top:1rem}
+.invoice-signatures{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:2rem;text-align:center}
+.invoice-signatures span{display:block;font-weight:700}
+.invoice-signatures small{color:#555}
+.invoice-actions{text-align:right;margin-top:1rem}
+@media(max-width:640px){.invoice-parties{grid-template-columns:1fr}.invoice-document{padding:.8rem;font-size:.85rem}.invoice-table th,.invoice-table td{padding:.3rem}}
+@media print{body *{visibility:hidden!important}.invoice-document,.invoice-document *{visibility:visible!important}.invoice-document{position:absolute;inset:0;margin:0;padding:0;max-width:none;box-shadow:none}.no-print{display:none!important}@page{margin:12mm}}
