@@ -1,23 +1,17 @@
 from pathlib import Path
-import importlib.util
-
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
 
+if __package__:
+    from . import usecase_spec_helpers as helper
+else:
+    import usecase_spec_helpers as helper
+
+
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "docs" / "use-cases" / "admin" / "admin-use-case-specifications.docx"
-CUSTOMER_BUILDER = ROOT / "tools" / "build_customer_usecase_specifications.py"
-
-
-def load_customer_helpers():
-    spec = importlib.util.spec_from_file_location("customer_builder", CUSTOMER_BUILDER)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 ADMIN_TRACEABILITY = [
     ("UC-A01", "Tiếp nhận và xử lý phản hồi khách hàng", "Admin-01", "01", "01-feedback-handling.puml"),
     ("UC-A02", "Xem thông tin khách hàng", "Admin-02", "02", "02-view-customer-information.puml"),
@@ -383,7 +377,6 @@ ADMIN_USE_CASES = [
 
 
 def build_document():
-    helper = load_customer_helpers()
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     doc = Document()
     helper.configure_styles(doc)
