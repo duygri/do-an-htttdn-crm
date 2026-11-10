@@ -148,7 +148,7 @@ def add_section_heading(doc, text, level=1):
     return paragraph
 
 
-def configure_styles(doc):
+def configure_styles(doc, footer_text):
     section = doc.sections[0]
     section.page_width = Cm(21.0)
     section.page_height = Cm(29.7)
@@ -183,5 +183,5 @@ def configure_styles(doc):
 
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    footer_run = footer.add_run("Part III | Customer CRM and Sales Use Case Specifications")
+    footer_run = footer.add_run(footer_text)
     set_run_font(footer_run, size=8.5, color="666666")

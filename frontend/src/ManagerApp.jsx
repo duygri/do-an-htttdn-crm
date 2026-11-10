@@ -75,13 +75,6 @@ const navIcons = {
   reports: Activity,
   vouchers: TicketPercent,
 };
-const formatDate = (value) =>
-  value
-    ? new Date(value).toLocaleString("vi-VN", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      })
-    : "—";
 const userOrigin = import.meta.env.VITE_USER_ORIGIN || "http://localhost:5173";
 const normalizeAdminPath = (value) => {
   if (value === "/manager/login") return value;
@@ -345,7 +338,6 @@ export default function ManagerApp() {
     </div>
   );
 }
-
 function AdminLogin({ theme, onAuthenticated, onNotice, error }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [busy, setBusy] = useState(false);
@@ -410,6 +402,3 @@ function AdminLogin({ theme, onAuthenticated, onNotice, error }) {
     </div>
   );
 }
-
-const recentOrdersEndpoint = () => adminEndpoints.orders({ size: 100 });
-const orderSummaryEndpoint = () => '/api/manager/orders/summary';

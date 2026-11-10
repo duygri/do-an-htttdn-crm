@@ -2,6 +2,7 @@ import React from "react";
 import { Inbox, CircleAlert, RefreshCw } from "lucide-react";
 import { useManagerList } from "../useManagerResource";
 import { canAdvanceOrder } from "../order-transitions";
+import { showReturn, displayOrderLabel } from "../order-display";
 
 export const money = (value) =>
   new Intl.NumberFormat("vi-VN", {
@@ -10,6 +11,13 @@ export const money = (value) =>
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 export const pageData = (value) => value?.content || [];
+export const formatDate = (value) =>
+  value
+    ? new Date(value).toLocaleString("vi-VN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "—";
 
 export const statusLabels = {
   PENDING_PAYMENT: "Chờ thanh toán",
@@ -66,6 +74,19 @@ export function PanelLoading() {
   );
 }
 export const useAdminList = useManagerList;
+
+export function OrderBadge({ status, order }) {
+  return (
+    <>
+      <span className="admin-badge" style={{ color: showReturn(order) ? "var(--order-return-color, #c2410c)" : statusColors[status] }}>
+        <span className="admin-badge-dot" />
+        {order ? displayOrderLabel(order, statusLabels) : statusLabels[status] || status}
+      </span>
+      {order?.finance?.reviewRequired && <small className="refund-warning">Thanh toán cần kiểm tra</small>}
+      {Number(order?.finance?.refund?.pendingAmount) > 0 && <small>Còn khoản chờ hoàn tiền</small>}
+    </>
+  );
+}
 
 
 export function Table({ headers, children, className = '' }) {

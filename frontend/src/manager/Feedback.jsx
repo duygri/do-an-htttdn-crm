@@ -1,7 +1,8 @@
 import React, { useCallback, useState } from "react";
 import { adminApi, adminEndpoints } from "../manager-api";
+import { useManagerList } from "../useManagerResource";
 import SourceCareCreator from "../SourceCareCreator";
-import { money, pageData, Table, ListError, PageControls, PanelTitle } from "./shared";
+import { money, pageData, Table, ListError, PageControls, PanelTitle, PanelLoading } from "./shared";
 
 export function Feedback({ notify }) {
   const [page, setPage] = useState(0);
@@ -11,7 +12,7 @@ export function Feedback({ notify }) {
   const [reply, setReply] = useState("");
   const [actionError, setActionError] = useState("");
   const endpoint = useCallback(() => adminEndpoints.feedback({ page }), [page]);
-  const { data, load, loading, error } = useAdminList(endpoint);
+  const { data, load, loading, error } = useManagerList(endpoint);
   const update = async (item, changes) => {
     if (busy) return;
     setBusy(true);

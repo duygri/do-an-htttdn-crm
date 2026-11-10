@@ -15,6 +15,7 @@ import CustomerPassword from './CustomerPassword';
 const SupportTickets=React.lazy(()=>import('./SupportTickets'));
 import { useCartSelection, transferGuestSelection, subtractPurchased } from './cart-selection';
 import { useCustomerRouter, actionPaths, isAccountPath, needsCustomer, isKnownPath, safeReturn } from './customer-routing';
+import { DEFAULT_ORDERS_ROUTE } from './storefront/order-route';
 import './customer-pages.css';
 export { default as AddressModal } from "./CustomerAddresses";
 import { api, endpoints, refreshSession, signOut } from "./api";
@@ -65,7 +66,6 @@ const saveGuestCart = (value) => {
 const clearGuestCart = () => {
   if (typeof window !== "undefined") window.localStorage.removeItem(GUEST_CART_KEY);
 };
-const DEFAULT_ORDERS_ROUTE = { orderId: null, tab: "ALL", keyword: "", page: 0 };
 const readOrdersRoute = () => {
   if (typeof window === "undefined") return null;
   const match = window.location.pathname.match(/^\/don-hang(?:\/(\d+))?\/?$/);

@@ -379,11 +379,7 @@ ADMIN_USE_CASES = [
 def build_document():
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     doc = Document()
-    helper.configure_styles(doc)
-
-    footer = doc.sections[0].footer.paragraphs[0]
-    if footer.runs:
-        footer.runs[0].text = "Part III | Admin CRM and Sales Use Case Specifications"
+    helper.configure_styles(doc, "Part III | Admin CRM and Sales Use Case Specifications")
 
     title = doc.add_paragraph(style="Title")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER

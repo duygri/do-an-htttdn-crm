@@ -3,12 +3,12 @@ import { adminApi, adminEndpoints } from "../manager-api";
 import { useManagerFilters } from "../useManagerFilters";
 import { useManagerList, useManagerReadPause } from "../useManagerResource";
 import { Package, X, RefreshCw, Search, Plus } from "lucide-react";
-import { money, pageData, Table, ListError, PageControls, PanelTitle } from "./shared";
+import { money, pageData, Table, ListError, PageControls, PanelTitle, PanelLoading } from "./shared";
 
 export function Products({ notify }) {
   const [filters,changeFilters]=useManagerFilters({q:'',category:'',minPrice:'',maxPrice:'',stock:'ALL',active:'true',sort:'createdAt',direction:'DESC',page:'0'});
   const endpoint=useCallback(()=>adminEndpoints.products(filters),[filters]);
-  const { data:previousData, load, loading, error,stale } = useAdminList(endpoint,{keepPreviousData:true});
+  const { data:previousData, load, loading, error,stale } = useManagerList(endpoint,{keepPreviousData:true});
   const data=stale?null:previousData;
   const search=filters.q,setSearch=value=>changeFilters({q:value});
   const selectedCategory=filters.category,setSelectedCategory=value=>changeFilters({category:value});

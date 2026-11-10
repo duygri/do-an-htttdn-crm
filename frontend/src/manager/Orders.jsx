@@ -6,7 +6,7 @@ import { useManagerList } from "../useManagerResource";
 import { isFinalOrder } from "../order-transitions";
 import { hasReturn, showReturn, returnLabel } from "../order-display";
 import { X, RefreshCw, Search } from "lucide-react";
-import { money, pageData, Table, ListError, PageControls, PanelTitle, orderStatuses, orderStatusOptions, paymentMethodLabels, paymentStatusLabels } from "./shared";
+import { money, formatDate, pageData, Table, ListError, PageControls, PanelTitle, PanelLoading, OrderBadge, orderStatuses, orderStatusOptions, paymentMethodLabels, paymentStatusLabels } from "./shared";
 
 export function Orders({ notify }) {
   const [filters,changeFilters]=useManagerFilters({status:'',q:'',paymentStatus:'',refundStatus:'',paymentReview:'',fromDate:'',toDate:'',sort:'createdAt',direction:'DESC',page:'0'});
@@ -41,7 +41,7 @@ export function Orders({ notify }) {
     () => adminEndpoints.orders(query),
     [query]
   );
-  const { data:previousData, load, loading, error,stale } = useAdminList(endpoint,{keepPreviousData:true});
+  const { data:previousData, load, loading, error,stale } = useManagerList(endpoint,{keepPreviousData:true});
   const data=stale?null:previousData;
   const update = async (id, status, reason) => {
     if (updatingId !== null) return;

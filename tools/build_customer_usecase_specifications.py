@@ -292,7 +292,7 @@ USE_CASES = [
 def build_document():
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     doc = Document()
-    configure_styles(doc)
+    configure_styles(doc, "Part III | Customer CRM and Sales Use Case Specifications")
 
     title = doc.add_paragraph(style="Title")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER

@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { adminApi, adminEndpoints } from "../manager-api";
-import { useManagerReadPause } from "../useManagerResource";
+import { useManagerList, useManagerReadPause } from "../useManagerResource";
 import { SurveyAudience } from "../ManagerTools";
 import SurveyRecipientGroup, { groupSurveySource } from "../SurveyRecipientGroup";
 import SurveyRewardEditor, { RewardFields, emptyReward } from "../SurveyRewardEditor";
 import { ClipboardList, X, Plus } from "lucide-react";
-import { pageData, Table, ListError, PageControls, PanelTitle } from "./shared";
+import { pageData, Table, ListError, PageControls, PanelTitle, PanelLoading } from "./shared";
 
 export function Surveys({ notify, location = '', go }) {
   const source=groupSurveySource(location);
@@ -14,7 +14,7 @@ export function Surveys({ notify, location = '', go }) {
   const [reward,setReward]=useState(emptyReward);
   const [page, setPage] = useState(0);
   const endpoint = useCallback(() => adminEndpoints.surveys({ page }), [page]);
-  const { data, load, loading, error } = useAdminList(endpoint);
+  const { data, load, loading, error } = useManagerList(endpoint);
 
   const [dialogOpen, setDialogOpen] = useState(autoOpen);
   const [title, setTitle] = useState("");

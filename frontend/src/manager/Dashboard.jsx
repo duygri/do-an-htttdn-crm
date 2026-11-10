@@ -1,9 +1,12 @@
 import React, { useCallback } from "react";
 import { adminApi, adminEndpoints } from "../manager-api";
-import { useManagerResource } from "../useManagerResource";
-import { showReturn, displayOrderLabel } from "../order-display";
+import { useManagerList, useManagerResource } from "../useManagerResource";
+import { showReturn } from "../order-display";
 import { TicketPercent, Activity, Users as UsersIcon, Package, ShoppingCart, MessageSquare, ClipboardList, DollarSign, ArrowRight, RefreshCw, CircleAlert, AlertTriangle, ChevronRight } from "lucide-react";
-import { money, pageData, Table, ListError, statusLabels, statusColors } from "./shared";
+import { money, pageData, Table, ListError, statusLabels, statusColors, OrderBadge, PanelLoading } from "./shared";
+
+const recentOrdersEndpoint = () => adminEndpoints.orders({ size: 100 });
+const orderSummaryEndpoint = () => "/api/manager/orders/summary";
 
 export function Dashboard({ go }) {
   const fetchDashboard = useCallback(async signal => {
@@ -265,8 +268,8 @@ export function Dashboard({ go }) {
   );
 }
 function RecentOrders({ go }) {
-  const { data, loading, error, load } = useAdminList(recentOrdersEndpoint);
-  const {data:summary} = useAdminList(orderSummaryEndpoint);
+  const { data, loading, error, load } = useManagerList(recentOrdersEndpoint);
+  const {data:summary} = useManagerList(orderSummaryEndpoint);
   if (loading) return <PanelLoading />;
   if (error)
     return (
@@ -332,18 +335,6 @@ function RecentOrders({ go }) {
     </section>
   );
 }
-function OrderBadge({ status, order }) {
-  return (
-    <>
-    <span className="admin-badge" style={{ color: showReturn(order) ? "var(--order-return-color, #c2410c)" : statusColors[status] }}>
-      <span className="admin-badge-dot" />
-      {order ? displayOrderLabel(order, statusLabels) : statusLabels[status] || status}
-    </span>
-    {order?.finance?.reviewRequired&&<small className="refund-warning">Thanh toán cần kiểm tra</small>}
-    {Number(order?.finance?.refund?.pendingAmount)>0&&<small>Còn khoản chờ hoàn tiền</small>}
-    </>
-  );
-}
 function Stat({ label, value, icon: Icon, color, detail, onClick }) {
   return (
     <div
@@ -362,14 +353,6 @@ function Stat({ label, value, icon: Icon, color, detail, onClick }) {
         <small>{detail}</small>
       </div>
       {onClick && <ArrowRight size={14} className="admin-stat-arrow" aria-hidden="true" />}
-    </div>
-  );
-}
-function PanelLoading() {
-  return (
-    <div className="admin-panel admin-loading-panel" role="status">
-      <RefreshCw size={20} className="admin-spinner" aria-hidden="true" />
-      <p>Đang tải dữ liệu...</p>
     </div>
   );
 }

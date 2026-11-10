@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api, endpoints } from "../api";
 import { RewardSummary } from "../CustomerVouchers";
-import { showReturn, displayOrderLabel } from "../order-display";
+import { useShopResource } from "../storefront-hooks";
 import { ArrowLeft, ArrowUpRight, Bell, Heart, MapPin, KeyRound, X } from "lucide-react";
 import { money, date, surveyOptions, imageSrc, protectImage } from "./utils";
 
@@ -33,25 +33,6 @@ export function NotificationsModal({ page = false, onClose, onNotice, onCount,on
   </section></div>;
 }
 
-
-function Status({ value, order }) {
-  const labels = {
-    PENDING_PAYMENT: "Chờ thanh toán",
-    PENDING: "Chờ xác nhận",
-    CONFIRMED: "Đã xác nhận",
-    PREPARING: "Đang chuẩn bị",
-    SHIPPED: "Đang giao",
-    DELIVERING: "Đang giao",
-    DELIVERED: "Đã giao — chờ bạn xác nhận",
-    COMPLETED: "Hoàn tất",
-    CANCELLED: "Đã huỷ",
-  };
-  return (
-    <span className={`status-pill ${showReturn(order) ? "return-requested" : String(value).toLowerCase()}`}>
-      {order ? displayOrderLabel(order, labels) : labels[value] || value}
-    </span>
-  );
-}
 
 export function ProfileModal({ page = false, user, onClose, onUser, onLogout, onOpenOrders, onOpenWishlist, onOpenNotifications, onOpenSurveys, onOpenAddresses, onOpenPassword, onNotice }) {
   const [form, setForm] = useState({

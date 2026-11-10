@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { adminApi, adminEndpoints } from "../manager-api";
 import CustomerLifecycle, { CustomerLifecycleFilters } from "../CustomerLifecycle";
-import { useManagerReadPause } from "../useManagerResource";
+import { useManagerList, useManagerReadPause } from "../useManagerResource";
 import { CustomerCreate } from "../ManagerTools";
 import { groupSurveyRoute } from "../SurveyRecipientGroup";
 import { X, Search } from "lucide-react";
@@ -21,7 +21,7 @@ export function Users({ notify, location, go }) {
   const [busy, setBusy] = useState(false);
   const filterKey=params.toString();
   const endpoint = useCallback(() => {const filters=Object.fromEntries(new URLSearchParams(filterKey));return adminEndpoints.users({...filters,page,q:query});}, [page, query,filterKey]);
-  const { data:previousData, load, loading, error,stale } = useAdminList(endpoint,{keepPreviousData:true});
+  const { data:previousData, load, loading, error,stale } = useManagerList(endpoint,{keepPreviousData:true});
   const data=stale?null:previousData;
   useManagerReadPause(!!dialog || busy);
   const closeDialog = () => {

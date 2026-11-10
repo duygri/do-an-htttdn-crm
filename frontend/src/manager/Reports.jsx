@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { useManagerFilters } from "../useManagerFilters";
+import { useManagerList } from "../useManagerResource";
 import { Users as UsersIcon, ClipboardList, DollarSign, TrendingUp } from "lucide-react";
 import { ListError, PageControls, PanelTitle, PanelLoading } from "./shared";
 
@@ -28,7 +29,7 @@ function ReportBars({ items = [] }) {
 
 function CustomerReport() {
   const endpoint = useCallback(() => "/api/manager/reports/customers", []);
-  const { data, loading, error, load } = useAdminList(endpoint);
+  const { data, loading, error, load } = useManagerList(endpoint);
   if (loading) return <PanelLoading />;
   if (error) return <ListError message={error} onRetry={load} />;
   if (!data) return null;
@@ -75,7 +76,7 @@ function TextAnswerReport({ surveyId, questionId }) {
       `/api/manager/reports/surveys/${surveyId}/questions/${questionId}/answers?page=${page}`,
     [surveyId, questionId, page]
   );
-  const { data, loading, error, load } = useAdminList(endpoint);
+  const { data, loading, error, load } = useManagerList(endpoint);
   if (loading) return <PanelLoading />;
   if (error) return <ListError message={error} onRetry={load} />;
   return (
@@ -101,7 +102,7 @@ function SurveyResult({ id }) {
     () => `/api/manager/reports/surveys/${id}/results`,
     [id]
   );
-  const { data, loading, error, load } = useAdminList(endpoint);
+  const { data, loading, error, load } = useManagerList(endpoint);
   if (loading) return <PanelLoading />;
   if (error) return <ListError message={error} onRetry={load} />;
   if (!data) return null;
@@ -157,7 +158,7 @@ function SurveyReports() {
     () => `/api/manager/reports/surveys?page=${page}`,
     [page]
   );
-  const { data, loading, error, load } = useAdminList(endpoint);
+  const { data, loading, error, load } = useManagerList(endpoint);
   return (
     <>
       {loading ? (
