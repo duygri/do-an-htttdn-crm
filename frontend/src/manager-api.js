@@ -82,7 +82,7 @@ export async function adminSignOut() {
 }
 
 export const adminEndpoints = {
-  revenue: '/api/manager/reports/revenue',
+  revenue: '/api/manager/reports/summary',
   userReport: '/api/manager/reports/users',
   surveyStats: '/api/manager/surveys/stats',
   users: ({ q = '', page = 0, size = 10, ...filters } = {}) => `/api/manager/users?q=${encodeURIComponent(q)}&page=${page}&size=${size}${Object.entries(filters).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>`&${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('')}`,

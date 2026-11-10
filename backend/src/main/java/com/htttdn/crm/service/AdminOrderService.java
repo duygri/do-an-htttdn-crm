@@ -34,8 +34,7 @@ public class AdminOrderService extends AdminServiceSupport {
     private final NotificationService notifications;
     private final VoucherService vouchers;
     private final StockService stock;
-    private final RefundService refunds;
-    public AdminOrderService(OrderRepository orders, NotificationService notifications, VoucherService vouchers, PaymentRepository payments, StockService stock, RefundService refunds) { this.orders = orders; this.notifications = notifications; this.vouchers=vouchers; this.payments=payments; this.stock=stock; this.refunds=refunds; }
+    public AdminOrderService(OrderRepository orders, NotificationService notifications, VoucherService vouchers, PaymentRepository payments, StockService stock) { this.orders = orders; this.notifications = notifications; this.vouchers=vouchers; this.payments=payments; this.stock=stock; }
     public Page<Order> list(String status, int page, int size) {
         if (status != null && (status.equals("RETURN") || status.startsWith("RETURN_"))) {
             String returnStatus=status.equals("RETURN")?null:status.substring(7);
@@ -61,6 +60,13 @@ public class AdminOrderService extends AdminServiceSupport {
             throw new ApiException(HttpStatus.CONFLICT, "INVALID_ORDER_TRANSITION", "Không thể chuyển ngược trạng thái hoặc cập nhật đơn đã hủy/hoàn thành. Vui lòng tải lại đơn hàng.");
         }
         if (request.status().equals(order.getStatus()) && !"CANCELLED".equals(request.status())) return order;
+        if ("PAYOS".equals(order.getPaymentMethod()) && !"CANCELLED".equals(request.status())) {
+            if (order.paymentReviewRequired)
+                throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_NEEDS_REVIEW", "Cần đối chiếu thanh toán trước khi xử lý đơn.");
+            // Checkout also records zero-value orders as PAID without a provider transaction.
+            if (!"PAID".equals(order.getPaymentStatus()))
+                throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_NOT_PAID", "Đơn PayOS cần thanh toán thành công trước khi xử lý.");
+        }
         if ("CANCELLED".equals(request.status())) {
             if ("CANCELLED".equals(order.getStatus()) && order.getCancelReason() != null && !order.getCancelReason().isBlank()) {
                 if (reason.equals(order.getCancelReason())) return order;
@@ -73,10 +79,9 @@ public class AdminOrderService extends AdminServiceSupport {
             }
             order.setCancelReason(reason);
             notifications.create(order.getCustomer(), "Đơn hàng đã bị hủy", "Đơn hàng #" + order.getOrderCode() + " đã bị hủy. Lý do: " + reason
-                + ("PAID".equals(order.getPaymentStatus()) ? " Vui lòng liên hệ cửa hàng để xử lý hoàn tiền thủ công." : ""), "ORDER_CANCELLED", order.getId());
+                + ("PAID".equals(order.getPaymentStatus()) ? " Vui lòng liên hệ cửa hàng để được hỗ trợ." : ""), "ORDER_CANCELLED", order.getId());
         }
         order.setStatus(request.status());
-        if("CANCELLED".equals(order.getStatus()))refunds.requestCancellation(order);
         order.setUpdatedAt(Instant.now());
         if (!"CANCELLED".equals(request.status())) notifications.create(order.getCustomer(), "Cập nhật đơn hàng", "Đơn #"+order.getOrderCode()+": "+switch(request.status()){case "CONFIRMED" -> "Đã xác nhận";case "PREPARING" -> "Đang xử lý";case "SHIPPED","DELIVERING" -> "Đang giao";case "DELIVERED" -> "Đã giao — chờ bạn xác nhận nhận hàng";default -> "Trạng thái đơn đã cập nhật";}, "ORDER_STATUS", order.getId());
         audit("ORDER_STATUS","ORDER",id,before,order);

@@ -10,7 +10,7 @@ import PaymentQr from "./PaymentQr";
 import CustomerLayout from './CustomerLayout';
 import CustomerVouchers, { RewardSummary } from './CustomerVouchers';
 import OrderReviews from './OrderReviews';
-import RefundSummary from './RefundSummary';
+import CustomerInvoice from './CustomerInvoice';
 import CustomerPassword from './CustomerPassword';
 const SupportTickets=React.lazy(()=>import('./SupportTickets'));
 import { useCartSelection, cartLineKey, canBuyLine, transferGuestSelection, subtractPurchased } from './cart-selection';
@@ -2540,7 +2540,6 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
       ))}
       {order.discountAmount > 0 && <div className="order-total"><span>GIẢM GIÁ {order.voucherCode ? `(${order.voucherCode})` : ""}</span><strong>-{money(order.discountAmount)}</strong></div>}
       <div className="order-total"><span>TỔNG ĐƠN HÀNG</span><strong>{money(order.totalAmount)}</strong></div>
-      <RefundSummary refund={order.refund}/>
       <p className="shop-order-payment-method"><b>Phương thức thanh toán:</b> {order.paymentMethod === "PAYOS" ? "Quét mã QR PayOS" : "Thanh toán khi nhận hàng"}</p>
       {order.paymentMethod === "PAYOS" && <p className={paid ? "shop-payment-label is-paid" : "shop-payment-label"}>Trạng thái thanh toán: {paid ? "Đã thanh toán" : "Chưa thanh toán"}</p>}
       {order.paymentMethod === "PAYOS" && <PaymentQr orderId={order.id} onPaid={order.paymentStatus === "PAID" ? undefined : () => { setPaid(true); onNotice?.("Thanh toán thành công!"); onPaymentChanged?.(); }} />}
@@ -2554,7 +2553,7 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
         {order.deliveryAddress}
       </p>
       {order.status === 'COMPLETED' && hasOrderReview === true && <p className="order-address">Đơn đã xác nhận nhận hàng và đã đánh giá sản phẩm nên không thể yêu cầu đổi trả.</p>}
-      <div className="order-actions">{!busy && !action && <ReceiptAction order={order} onChanged={onReceiptConfirmed || onChanged} onNotice={onNotice}/>} {cancellableStatuses.includes(order.status) && <button type="button" className="button button-light" disabled={busy} onClick={cancel}>{busy ? "ĐANG HỦY..." : "HỦY ĐƠN"}</button>}{(order.status === 'DELIVERED' || (order.status === 'COMPLETED' && hasOrderReview === false)) && (order.returnStatus || "NONE") === "NONE" && <button type="button" className="button button-light" disabled={busy} onClick={requestReturn}>YÊU CẦU ĐỔI/TRẢ</button>}</div>
+      <div className="order-actions">{!busy && !action && order.status !== 'PENDING_PAYMENT' && <CustomerInvoice orderId={order.id} onNotice={onNotice}/>} {!busy && !action && <ReceiptAction order={order} onChanged={onReceiptConfirmed || onChanged} onNotice={onNotice}/>} {cancellableStatuses.includes(order.status) && <button type="button" className="button button-light" disabled={busy} onClick={cancel}>{busy ? "ĐANG HỦY..." : "HỦY ĐƠN"}</button>}{(order.status === 'DELIVERED' || (order.status === 'COMPLETED' && hasOrderReview === false)) && (order.returnStatus || "NONE") === "NONE" && <button type="button" className="button button-light" disabled={busy} onClick={requestReturn}>YÊU CẦU ĐỔI/TRẢ</button>}</div>
     </div>
   );
 }

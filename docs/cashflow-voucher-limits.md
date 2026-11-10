@@ -1,38 +1,38 @@
-# Báo cáo thu – hoàn tiền và giới hạn voucher theo khách
+# Báo cáo doanh thu và giới hạn voucher theo khách
 
 ## Triển khai
 
 Sao lưu và kiểm tra trên môi trường thử trước khi triển khai. Với database hiện có:
 
-1. Áp dụng `database/migration_refunds_abandoned_payos.sql` của phần sổ hoàn tiền/COD trước, nếu chưa chạy.
+1. Áp dụng `database/migration_refunds_abandoned_payos.sql` của phần COD/đối soát trước, nếu chưa chạy; migration này vẫn cung cấp `orders.paid_at`, các cột thu COD và cảnh báo đối soát.
 2. Áp dụng `database/migration_cashflow_voucher_customer_limit.sql`.
-3. Build và khởi động lại backend, sau đó build frontend cùng phiên bản.
+3. Áp dụng `database/migration_supplier_receipts_invoices.sql` cho nhà cung cấp, phiếu nhập hàng và hóa đơn bán hàng.
+4. Build và khởi động lại backend, sau đó build frontend cùng phiên bản.
 
-Database mới dùng schema chuẩn `database/schema.sql`. Không cần chạy lại toàn bộ schema lên database đang có dữ liệu. Backend không tự chạy các file migration này. Đợt này không thêm bảng: chỉ thêm `orders.paid_at`, `store_vouchers.per_customer_limit`, ràng buộc và chỉ mục.
+Database mới dùng schema chuẩn `database/schema.sql`. Không cần chạy lại toàn bộ schema lên database đang có dữ liệu. Backend không tự chạy các file migration này. Các bảng/cột hoàn tiền cũ được giữ lại để bảo toàn dữ liệu nhưng backend mới không đọc/ghi.
 
 Không điền ngày thanh toán cho dữ liệu cũ, không sửa lượt voucher lịch sử. Không tự chạy migration hoặc thao tác thanh toán thật để kiểm thử.
 
-## Báo cáo thu – hoàn tiền
+## Báo cáo doanh thu
 
-Manager mở `/manager/reports?tab=cashflow`. Ngày bắt đầu, ngày kết thúc và nhóm ngày/tháng được giữ trong URL. Chỉ tab đang mở cập nhật nền mỗi 5 giây; khi lỗi giữ số liệu gần nhất và cho thử lại.
+Manager mở `/manager/reports?tab=revenue`. Ngày bắt đầu, ngày kết thúc và nhóm ngày/tháng/quý/năm được giữ trong URL. Chỉ tab đang mở cập nhật nền mỗi 5 giây; khi lỗi giữ số liệu gần nhất và cho thử lại.
 
-API chỉ dành cho MANAGER: `GET /api/manager/reports/cashflow?from=...&to=...&groupBy=day`.
+API chỉ dành cho MANAGER: `GET /api/manager/reports/revenue?from=...&to=...&groupBy=month`. Alias `/cashflow` vẫn được giữ để tương thích.
 
 - `from` bao gồm đầu kỳ, `to` không bao gồm cuối kỳ; phải gửi cả hai hoặc bỏ cả hai.
-- Mặc định 30 ngày lịch gần nhất gồm hôm nay, múi giờ Việt Nam; tối đa 366 ngày. Giao diện đổi ngày kết thúc thành đầu ngày kế tiếp.
-- `groupBy` nhận `day` hoặc `month`. Khoảng không phát sinh được bổ sung bằng 0.
-- PayOS chỉ tính khi đã `PAID`, dùng tổng tiền đơn và mốc `paid_at` được lưu lần đầu backend xác nhận thu tiền. Webhook/đối chiếu lặp không đổi mốc này.
-- COD dùng số tiền và thời điểm Manager xác nhận đã thu; chưa xác nhận thì không tính. Đơn 0 đồng không tính một lượt thu.
-- Hoàn tiền chỉ tính khoản `COMPLETED` theo `processed_at`. Thu ròng bằng thu trong kỳ trừ hoàn trong kỳ, có thể âm.
-- Đơn đã thu rồi hủy vẫn có khoản thu; khoản hoàn được tính ở kỳ hoàn thực tế được ghi nhận.
+- Bỏ cả hai tham số: mặc định từ đầu năm dương lịch hiện tại tới đầu năm sau, nhóm theo `month`. Tối đa 5 năm.
+- `groupBy` nhận `day`, `month`, `quarter`, `year`. Khoảng không phát sinh được bổ sung bằng 0.
+- Doanh thu là **tiền đã thu thực tế**, không phải tổng giá trị đơn. PayOS chỉ tính khi `payment_status='PAID'`, dùng tổng tiền đơn và mốc `paid_at` lưu lần đầu backend xác nhận. COD tính theo `cod_collected_amount`/`cod_collected_at` do Manager xác nhận; đơn 0 đồng không tính một lượt thu.
+- Đơn đã thu rồi hủy vẫn giữ khoản thu. Báo cáo không trừ hoàn tiền và không đọc sổ hoàn tiền cũ.
+- Chi phí nhập hàng lấy từ `supplier_receipts.total_amount` theo `invoice_date` trong kỳ. Chênh lệch = doanh thu đã thu − chi phí nhập, có thể âm khi kỳ chỉ phát sinh chi phí.
 
 Đây là thời điểm **hệ thống xác nhận**, không phải khẳng định ngày giao dịch ngân hàng. PayOS cũ đã PAID nhưng thiếu mốc nằm riêng trong số liệu thiếu mốc toàn thời gian, không lấy `updated_at` hoặc lần đối chiếu hiện tại thay thế.
 
-Top 10 sản phẩm xếp theo số lượng thuộc đơn đã thu tiền trong kỳ và chưa hủy. Giá trị dòng sản phẩm là trước giảm giá cấp đơn và hoàn tiền; chưa trừ hàng đổi trả vì chưa có dữ liệu trả theo món. Đây không phải doanh thu ròng sản phẩm.
+Top 10 sản phẩm xếp theo số lượng thuộc đơn đã thu tiền trong kỳ và chưa hủy. Giá trị dòng sản phẩm là trước giảm giá cấp đơn và chưa trừ hàng đổi trả. Đây không phải doanh thu ròng sản phẩm.
 
-API trả `collected`, `refunded`, `net`, `collectedOrders`, `series`, `topProducts`, `unknownMilestone`, phạm vi thời gian và `updatedAt`. Tổng hợp tiền thu/hoàn riêng, không nhân tiền theo số dòng sản phẩm.
+API trả `collected`, `purchaseCost`, `difference`, `collectedOrders`, `series` (mỗi kỳ có `collected`, `purchaseCost`, `difference`, `collectedOrders`), `topProducts`, `unknownMilestone`, phạm vi thời gian và `updatedAt`. Tổng hợp tiền thu/chi riêng, không nhân tiền theo số dòng sản phẩm.
 
-API doanh thu cũ, trường `totalRevenue`, dashboard “Giá trị đơn chưa hủy” và chỉ số phân nhóm CRM không thay đổi.
+Dashboard Manager dùng `GET /api/manager/reports/summary` trả `totalRevenue` (tiền đã thu thực tế) và `orders`; “Giá trị đơn chưa hủy” và chỉ số phân nhóm CRM vẫn là phép tính riêng.
 
 ## Giới hạn voucher cá nhân
 

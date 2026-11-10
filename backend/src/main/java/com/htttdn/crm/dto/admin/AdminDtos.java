@@ -7,7 +7,9 @@ public final class AdminDtos {
  public record FeedbackRequest(@Size(max=30) String status,@Size(max=4000) String adminResponse,Boolean hidden){}
  public record StatusRequest(@NotBlank String status,String reason){}
  public record StockRequest(@Min(0) int quantity){}
- public record ProductRequest(@NotBlank String name,String category,String description,@NotNull @DecimalMin("0.0") BigDecimal price,@Min(0) int stock,String imageUrl){}
+ public record ProductRequest(@NotBlank String name,String category,String description,@NotNull @DecimalMin("0.0") BigDecimal price,@Min(0) int stock,String imageUrl,Long supplierId){
+  public ProductRequest(String name,String category,String description,BigDecimal price,int stock,String imageUrl){this(name,category,description,price,stock,imageUrl,null);}
+ }
  public record QuestionRequest(@NotBlank String text,@NotBlank String type,String optionsJson,Boolean required){}
  public record SurveyRequest(@NotBlank String title,String description,Instant startsAt,Instant endsAt,
      List<QuestionRequest> questions,com.htttdn.crm.entity.SurveyReward reward,String audience,List<Long> customerIds,

@@ -19,8 +19,10 @@ const CustomerCare = React.lazy(() => import('./CustomerCare'));
 const CareDashboard = React.lazy(() => import('./CareDashboard'));
 const RetentionReport = React.lazy(() => import('./RetentionReport'));
 const SupportTickets = React.lazy(()=>import('./SupportTickets'));
-const ManagerRefunds = React.lazy(()=>import('./ManagerRefunds'));
-const CashflowReport = React.lazy(()=>import('./CashflowReport'));
+const ManagerSuppliers = React.lazy(()=>import('./ManagerSuppliers'));
+const ManagerSupplierReceipts = React.lazy(()=>import('./ManagerSupplierReceipts'));
+const ManagerInvoices = React.lazy(()=>import('./ManagerInvoices'));
+const RevenueReport = React.lazy(()=>import('./RevenueReport'));
 import {
   Activity,
   LayoutDashboard,
@@ -51,7 +53,10 @@ import {
   Eye,
   SlidersHorizontal,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Building2,
+  ReceiptText,
+  FileText
 } from "lucide-react";
 import {
   adminApi,
@@ -75,8 +80,10 @@ const navItems = [
   ["my-tasks", "Việc của tôi"],
   ["care-dashboard", "Hiệu quả chăm sóc"],
   ["products", "Sản phẩm"],
+  ["suppliers", "Nhà cung cấp"],
+  ["supplier-receipts", "Phiếu nhập hàng"],
   ["orders", "Đơn hàng"],
-  ["refunds", "Hoàn tiền"],
+  ["invoices", "Hóa đơn"],
   ["feedback", "Phản hồi"],
   ["support-tickets", "Phiếu hỗ trợ"],
   ["surveys", "Khảo sát"],
@@ -91,8 +98,10 @@ const navIcons = {
   'my-tasks': ClipboardList,
   'care-dashboard': Activity,
   products: Package,
+  suppliers: Building2,
+  "supplier-receipts": ReceiptText,
   orders: ShoppingCart,
-  refunds: DollarSign,
+  invoices: FileText,
   feedback: MessageSquare,
   'support-tickets': MessageSquare,
   surveys: ClipboardList,
@@ -402,8 +411,10 @@ export default function ManagerApp() {
         {section === "dashboard" && <Dashboard go={go} />}
         {section === "users" && (profileMatch ? <CustomerProfile key={profileMatch[1]} customerId={profileMatch[1]} location={path} go={go} /> : <Users notify={notify} location={path} go={go} />)}{" "}
         {section === "products" && <Products notify={notify} />}{" "}
+        {section === "suppliers" && <ManagerSuppliers />}
+        {section === "supplier-receipts" && <ManagerSupplierReceipts />}
         {section === "orders" && <Orders notify={notify} />}{" "}
-        {section === "refunds" && <ManagerRefunds/>}
+        {section === "invoices" && <ManagerInvoices />}
         {section === "feedback" && <Feedback notify={notify} />}{" "}
         {section==='support-tickets'&&<SupportTickets manager admin={admin} location={path} navigate={go}/>}
         {section === "surveys" && <Surveys notify={notify} location={path} go={go} />}
@@ -543,11 +554,11 @@ function Dashboard({ go }) {
           onClick={() => go("users")}
         />
         <Stat
-          label="Giá trị đơn chưa hủy"
+          label="Doanh thu đã thu"
           value={money(data.revenue.totalRevenue)}
           icon={DollarSign}
           color="green"
-          detail="Tổng giá trị đơn chưa hủy; không phải tiền đã thu"
+          detail="PayOS đã thanh toán và COD đã thu thực tế"
           onClick={() => go("reports")}
         />
         <Stat
@@ -709,8 +720,8 @@ function Dashboard({ go }) {
             );
           })}
           <small className="admin-data-note">
-            Giá trị đơn chưa hủy không phải tiền đã thu; API hiện chưa cung cấp
-            giá trị đơn theo tháng.
+            Doanh thu đã thu chỉ gồm PayOS đã thanh toán và COD đã xác nhận thu.
+            Xem chi tiết theo tháng/quý/năm trong Báo cáo → Doanh thu.
           </small>
         </section>
         <section className="admin-panel admin-account-overview">
@@ -822,7 +833,6 @@ function OrderBadge({ status, order }) {
       {order ? displayOrderLabel(order, statusLabels) : statusLabels[status] || status}
     </span>
     {order?.finance?.reviewRequired&&<small className="refund-warning">Thanh toán cần kiểm tra</small>}
-    {Number(order?.finance?.refund?.pendingAmount)>0&&<small>Còn khoản chờ hoàn tiền</small>}
     </>
   );
 }
@@ -1145,10 +1155,13 @@ function Products({ notify }) {
   const search=filters.q,setSearch=value=>changeFilters({q:value});
   const selectedCategory=filters.category,setSelectedCategory=value=>changeFilters({category:value});
   const {data:categoryData}=useManagerList(useCallback(()=>'/api/manager/products/categories',[]));
+  const {data:supplierData}=useManagerList(useCallback(()=>'/api/manager/suppliers?size=100&active=true&sort=name&desc=false',[]));
+  const suppliers=supplierData?.content||[];
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const productWriteLock = useRef(false);
   const [editing, setEditing] = useState(null);
+  const [originalStock, setOriginalStock] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(null);
   useManagerReadPause(dialogOpen || !!confirmArchive);
   const [form, setForm] = useState({
@@ -1158,6 +1171,7 @@ function Products({ notify }) {
     stock: 0,
     description: "",
     imageUrl: "",
+    supplierId: "",
   });
 
   const openAdd = () => {
@@ -1169,12 +1183,14 @@ function Products({ notify }) {
       stock: 0,
       description: "",
       imageUrl: "",
+      supplierId: "",
     });
     setDialogOpen(true);
   };
 
   const openEdit = (product) => {
     setEditing(product.id);
+    setOriginalStock(Number(product.stock));
     setForm({
       name: product.name,
       category: product.category || "",
@@ -1182,6 +1198,7 @@ function Products({ notify }) {
       stock: product.stock,
       description: product.description || "",
       imageUrl: product.imageUrl || "",
+      supplierId: product.supplierId || "",
     });
     setDialogOpen(true);
   };
@@ -1197,18 +1214,29 @@ function Products({ notify }) {
     if(productWriteLock.current)return;
     productWriteLock.current=true;
     setSaving(true);
+    let stockUpdatePending = false;
     try {
+      const { stock: quantity, ...catalog } = form;
       await adminApi(
         editing ? adminEndpoints.product(editing) : "/api/manager/products",
         {
           method: editing ? "PUT" : "POST",
           body: {
-            ...form,
+            ...catalog,
+            supplierId: form.supplierId ? Number(form.supplierId) : null,
             price: Number(form.price),
-            stock: Number(form.stock),
+            ...(!editing ? { stock: Number(quantity) } : {}),
           },
         }
       );
+      if (editing && Number(quantity) !== originalStock) {
+        stockUpdatePending = true;
+        await adminApi(adminEndpoints.productStock(editing), {
+          method: "PATCH",
+          body: { quantity: Number(quantity) },
+        });
+        stockUpdatePending = false;
+      }
       setForm({
         name: "",
         category: "",
@@ -1216,13 +1244,16 @@ function Products({ notify }) {
         stock: 0,
         description: "",
         imageUrl: "",
+        supplierId: "",
       });
       setEditing(null);
       setDialogOpen(false);
       notify(editing ? "Đã cập nhật sản phẩm." : "Đã thêm sản phẩm mới.");
       load();
     } catch (error) {
-      notify(error.message, "error");
+      notify(stockUpdatePending
+        ? `Đã lưu thông tin sản phẩm nhưng chưa cập nhật được tồn kho. Vui lòng thử lại. ${error.message}`
+        : error.message, "error");
     } finally {
       productWriteLock.current=false;
       setSaving(false);
@@ -1459,6 +1490,22 @@ function Products({ notify }) {
                 </div>
 
                 <div className="admin-form-group">
+                  <label htmlFor="prod-supplier">NHÀ CUNG CẤP</label>
+                  <select
+                    id="prod-supplier"
+                    value={form.supplierId}
+                    onChange={(e) => setForm({ ...form, supplierId: e.target.value })}
+                  >
+                    <option value="">Chưa gắn nhà cung cấp</option>
+                    {suppliers.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.code} · {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="admin-form-group">
                   <label htmlFor="prod-price">GIÁ BÁN (VNĐ) *</label>
                   <input
                     id="prod-price"
@@ -1595,12 +1642,12 @@ function Products({ notify }) {
 }
 
 function Orders({ notify }) {
-  const [filters,changeFilters]=useManagerFilters({status:'',q:'',paymentStatus:'',refundStatus:'',paymentReview:'',fromDate:'',toDate:'',sort:'createdAt',direction:'DESC',page:'0'});
+  const [filters,changeFilters]=useManagerFilters({status:'',q:'',paymentStatus:'',paymentReview:'',fromDate:'',toDate:'',sort:'createdAt',direction:'DESC',page:'0'});
   const page=Number(filters.page)||0,setPage=value=>changeFilters({page:String(value)});
   const status=filters.status,setStatus=value=>changeFilters({status:value});
   const search=filters.q,setSearch=value=>changeFilters({q:value});
-  const query=useMemo(()=>({status:filters.status,q:filters.q,paymentStatus:filters.paymentStatus,refundStatus:filters.refundStatus,paymentReview:filters.paymentReview,sort:filters.sort,direction:filters.direction,page,...vietnamDateRange(filters.fromDate,filters.toDate)}),[filters,page]);
-  const summaryEndpoint=useCallback(()=>'/api/manager/orders/summary?'+managerQuery({q:query.q,paymentStatus:query.paymentStatus,refundStatus:query.refundStatus,paymentReview:query.paymentReview,from:query.from,to:query.to}),[query.q,query.paymentStatus,query.refundStatus,query.paymentReview,query.from,query.to]);
+  const query=useMemo(()=>({status:filters.status,q:filters.q,paymentStatus:filters.paymentStatus,paymentReview:filters.paymentReview,sort:filters.sort,direction:filters.direction,page,...vietnamDateRange(filters.fromDate,filters.toDate)}),[filters,page]);
+  const summaryEndpoint=useCallback(()=>'/api/manager/orders/summary?'+managerQuery({q:query.q,paymentStatus:query.paymentStatus,paymentReview:query.paymentReview,from:query.from,to:query.to}),[query.q,query.paymentStatus,query.paymentReview,query.from,query.to]);
   const {data:counts}=useManagerList(summaryEndpoint);
   const [detailId, setDetailId] = useState(null);
   const detailEndpoint = useCallback(() => adminEndpoints.order(detailId), [detailId]);
@@ -1748,7 +1795,6 @@ function Orders({ notify }) {
       </div>
       <div className="manager-advanced-filters">
         <label>Thanh toán<select value={filters.paymentStatus} onChange={e=>changeFilters({paymentStatus:e.target.value})}><option value="">Tất cả</option><option value="COD">COD</option><option value="PENDING">Chờ thanh toán</option><option value="PAID">Đã thanh toán</option><option value="EXPIRED">Hết hạn</option><option value="FAILED">Thất bại</option><option value="CANCELLED">Đã hủy thanh toán</option></select></label>
-        <label>Hoàn tiền<select value={filters.refundStatus} onChange={e=>changeFilters({refundStatus:e.target.value})}><option value="">Tất cả</option><option value="NONE">Chưa có khoản hoàn</option><option value="PENDING">Chờ hoàn</option><option value="PARTIAL">Đã hoàn một phần</option><option value="FULL">Đã hoàn đủ</option></select></label>
         <label>Đối soát PayOS<select value={filters.paymentReview} onChange={e=>changeFilters({paymentReview:e.target.value})}><option value="">Tất cả</option><option value="true">Thanh toán cần kiểm tra</option><option value="false">Không có cảnh báo</option></select></label>
         <label>Từ ngày<input type="date" value={filters.fromDate} onChange={e=>changeFilters({fromDate:e.target.value})}/></label>
         <label>Đến ngày<input type="date" value={filters.toDate} onChange={e=>changeFilters({toDate:e.target.value})}/></label>
@@ -2996,13 +3042,13 @@ function SurveyReports() {
 
 export function Reports({go}) {
   const [filters, change] = useManagerFilters({tab:'customers'});
-  const tab = ['customers','surveys','retention','cashflow'].includes(filters.tab) ? filters.tab : 'customers';
+  const tab = ['customers','surveys','retention','revenue'].includes(filters.tab) ? filters.tab : 'customers';
   const setTab = next => change({tab:next,page:''});
   return (
     <div className="admin-panel">
       <PanelTitle
         title="Báo cáo"
-        subtitle={tab==='cashflow'?'Khoản thu và hoàn đã xác nhận theo kỳ.':'Dữ liệu tổng hợp toàn bộ thời gian.'}
+        subtitle={tab==='revenue'?'Doanh thu đã thu, chi phí nhập hàng và chênh lệch theo ngày/tháng/quý/năm.':'Dữ liệu tổng hợp toàn bộ thời gian.'}
       />
       <div className="admin-report-tabs">
         <button
@@ -3024,9 +3070,9 @@ export function Reports({go}) {
         <button className={tab === 'retention' ? 'admin-primary' : 'admin-action'} aria-pressed={tab === 'retention'} onClick={() => setTab('retention')}>
           <TrendingUp size={15} aria-hidden="true" />Giữ chân khách hàng
         </button>
-        <button className={tab==='cashflow'?'admin-primary':'admin-action'} aria-pressed={tab==='cashflow'} onClick={()=>setTab('cashflow')}><DollarSign size={15} aria-hidden="true"/>Thu – hoàn tiền</button>
+        <button className={tab==='revenue'?'admin-primary':'admin-action'} aria-pressed={tab==='revenue'} onClick={()=>setTab('revenue')}><DollarSign size={15} aria-hidden="true"/>Doanh thu</button>
       </div>
-      {tab === 'cashflow' ? <React.Suspense fallback={<PanelLoading/>}><CashflowReport/></React.Suspense> : tab === 'customers' ? <CustomerReport /> : tab === 'surveys' ? <SurveyReports /> : <React.Suspense fallback={<PanelLoading />}><RetentionReport go={go} /></React.Suspense>}
+      {tab === 'revenue' ? <React.Suspense fallback={<PanelLoading/>}><RevenueReport/></React.Suspense> : tab === 'customers' ? <CustomerReport /> : tab === 'surveys' ? <SurveyReports /> : <React.Suspense fallback={<PanelLoading />}><RetentionReport go={go} /></React.Suspense>}
     </div>
   );
 }

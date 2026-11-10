@@ -4,9 +4,6 @@ import com.fasterxml.jackson.annotation.JsonManagedReference; import jakarta.per
 @Entity @Table(name="orders")
 public class Order {
     @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="paid_at") public Instant paidAt;
-    @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="refund_status",nullable=false,length=10) public String refundStatus="NONE";
-    @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="refunded_amount",nullable=false,precision=15,scale=2) public BigDecimal refundedAmount=BigDecimal.ZERO;
-    @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="refund_pending_amount",nullable=false,precision=15,scale=2) public BigDecimal refundPendingAmount=BigDecimal.ZERO;
     @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="cod_collected_amount",precision=15,scale=2) public BigDecimal codCollectedAmount;
     @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="cod_collected_at") public Instant codCollectedAt;
     @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="cod_collected_by") public Long codCollectedBy;
