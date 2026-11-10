@@ -103,6 +103,6 @@
 **Files:**
 - Review all files changed in Tasks 1–3.
 
-- [ ] Confirm the entry modules are smaller and each extracted module has a focused responsibility.
-- [ ] Run the frontend production build, Python compilation/linter, and `git diff --check`.
-- [ ] Create commits grouped by top-level folder or cohesive cross-folder refactor, then push the branch and open one PR against `main`.
+- [x] Confirm the entry modules are smaller and each extracted module has a focused responsibility.
+- [x] Run the frontend production build, Python compilation/linter, and `git diff --check`.
+- [x] Create commits grouped by top-level folder or cohesive cross-folder refactor, then push the branch and open PR [#96](https://github.com/duygri/do-an-htttdn-crm/pull/96) against `main`.
