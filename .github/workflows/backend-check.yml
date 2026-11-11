@@ -205,7 +205,7 @@ jobs:
 
   e2e-check:
     name: E2E / PostgreSQL & Playwright
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 30
