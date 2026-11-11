@@ -37,8 +37,8 @@ export default async function globalSetup() {
     );
     await pool.query(
       `INSERT INTO customers (email, full_name, password_hash, role, locked, created_at)
-       SELECT $1, $2, $3, 'MANAGER', FALSE, now()
-       WHERE NOT EXISTS (SELECT 1 FROM customers WHERE lower(email) = lower($1))`,
+       VALUES ($1, $2, $3, 'MANAGER', FALSE, now())
+       ON CONFLICT (email) DO NOTHING`,
       [MANAGER_EMAIL, 'E2E Manager', MANAGER_PASSWORD_HASH],
     );
   } finally {
