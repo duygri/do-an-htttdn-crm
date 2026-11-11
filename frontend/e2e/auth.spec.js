@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { MANAGER_EMAIL, MANAGER_PASSWORD } from './credentials.js';
 
 const apiResponse = (page, path, method = 'POST') =>
   page.waitForResponse((response) => {
@@ -38,8 +39,8 @@ test('customer can register and keep a session after a reload', async ({ page })
 
 test('manager can sign in and load the live dashboard', async ({ page }) => {
   await page.goto('http://localhost:5175/manager/login');
-  await page.getByLabel('EMAIL').fill('manager-e2e@crm.test');
-  await page.getByLabel('MẬT KHẨU').fill('password');
+  await page.getByLabel('EMAIL').fill(MANAGER_EMAIL);
+  await page.getByLabel('MẬT KHẨU').fill(MANAGER_PASSWORD);
 
   const loginResponse = apiResponse(page, '/api/manager/auth/login');
   const reportPaths = [
