@@ -1,0 +1,96 @@
+/* ============================================================
+   Themed scrollbars — toàn cục cho cả 3 portals
+   (Manager / Admin / Storefront). Màu thumb/track đổi theo
+   portal và theme nhờ cascade của CSS custom properties.
+   Không dùng transition trên scrollbar; không dùng !important.
+   ============================================================ */
+
+:root {
+  --sb-size: 10px;
+  --sb-radius: 999px;
+  --sb-track: transparent;
+  --sb-thumb: #c8c2b7;
+  --sb-thumb-hover: #ada696;
+  --sb-thumb-active: var(--accent, #c45535);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+/* WebKit / Blink */
+*::-webkit-scrollbar {
+  width: var(--sb-size);
+  height: var(--sb-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--sb-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
+  border-radius: var(--sb-radius);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--sb-thumb-hover);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: var(--sb-thumb-active);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ----- Storefront (User portal) — theme tối ----- */
+.site-shell[data-shop-theme="dark"] {
+  --sb-thumb: #4b564f;
+  --sb-thumb-hover: #626e65;
+  --sb-thumb-active: var(--accent);
+}
+
+/* ----- Manager portal (chrome evergreen tối, cả 2 theme) ----- */
+.manager-shell.admin-shell,
+.manager-login.admin-login {
+  --sb-thumb: #b7ccc2;
+  --sb-thumb-hover: #93b4a7;
+  --sb-thumb-active: var(--admin-primary);
+  --sb-track: color-mix(in srgb, var(--admin-border) 40%, transparent);
+}
+
+.manager-shell.admin-shell[data-theme="dark"],
+.manager-login.admin-login[data-theme="dark"] {
+  --sb-thumb: #2b483d;
+  --sb-thumb-hover: #3d6154;
+  --sb-track: color-mix(in srgb, var(--admin-border) 60%, transparent);
+}
+
+/* ----- Admin portal (xanh tím) ----- */
+.admin-shell.internal-portal {
+  --sb-thumb: #c2cde8;
+  --sb-thumb-hover: #9faadd;
+  --sb-thumb-active: var(--admin-primary);
+}
+
+.admin-shell.internal-portal[data-theme="dark"] {
+  --sb-thumb: #2e3c5b;
+  --sb-thumb-hover: #405179;
+}
+
+/* ----- Cuộn mượt chỉ khi ngườu dùng không giảm chuyển động ----- */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
