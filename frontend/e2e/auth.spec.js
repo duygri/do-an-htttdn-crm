@@ -49,7 +49,7 @@ test('manager can sign in and load the live dashboard', async ({ page }) => {
     '/api/manager/surveys/stats',
   ];
   const reportResponses = reportPaths.map((path) => apiResponse(page, path, 'GET'));
-  await page.getByRole('button', { name: /ĐĂNG NHẬP QUẢN LÝ/i }).click();
+  await page.getByRole('button', { name: /ĐĂNG NHẬP NGƯỜI QUẢN LÝ/i }).click();
 
   expect((await loginResponse).status()).toBe(200);
   await expect(page.getByText('CHỈ SỐ HOẠT ĐỘNG TOÀN HỆ THỐNG')).toBeVisible();
