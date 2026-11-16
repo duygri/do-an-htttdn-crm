@@ -15,6 +15,7 @@ public interface StoreVoucherRepository extends JpaRepository<StoreVoucher,Long>
         org.springframework.data.domain.Pageable page);
     org.springframework.data.domain.Page<StoreVoucher> findByOwnerCustomerId(Long id,org.springframework.data.domain.Pageable page);
     Optional<StoreVoucher> findByCodeIgnoreCase(String code);
+    boolean existsByCodeIgnoreCase(String code);
     @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select v from StoreVoucher v where upper(v.code)=upper(:code)")
     Optional<StoreVoucher> lockByCode(@org.springframework.data.repository.query.Param("code") String code);

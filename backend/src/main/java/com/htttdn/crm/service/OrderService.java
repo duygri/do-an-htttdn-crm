@@ -34,11 +34,12 @@ public class OrderService {
     private final AuditTrail audit;
     private final StockService stock;
     private final PaymentReconciliationService reconciliation;
+    private final LoyaltyService loyalty;
     @org.springframework.beans.factory.annotation.Autowired private AbandonedOrderWorker expiryWorker;
 
     public OrderService(OrderRepository orders, ProductRepository products, CartItemRepository carts,
                         PaymentRepository payments, PaymentAttemptRepository attempts, PaymentWebhookEventRepository webhookEvents,
-                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit, StockService stock, PaymentReconciliationService reconciliation) {
+                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit, StockService stock, PaymentReconciliationService reconciliation, LoyaltyService loyalty) {
         this.orders = orders; this.products = products; this.carts = carts; this.payments = payments;
         this.attempts = attempts;
         this.webhookEvents = webhookEvents; this.vouchers = vouchers; this.notifications = notifications; this.payos = payos;
@@ -46,6 +47,7 @@ public class OrderService {
         this.audit = audit;
         this.stock = stock;
         this.reconciliation=reconciliation;
+        this.loyalty=loyalty;
     }
 
     @Transactional
@@ -67,11 +69,13 @@ public class OrderService {
         requested = grouped.values().stream().sorted(Comparator.comparing(RequestedItem::productId)).toList();
         Instant now = Instant.now(); Order order = new Order(); order.setCustomer(customer); order.setOrderCode(nextCode()); order.setDeliveryAddress(request.deliveryAddress().trim()); order.setPaymentMethod(method); order.setCreatedAt(now); order.setUpdatedAt(now); order.setStatus("PENDING"); order.setPaymentStatus("COD".equals(method) ? "COD" : "PENDING"); order.setExpiresAt("COD".equals(method) ? null : now.plus(Duration.ofMinutes(15)));
         BigDecimal subtotal = BigDecimal.ZERO;
+        Map<Long, Integer> wanted = new HashMap<>();
         for (RequestedItem line : requested) {
             if (line == null || line.productId() == null || line.quantity() < 1) throw invalidCart();
             Product product = stock.lockProduct(line.productId()).filter(Product::isActive).orElseThrow(this::invalidCart); validateVariant(product, line.size(), line.color());
-            if (line.quantity() > product.getStock()) throw new ApiException(HttpStatus.CONFLICT, "OUT_OF_STOCK", "Sản phẩm " + product.getName() + " không đủ số lượng.");
-            product.setStock(product.getStock() - line.quantity()); product.setUpdatedAt(now); products.save(product);
+            long totalWanted = (long) wanted.getOrDefault(product.getId(), 0) + line.quantity();
+            if (totalWanted > product.getStock()) throw new ApiException(HttpStatus.CONFLICT, "OUT_OF_STOCK", "Sản phẩm " + product.getName() + " không đủ số lượng.");
+            wanted.put(product.getId(), (int) totalWanted);
             OrderItem item = new OrderItem(); item.setOrder(order); item.setProduct(product); item.setQuantity(line.quantity()); item.setSize(clean(line.size())); item.setColor(clean(line.color())); item.setUnitPrice(CartService.price(product)); order.getItems().add(item);
             subtotal = subtotal.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
         }
@@ -80,7 +84,7 @@ public class OrderService {
         if (request.voucherCode() != null && !request.voucherCode().isBlank()) { applied = vouchers.reserve(request.voucherCode(), subtotal, order); discount = order.getDiscountAmount(); }
         order.setDiscountAmount(discount); order.setTotalAmount(subtotal.subtract(discount).max(BigDecimal.ZERO));
         if ("PAYOS".equals(method) && order.getTotalAmount().signum() > 0) payos.requireConfigured();
-        orders.save(order); if(applied!=null) vouchers.record(order,applied);
+        orders.save(order); stock.sell(order); if(applied!=null) vouchers.record(order,applied);
         // Consume only purchased variants; keep unselected lines and any remaining quantity.
         Map<CartLineKey, Integer> remainingPurchase = new HashMap<>();
         grouped.forEach((key, line) -> remainingPurchase.put(key, line.quantity()));
@@ -307,6 +311,7 @@ public class OrderService {
             throw new ApiException(HttpStatus.CONFLICT, "RECEIPT_NOT_ALLOWED", "Chỉ xác nhận đơn đã giao và chưa có yêu cầu đổi trả. Vui lòng tải lại đơn hàng.");
         var before = AuditTrail.snapshot(order);
         order.setStatus("COMPLETED"); order.setUpdatedAt(Instant.now()); orders.save(order);
+        loyalty.awardForCompletedOrder(order);
         notifications.create(customer, "Đơn hàng hoàn thành", "Bạn đã xác nhận nhận hàng cho đơn #" + order.getOrderCode() + ".", "ORDER_COMPLETED", order.getId());
         recordCustomerAction(customer, "CUSTOMER_RECEIPT", order, before);
         return view(order);

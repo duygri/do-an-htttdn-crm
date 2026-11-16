@@ -12,6 +12,7 @@ import CustomerVouchers, { RewardSummary } from './CustomerVouchers';
 import OrderReviews from './OrderReviews';
 import CustomerInvoice from './CustomerInvoice';
 import CustomerPassword from './CustomerPassword';
+import CustomerPoints from './CustomerPoints';
 const SupportTickets=React.lazy(()=>import('./SupportTickets'));
 import { useCartSelection, cartLineKey, canBuyLine, transferGuestSelection, subtractPurchased } from './cart-selection';
 import { useCustomerRouter, actionPaths, isAccountPath, needsCustomer, isKnownPath, safeReturn } from './customer-routing';
@@ -2693,6 +2694,7 @@ function ProfileModal({ page = false, user, onClose, onUser, onLogout, onOpenOrd
             {busy ? "ĐANG LƯU..." : "LƯU THAY ĐỔI"}
           </button>
         </form>
+        <CustomerPoints />
         <button className="profile-survey-link account-menu-primary" onClick={onOpenOrders}>
           <span>Đơn hàng của tôi</span>
           <ArrowUpRight size={16} aria-hidden="true" />

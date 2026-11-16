@@ -1,0 +1,43 @@
+.manager-inventory .inventory-table {
+  overflow-x: auto;
+}
+
+.manager-inventory table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.manager-inventory th,
+.manager-inventory td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--admin-border, rgba(148, 163, 184, 0.25));
+  text-align: left;
+  vertical-align: middle;
+}
+
+.manager-inventory th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.manager-inventory input[type='number'] {
+  width: 90px;
+  padding: 6px 8px;
+  border: 1px solid var(--admin-border, rgba(148, 163, 184, 0.35));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+}
+
+.inventory-down {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.inventory-up {
+  color: #16a34a;
+  font-weight: 600;
+}

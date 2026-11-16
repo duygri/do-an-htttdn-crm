@@ -33,6 +33,7 @@ class OrderConfirmationTest {
         assertEquals("COD",order.getPaymentStatus());
         verify(notifications,times(1)).create(eq(customer),anyString(),anyString(),eq("ORDER_COMPLETED"),eq(9L));
         verify(orders,times(1)).save(order); verifyNoInteractions(products,carts,vouchers,payos,payments);
+        verify(loyalty,times(1)).awardForCompletedOrder(order);
         verify(audit,times(1)).recordAs(argThat(a->a.id().equals(2L)&&a.role().equals("CUSTOMER")),eq("CUSTOMER_RECEIPT"),eq("ORDER"),eq(9L),
             argThat(s->"DELIVERED".equals(s.get("status"))),argThat(s->"COMPLETED".equals(s.get("status"))));
     }
@@ -58,9 +59,10 @@ class OrderConfirmationTest {
     final PayosService payos = mock(PayosService.class);
     final FeedbackRepository feedback = mock(FeedbackRepository.class);
     final AuditTrail audit = mock(AuditTrail.class);
-    final StockService stock = new StockService(products,mock(jakarta.persistence.EntityManager.class));
+    final StockService stock = new StockService(products,mock(jakarta.persistence.EntityManager.class),mock(StockMovementRepository.class),mock(InternalNoticeService.class));
     final PaymentReconciliationService reconciliation = new PaymentReconciliationService(payos,attempts,payments,notifications);
-    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,stock,reconciliation);
+    final LoyaltyService loyalty = mock(LoyaltyService.class);
+    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,stock,reconciliation,loyalty);
 
     @Test void completedReviewedOrderCannotRequestReturn() {
         User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);

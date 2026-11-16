@@ -4,6 +4,7 @@ import ManagerOrderDetail from './ManagerOrderDetail';
 import SourceCareCreator from './SourceCareCreator';
 import ManagerMyTasks,{MyTaskSummary,CareTaskDetail} from './ManagerMyTasks';
 import ManagerNotificationBell from './ManagerNotificationBell';
+import ManagerNoticeBell from './ManagerNoticeBell';
 import CustomerLifecycle, {CustomerLifecycleFilters} from './CustomerLifecycle';
 import { useManagerResource, useManagerList, ManagerSyncStatus, useManagerReadPause } from "./useManagerResource";
 import {CustomerCreate,SurveyAudience} from './ManagerTools';
@@ -21,6 +22,7 @@ const RetentionReport = React.lazy(() => import('./RetentionReport'));
 const SupportTickets = React.lazy(()=>import('./SupportTickets'));
 const ManagerSuppliers = React.lazy(()=>import('./ManagerSuppliers'));
 const ManagerSupplierReceipts = React.lazy(()=>import('./ManagerSupplierReceipts'));
+const ManagerInventory = React.lazy(()=>import('./ManagerInventory'));
 const ManagerInvoices = React.lazy(()=>import('./ManagerInvoices'));
 const RevenueReport = React.lazy(()=>import('./RevenueReport'));
 import {
@@ -56,10 +58,12 @@ import {
   Sparkles,
   Building2,
   ReceiptText,
-  FileText
+  FileText,
+  Warehouse
 } from "lucide-react";
 import {
   adminApi,
+  adminDownload,
   adminEndpoints,
   adminRefreshSession,
   adminSignIn,
@@ -82,6 +86,7 @@ const navItems = [
   ["products", "Sản phẩm"],
   ["suppliers", "Nhà cung cấp"],
   ["supplier-receipts", "Phiếu nhập hàng"],
+  ["inventory", "Tồn kho"],
   ["orders", "Đơn hàng"],
   ["invoices", "Hóa đơn"],
   ["feedback", "Phản hồi"],
@@ -100,6 +105,7 @@ const navIcons = {
   products: Package,
   suppliers: Building2,
   "supplier-receipts": ReceiptText,
+  inventory: Warehouse,
   orders: ShoppingCart,
   invoices: FileText,
   feedback: MessageSquare,
@@ -364,6 +370,7 @@ export default function ManagerApp() {
           </div>
           <div className="admin-topbar-actions">
             <ManagerNotificationBell go={go} location={path}/>
+            <ManagerNoticeBell go={go} location={path}/>
             <span className="admin-live-dot">DỮ LIỆU TRỰC TIẾP</span>
             <button
               className="manager-theme-toggle"
@@ -413,6 +420,7 @@ export default function ManagerApp() {
         {section === "products" && <Products notify={notify} />}{" "}
         {section === "suppliers" && <ManagerSuppliers />}
         {section === "supplier-receipts" && <ManagerSupplierReceipts />}
+        {section === "inventory" && <ManagerInventory />}
         {section === "orders" && <Orders notify={notify} />}{" "}
         {section === "invoices" && <ManagerInvoices />}
         {section === "feedback" && <Feedback notify={notify} />}{" "}
@@ -1004,6 +1012,18 @@ function Users({ notify, location, go }) {
           {data?.totalElements ?? filteredUsers.length} khách hàng
         </span>
         <button className="admin-action" onClick={() => searchUsers(search)}>Tìm khách hàng</button>
+        <button
+          className="admin-action"
+          onClick={async () => {
+            try {
+              await adminDownload(`/api/manager/customers.csv${query ? `?${new URLSearchParams({ q: query })}` : ""}`, "khach-hang.csv");
+            } catch (error) {
+              notify(error.message, "error");
+            }
+          }}
+        >
+          Xuất CSV
+        </button>
       </div>
       <CustomerLifecycleFilters params={params} onChange={changeFilters}/>
       <button type="button" className="admin-action" onClick={()=>go(groupSurveyRoute(params),{createGroupedSurvey:true})}>Tạo khảo sát cho nhóm này</button>
@@ -1792,6 +1812,19 @@ function Orders({ notify }) {
         </div>
         <span>{data?.totalElements ?? 0} đơn hàng</span>
         <button type="button" className="admin-action" onClick={load} aria-label="Tải lại trạng thái thanh toán"><RefreshCw size={16} /> Tải lại</button>
+        <button
+          type="button"
+          className="admin-action"
+          onClick={async () => {
+            try {
+              await adminDownload(`/api/manager/orders.csv?${managerQuery({ status: query.status, q: query.q, from: query.from, to: query.to })}`, "don-hang.csv");
+            } catch (error) {
+              notify(error.message, "error");
+            }
+          }}
+        >
+          Xuất CSV
+        </button>
       </div>
       <div className="manager-advanced-filters">
         <label>Thanh toán<select value={filters.paymentStatus} onChange={e=>changeFilters({paymentStatus:e.target.value})}><option value="">Tất cả</option><option value="COD">COD</option><option value="PENDING">Chờ thanh toán</option><option value="PAID">Đã thanh toán</option><option value="EXPIRED">Hết hạn</option><option value="FAILED">Thất bại</option><option value="CANCELLED">Đã hủy thanh toán</option></select></label>

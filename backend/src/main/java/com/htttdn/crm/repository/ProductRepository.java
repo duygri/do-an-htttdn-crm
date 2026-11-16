@@ -9,4 +9,6 @@ public interface ProductRepository extends JpaRepository<Product,Long>, JpaSpeci
     Page<Product> searchCatalog(@Param("keyword") String keyword,@Param("category") String category,@Param("gender") String gender,@Param("minPrice") BigDecimal minPrice,@Param("maxPrice") BigDecimal maxPrice,Pageable pageable);
     @Query("select distinct p.categoryEntity.name from Product p where p.active=true and p.categoryEntity is not null order by p.categoryEntity.name") List<String> findActiveCategories();
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select p from Product p where p.id=:id") Optional<Product> findLockedById(@Param("id") Long id);
+    long countBySupplierId(Long supplierId);
+    List<Product> findTop50BySupplierIdOrderByCreatedAtDescIdDesc(Long supplierId);
 }

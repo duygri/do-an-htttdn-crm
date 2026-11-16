@@ -52,6 +52,7 @@ Ba portal sử dụng luồng đăng nhập và phiên riêng. Backend kiểm tr
 - **Đơn hàng:** lịch sử có tab trạng thái, tìm kiếm/phân trang, xem chi tiết, tiếp tục thanh toán, hủy đơn theo điều kiện và xác nhận đã nhận hàng.
 - **Đánh giá/đổi trả:** đánh giá gắn với sản phẩm trong đơn hoàn thành; gửi yêu cầu đổi trả khi đủ điều kiện và theo dõi kết quả xử lý.
 - **Khảo sát/voucher:** trả lời khảo sát công khai hoặc được chỉ định, nhận voucher thưởng nếu được cấu hình; xem voucher cá nhân và ưu đãi cửa hàng còn hiệu lực.
+- **Điểm thưởng:** xem số dư và lịch sử điểm trong hồ sơ tài khoản; điểm được cộng khi đơn hoàn thành qua xác nhận nhận hàng và có thể đổi thành voucher giảm giá theo cấu hình của Admin.
 - **Hỗ trợ:** tạo phiếu gắn với đơn của mình nếu cần, gửi trao đổi và theo dõi tiến trình; không xem được ghi chú nội bộ của Manager.
 - **Thông báo:** xem và đánh dấu đã đọc các thông báo trong web. Có giao diện sáng/tối và bố cục responsive.
 
@@ -65,13 +66,17 @@ Các trang thường dùng: `/san-pham/{id}`, `/gio-hang`, `/dat-hang`, `/don-ha
 - **Phân nhóm:** chưa mua, mua lần đầu, quay lại, thân thiết; nhãn lâu chưa mua lại. Kết hợp ngày mua, số đơn, giá trị, điểm đánh giá và trạng thái tham gia khảo sát.
 - **Chăm sóc:** ghi chú, tạo/giao việc, hạn xử lý, ghi nhận kết quả, tạo việc kế tiếp; tạo việc từ phản hồi chưa xử lý hoặc đơn đổi trả.
 - **Việc của tôi:** xem việc cá nhân đang mở, đến hạn, sắp đến hạn, quá hạn và việc chăm sóc tiếp; nhận thông báo nhắc hạn có lưu.
-- **Sản phẩm và tồn kho:** quản lý thông tin, danh mục, giá, trạng thái hiển thị và số lượng tồn.
+- **Sản phẩm và tồn kho:** quản lý thông tin, danh mục, giá, trạng thái hiển thị và số lượng tồn; xem thẻ kho theo loại biến động, cảnh báo tồn thấp theo ngưỡng riêng hoặc mặc định, lập phiếu kiểm kê và xem báo cáo giá trị tồn kho.
+- **Nhà cung cấp:** danh mục, chi tiết nhà cung cấp, sản phẩm và phiếu nhập liên quan; ngừng hợp tác/kích hoạt lại; ghi nhận thanh toán công nợ phải trả theo từng phiếu nhập.
+- **Phiếu nhập hàng và hóa đơn:** lập phiếu nhập theo hóa đơn nhà cung cấp (chỉ ghi chi phí, không cộng tồn kho) và phát hành hóa đơn bán hàng để in cho từng đơn.
 - **Đơn hàng/đổi trả:** tìm kiếm, lọc, theo dõi thanh toán, cập nhật tiến trình giao hàng; chấp thuận, từ chối hoặc hoàn tất yêu cầu đổi trả theo luồng cho phép.
 - **Phản hồi:** tiếp nhận, trả lời, xử lý, ẩn/hiện và xóa mềm đánh giá.
 - **Phiếu hỗ trợ:** tạo hộ khách, phân công, trao đổi công khai, ghi chú nội bộ và cập nhật trạng thái xử lý.
 - **Khảo sát:** tạo nháp, phát hành/gỡ, thống kê kết quả, chọn tất cả khách hoặc chỉ định người nhận và cấu hình voucher thưởng.
 - **Khảo sát theo nhóm:** tạo bản nháp từ toàn bộ khách khớp bộ lọc, xem trước và chốt người nhận khi lưu; không tự phát hành. Có thể lọc đã/chưa trả lời một khảo sát cụ thể.
 - **Voucher/báo cáo:** quản lý mã giảm giá, báo cáo khách hàng, khảo sát, mua lại và kết quả chăm sóc.
+- **Thông báo vận hành:** chuông thông báo tồn kho sắp hết và đơn treo quá 24 giờ; đánh dấu đã đọc và đi thẳng tới màn hình xử lý.
+- **Xuất CSV:** thẻ kho, giá trị tồn, doanh thu, đơn hàng, khách hàng và công nợ nhà cung cấp theo bộ lọc đang xem.
 
 Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang mở được cập nhật mỗi 5 giây; tạm dừng khi tab bị ẩn hoặc người dùng đang nhập/gửi thao tác liên quan.
 
@@ -81,6 +86,7 @@ Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang 
 - Tạo, sửa, khóa/mở khóa, xóa mềm và đổi quyền tài khoản ADMIN/MANAGER.
 - Bảo vệ thao tác tự khóa/xóa/đổi quyền và tài khoản Admin hoạt động cuối cùng.
 - Xem nhật ký hệ thống, bao gồm các thao tác khách hàng đã được bổ sung ghi nhận.
+- Cấu hình hệ thống: thông tin người bán hóa đơn, ngưỡng tồn thấp mặc định và quy tắc tích điểm/đổi điểm.
 - Liên kết đến portal Manager và website khách hàng; không thay thế vai trò vận hành của Manager.
 
 ## Quy tắc nghiệp vụ và chỉ số CRM
@@ -97,6 +103,9 @@ Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang 
 - Mỗi đơn dùng một voucher. Voucher thưởng khảo sát thuộc đúng tài khoản, có giới hạn lượt; điều kiện được kiểm tra lại khi đặt hàng.
 - Xử lý đổi trả không tự hoàn tiền, cộng tồn kho hoặc thay trạng thái thanh toán. Việc xử lý thực tế bên ngoài cần được ghi nhận đúng nghiệp vụ.
 - Manager quản lý nhà cung cấp, lập phiếu nhập hàng theo hóa đơn nhà cung cấp (chỉ ghi chi phí, không cộng tồn kho) và phát hành một hóa đơn bán hàng cho mỗi đơn để in.
+- Mọi thay đổi tồn kho sinh một dòng thẻ kho (bán, hoàn kho do hủy, điều chỉnh, khởi tạo, kiểm kê); tồn không được âm. Phiếu kiểm kê hoàn tất điều chỉnh đúng phần chênh lệch. Giá trị tồn dùng đơn giá của lần nhập gần nhất.
+- Nhà cung cấp ngừng hợp tác không được gán sản phẩm mới hoặc lập phiếu nhập mới nhưng vẫn xem được công nợ và ghi nhận thanh toán cũ; không trả vượt số còn nợ.
+- Điểm thưởng chỉ cộng khi khách xác nhận đã nhận hàng, mỗi đơn một lần; đổi điểm tạo voucher cố định thuộc đúng tài khoản. Manager điều chỉnh điểm phải ghi chú; điểm không tự trừ khi đổi trả.
 
 ### Phân nhóm và báo cáo
 
@@ -179,6 +188,8 @@ Sao lưu, xác định phiên bản schema đã triển khai và đọc migratio
 | Thanh toán và đổi trả | `migration_payos_qr.sql`, `migration_payos_attempts.sql`, `migration_return_management.sql` |
 | Chăm sóc khách hàng | `migration_customer_care.sql` → `migration_care_sources.sql` → `migration_care_outcomes.sql` → `migration_care_reminders.sql` |
 | Nhật ký và phiếu hỗ trợ | `migration_audit_logs.sql`, `migration_support_tickets.sql` |
+| Nhà cung cấp, hóa đơn, doanh thu | `migration_supplier_receipts_invoices.sql` |
+| Tồn kho, công nợ, tích điểm, cấu hình | `migration_inventory_suppliers_loyalty.sql` |
 
 Các script nằm trong `database/`. Migration nhắc hạn cần bảng công việc và thông báo có trước; migration hỗ trợ cần các bảng tài khoản, đơn hàng và thông báo. Backend có ghi audit cần bảng nhật ký trước khi thực hiện nghiệp vụ mới. Xem hướng dẫn từng chức năng ở mục [Tài liệu chi tiết](#tài-liệu-chi-tiết).
 
@@ -308,6 +319,7 @@ Triển khai demo web miễn phí (Render + Neon, chung HTTPS cho ba portal): xe
 | Hỗ trợ và đổi trả | [Phiếu hỗ trợ](docs/support-tickets.md), [xử lý đổi trả](docs/return-management.md) |
 | Voucher và đánh giá | [Voucher](database/VOUCHERS.md), [đánh giá và thưởng khảo sát](database/REVIEWS_REWARDS.md) |
 | Nhà cung cấp, phiếu nhập và hóa đơn | [API và migration](docs/suppliers-invoices.md) |
+| Tồn kho, công nợ NCC, tích điểm, cấu hình | [Đặc tả module bổ trợ](docs/inventory-suppliers-loyalty.md) |
 | Doanh thu, phiếu nhập và giới hạn cá nhân | [Báo cáo doanh thu, quy tắc voucher và migration](docs/cashflow-voucher-limits.md) |
 | Nhật ký và kiểm tra nghiệp vụ | [Audit log](docs/audit-logs.md), [ma trận QA](docs/crm-workflow-qa.md) |
 | Sơ đồ | [Thư mục sơ đồ](docs/diagrams/) |
@@ -320,7 +332,8 @@ Tài liệu từng đợt có thể ghi kết quả kiểm tra ở thời điể
 - Email giao dịch (khôi phục/đổi mật khẩu, đơn hàng, phiếu hỗ trợ, khóa tài khoản, voucher khảo sát) chỉ hoạt động khi cấu hình nhà cung cấp và `PUBLIC_ORIGIN` HTTPS; chế độ thử chỉ gửi tới địa chỉ cấu hình. Luồng khôi phục công khai bị khóa nếu chưa cấu hình; chế độ xem mã chỉ dành cho môi trường `development` và phải bật rõ `DEV_PASSWORD_RESET_ENABLED=true`. Không bật chế độ này khi triển khai thật.
 - Chưa có email marketing, thông báo hệ điều hành, hoàn tiền tự động hoặc chiến dịch tự phát voucher. Nhắc việc và thông báo hiện tại nằm trong web.
 - Báo cáo mua lại toàn thời gian chưa phải phân tích giữ chân theo cohort; giá trị đơn không phải tiền thực thu hay lợi nhuận.
-- Manager có menu **Nhà cung cấp**, **Phiếu nhập hàng** và **Hóa đơn**; API tương ứng nằm dưới `/api/manager/suppliers`, `/api/manager/supplier-receipts`, `/api/manager/invoices`.
+- Manager có menu **Tồn kho**, **Nhà cung cấp**, **Phiếu nhập hàng** và **Hóa đơn**; API tương ứng nằm dưới `/api/manager/inventory`, `/api/manager/suppliers`, `/api/manager/supplier-receipts`, `/api/manager/invoices`. Portal Admin có thêm mục **Cấu hình** dưới `/api/admin/settings`.
+- Xuất CSV giới hạn 10.000 dòng cho đơn hàng/khách hàng và không thay thế sao lưu dữ liệu. Thông báo vận hành chạy trong tiến trình backend; nhiều instance có thể gửi trùng nếu không cấu hình khóa chia sẻ.
 - Khi triển khai frontend lên web server, cần cấu hình fallback phù hợp cho route phía client để mở URL trực tiếp/refresh không bị 404, đồng thời chuyển tiếp đúng API và cookie.
 - Khi lỗi kết nối, kiểm tra backend đã chạy đúng cổng, `VITE_API_BASE_URL`, CORS và migration. Lỗi thiếu endpoint thường cần build/khởi động lại backend đúng phiên bản, không chỉ chạy SQL.
 - Thư mục `database/backup` hiện là khung tài liệu; không xem đó là bằng chứng đã hoàn tất diễn tập sao lưu/khôi phục.

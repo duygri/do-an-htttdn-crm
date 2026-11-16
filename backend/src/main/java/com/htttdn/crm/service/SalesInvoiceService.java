@@ -8,7 +8,6 @@ import com.htttdn.crm.entity.User;
 import com.htttdn.crm.exception.ApiException;
 import com.htttdn.crm.repository.OrderRepository;
 import com.htttdn.crm.repository.SalesInvoiceRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -25,13 +24,9 @@ public class SalesInvoiceService {
     private final SalesInvoiceRepository invoices;
     private final OrderRepository orders;
     private final AuditTrail audit;
-    private final String sellerName,sellerAddress,sellerPhone,sellerTaxCode;
-    public SalesInvoiceService(SalesInvoiceRepository invoices,OrderRepository orders,AuditTrail audit,
-            @Value("${app.invoice.seller-name:Anh Lon Shop}") String sellerName,
-            @Value("${app.invoice.seller-address:}") String sellerAddress,
-            @Value("${app.invoice.seller-phone:}") String sellerPhone,
-            @Value("${app.invoice.seller-tax-code:}") String sellerTaxCode){
-        this.invoices=invoices;this.orders=orders;this.audit=audit;this.sellerName=sellerName;this.sellerAddress=sellerAddress;this.sellerPhone=sellerPhone;this.sellerTaxCode=sellerTaxCode;
+    private final SettingsService settings;
+    public SalesInvoiceService(SalesInvoiceRepository invoices,OrderRepository orders,AuditTrail audit,SettingsService settings){
+        this.invoices=invoices;this.orders=orders;this.audit=audit;this.settings=settings;
     }
     public record Line(String productName,String size,String color,int quantity,BigDecimal unitPrice,BigDecimal lineTotal){}
     public record View(Long id,String invoiceNumber,Long orderId,Long orderCode,String orderStatus,Instant issuedAt,
@@ -63,7 +58,10 @@ public class SalesInvoiceService {
         SalesInvoice invoice=new SalesInvoice();
         invoice.setInvoiceNumber("HD-"+order.getOrderCode());
         invoice.setOrder(order);invoice.setCustomer(customer);invoice.setIssuedAt(Instant.now());
-        invoice.setSellerName(sellerName);invoice.setSellerAddress(blankToNull(sellerAddress));invoice.setSellerPhone(blankToNull(sellerPhone));invoice.setSellerTaxCode(blankToNull(sellerTaxCode));
+        invoice.setSellerName(settings.get("invoice.seller.name"));
+        invoice.setSellerAddress(blankToNull(settings.get("invoice.seller.address")));
+        invoice.setSellerPhone(blankToNull(settings.get("invoice.seller.phone")));
+        invoice.setSellerTaxCode(blankToNull(settings.get("invoice.seller.taxCode")));
         invoice.setBuyerName(customer.getFullName());invoice.setBuyerEmail(customer.getEmail());invoice.setBuyerPhone(customer.getPhone());
         invoice.setDeliveryAddress(order.getDeliveryAddress());
         BigDecimal subtotal=BigDecimal.ZERO;

@@ -70,8 +70,28 @@ export async function adminApi(path, options = {}, canRefresh = true) {
   } finally { finish?.(); }
 }
 
-export async function adminSignIn(payload) {
-  const data = await adminApi('/api/manager/auth/login', { method: 'POST', body: payload }, false);
+export async function adminDownload(path, filename) {
+  const send = () => request(`${API_BASE}${path}`, {
+    credentials: 'include',
+    headers: adminAccessToken ? { Authorization: `Bearer ${adminAccessToken}` } : {},
+  });
+  let response = await send();
+  if (response.status === 401) {
+    const session = await adminRefreshSession();
+    if (session) response = await send();
+  }
+  if (!response.ok) throw new Error('Không tải được tệp CSV.');
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function adminSignIn(payload) {  const data = await adminApi('/api/manager/auth/login', { method: 'POST', body: payload }, false);
   adminAccessToken = data.accessToken;
   return data;
 }
