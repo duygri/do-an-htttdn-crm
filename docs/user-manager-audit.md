@@ -67,4 +67,4 @@ Remove-Item Env:CRM_POSTGRES_QA
 
 Browser harness cần Playwright và Edge; có thể đặt `PLAYWRIGHT_MODULE` là đường dẫn module có sẵn và `QA_SCREENSHOT_DIR` là thư mục ảnh tùy chọn.
 
-Bundle được lazy-load theo portal; Manager còn tách voucher và hồ sơ 360° theo trang. CSS mới giới hạn bằng `.site-shell` / `.manager-shell`, không đổi thiết kế Admin hệ thống. Build vẫn có cảnh báo `use client` từ Lucide, không làm build thất bại.
+Bundle được lazy-load theo portal; Manager còn tách voucher và hồ sơ 360° theo trang. CSS mới giới hạn bằng `.site-shell` / `.manager-shell`, không đổi thiết kế Admin. Build vẫn có cảnh báo `use client` từ Lucide, không làm build thất bại.

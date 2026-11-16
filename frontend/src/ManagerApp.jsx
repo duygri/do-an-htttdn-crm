@@ -204,7 +204,7 @@ export default function ManagerApp() {
             <Activity size={18} />
           </span>
           <div className="admin-brand-copy">
-            NOVA SHOP<small>Quản lý cửa hàng · CRM</small>
+            NOVA SHOP<small>Người quản lý cửa hàng · CRM</small>
           </div>
           <button
             type="button"
@@ -244,7 +244,7 @@ export default function ManagerApp() {
           <span>{admin.fullName?.slice(0, 1)?.toUpperCase() || "A"}</span>
           <div className="admin-profile-copy">
             <b>{admin.fullName}</b>
-            <small>{admin.email || "Nhân viên quản lý"}</small>
+            <small>{admin.email || "Người quản lý"}</small>
           </div>
         </div>
         <button
@@ -391,11 +391,11 @@ function AdminLogin({ theme, onAuthenticated, onNotice, error }) {
             />
           </label>
           <button className="admin-primary" disabled={busy}>
-            {busy ? "ĐANG ĐĂNG NHẬP..." : "ĐĂNG NHẬP QUẢN LÝ →"}
+            {busy ? "ĐANG ĐĂNG NHẬP..." : "ĐĂNG NHẬP NGƯỜI QUẢN LÝ →"}
           </button>
         </form>
         <small className="admin-dev-note">
-          Tài khoản quản lý do Admin hệ thống cấp.
+          Tài khoản người quản lý do Admin cấp.
         </small>
         <a href={userOrigin}>← Về storefront</a>
       </div>

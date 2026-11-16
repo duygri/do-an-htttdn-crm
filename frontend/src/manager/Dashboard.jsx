@@ -250,7 +250,7 @@ export function Dashboard({ go }) {
             <span>khách hàng</span>
           </div>
           <div className="admin-summary-line">
-            <span>Nhân viên quản lý</span>
+            <span>Admin</span>
             <b>{data.users.admins ?? "—"}</b>
           </div>
           <div className="admin-summary-line">

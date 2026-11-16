@@ -164,9 +164,9 @@ export default function SystemAdminApp() {
             <span style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--admin-primary)', color: '#fff', display: 'grid', placeItems: 'center' }}>
               <ShieldCheck size={18} />
             </span>
-            <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', color: 'var(--admin-primary)' }}>SYSTEM ADMIN</span>
+            <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', color: 'var(--admin-primary)' }}>ADMIN</span>
           </div>
-          <h1>Admin hệ thống</h1>
+          <h1>Admin</h1>
           <p>Quản trị tài khoản nội bộ và tra cứu sản phẩm.</p>
           <form onSubmit={login}>
             <label>
@@ -200,7 +200,7 @@ export default function SystemAdminApp() {
                 <ShieldCheck size={20} />
               </span>
               <div className="internal-brand-title">
-                <h2>System Admin</h2>
+                <h2>Admin</h2>
                 <small>TRUNG TÂM HỆ THỐNG</small>
               </div>
               <button
@@ -247,10 +247,10 @@ export default function SystemAdminApp() {
               <a
                 className="internal-nav-link external"
                 href={managerUrl}
-                title={sidebarCollapsed ? 'Cổng quản lý (Manager)' : 'Mở cổng quản lý đơn hàng & khách hàng'}
+                title={sidebarCollapsed ? 'Cổng người quản lý' : 'Mở cổng người quản lý đơn hàng và khách hàng'}
               >
                 <Layers size={17} aria-hidden="true" />
-                <span>Cổng quản lý (Manager)</span>
+                <span>Cổng người quản lý</span>
                 <ExternalLink size={12} className="external-icon" />
               </a>
 
@@ -292,7 +292,7 @@ export default function SystemAdminApp() {
             <header className="internal-header">
               <div className="internal-header-left">
                 <span className="internal-breadcrumb">
-                  System Admin <span>/</span> <b>{menu[section]}</b>
+                  Admin <span>/</span> <b>{menu[section]}</b>
                 </span>
                 <h1>{menu[section]}</h1>
               </div>
@@ -351,7 +351,7 @@ export default function SystemAdminApp() {
                     </div>
                     <div className="internal-kpi-value">{overview ? overview.accounts ?? 0 : '—'}</div>
                     <div className="internal-kpi-footer">
-                      <span>Phân quyền Admin & Manager</span>
+                      <span>Phân quyền Admin và Người quản lý</span>
                       <ArrowRight size={14} className="internal-kpi-arrow" />
                     </div>
                   </div>
@@ -412,7 +412,7 @@ export default function SystemAdminApp() {
                       </div>
                       <div className="internal-action-text">
                         <b>Tài khoản nội bộ</b>
-                        <small>Cấp tài khoản Admin & Manager, phân quyền và khóa tài khoản</small>
+                        <small>Cấp tài khoản Admin và Người quản lý, phân quyền và khóa tài khoản</small>
                       </div>
                       <ChevronRight size={16} className="internal-action-arrow" />
                     </a>
@@ -436,14 +436,14 @@ export default function SystemAdminApp() {
                     <a
                       className="internal-action-item"
                       href={managerUrl}
-                      title="Chuyển sang Cổng quản lý cửa hàng (Manager Portal)"
+                      title="Chuyển sang Cổng người quản lý cửa hàng"
                     >
                       <div className="internal-action-icon amber">
                         <Layers size={20} />
                       </div>
                       <div className="internal-action-text">
                         <b>Cổng quản lý cửa hàng</b>
-                        <small>Chuyển sang Manager Portal để xử lý đơn hàng, khách hàng, voucher</small>
+                        <small>Chuyển sang cổng người quản lý để xử lý đơn hàng, khách hàng và voucher</small>
                       </div>
                       <ChevronRight size={16} className="internal-action-arrow" />
                     </a>

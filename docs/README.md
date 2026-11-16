@@ -27,7 +27,6 @@ This folder contains product requirements, CRM workflow guides, use-case specifi
 - [Support tickets](support-tickets.md)
 - [Return management](return-management.md)
 - [Refund auto-cancellation](refunds-auto-cancellation.md)
-- [Resend email](resend-email.md)
 - [Survey recipient groups](survey-recipient-groups.md)
 - [Customer survey filters](customer-survey-filters.md)
 
