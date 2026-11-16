@@ -117,7 +117,8 @@ class VoucherIntegrationTest {
     @Test void stockFailureRollsBackCancellationAndVoucherRelease() {
         var v=admin.create(input(code,"FIXED_AMOUNT","10000",5));long id=checkout("COD").order().id();
         tx.executeWithoutResult(s->products.findById(product.getId()).orElseThrow().setStock(Integer.MAX_VALUE));
-        assertThrows(ArithmeticException.class,()->adminOrders.updateStatus(id,new StatusRequest("CANCELLED","Test")));
+        var failure=assertThrows(com.htttdn.crm.exception.ApiException.class,()->adminOrders.updateStatus(id,new StatusRequest("CANCELLED","Test")));
+        assertEquals("STOCK_INVALID",failure.code());
         Order o=orderRepo.findById(id).orElseThrow();assertEquals("PENDING",o.getStatus());assertFalse(o.isStockReleased());
         assertEquals(Integer.MAX_VALUE,products.findById(product.getId()).orElseThrow().getStock());
         assertEquals(1,voucherRepo.findById(v.id()).orElseThrow().getUsedCount());
