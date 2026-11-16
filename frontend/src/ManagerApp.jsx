@@ -204,7 +204,7 @@ export default function ManagerApp() {
             <Activity size={18} />
           </span>
           <div className="admin-brand-copy">
-            ANH LỚN<small>Quản lý cửa hàng · CRM</small>
+            NOVA SHOP<small>Quản lý cửa hàng · CRM</small>
           </div>
           <button
             type="button"
@@ -359,7 +359,7 @@ function AdminLogin({ theme, onAuthenticated, onNotice, error }) {
         <div className="admin-mark">
           AL<span>MANAGER</span>
         </div>
-        <span className="admin-eyebrow">ANH LỚN SHOP / PRIVATE AREA</span>
+        <span className="admin-eyebrow">NOVA SHOP / PRIVATE AREA</span>
         <h1>
           Không gian
           <br />

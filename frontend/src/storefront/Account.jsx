@@ -204,7 +204,7 @@ export function SurveyModal({ page = false, surveyId, onNavigate, user, onClose,
         </button>
         {detailLoading ? <p role="status">Đang tải khảo sát...</p> : detailError ? <div role="alert">{detailError}<button onClick={() => setRetry(value => value + 1)}>Thử lại</button></div> : !survey ? (
           <>
-            <p className="kicker">ANH LỚN SHOP / KHẢO SÁT</p>
+            <p className="kicker">NOVA SHOP / KHẢO SÁT</p>
             <h2>
               Chọn đúng gu,
               <br />
@@ -253,7 +253,7 @@ export function SurveyModal({ page = false, surveyId, onNavigate, user, onClose,
             <form className="survey-form" onSubmit={submit}>
               {completed && (
                 <div className="survey-completed-note">
-                  Bạn đã hoàn thành khảo sát này. Cảm ơn bạn đã chia sẻ cùng Anh Lớn Shop.
+                  Bạn đã hoàn thành khảo sát này. Cảm ơn bạn đã chia sẻ cùng Nova Shop.
                 </div>
               )}
               {survey.questions?.map((question) => (

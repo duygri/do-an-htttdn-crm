@@ -1,5 +1,5 @@
 @startuml database-erd-full
-title ANH LỚN SHOP CRM - ERD toàn bộ 31 bảng (thuộc tính chọn lọc)
+title NOVA SHOP CRM - ERD toàn bộ 31 bảng (thuộc tính chọn lọc)
 hide methods
 legend bottom left
   PK: khóa chính; FK: khóa ngoại; UK: khóa duy nhất trên một cột.

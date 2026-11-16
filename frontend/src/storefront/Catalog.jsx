@@ -126,7 +126,7 @@ export function ProductModal({ page = false, data, user, onClose, onAdd, onBuyNo
             </button>
           )}
           <p className="kicker">
-            {product.category || "HÀNG NAM"} / ANH LỚN SHOP
+            {product.category || "HÀNG NAM"} / NOVA SHOP
           </p>
           <h2>{product.name}</h2>
           <div className="modal-price">
@@ -383,7 +383,7 @@ export function ProductModal({ page = false, data, user, onClose, onAdd, onBuyNo
                       <section className="shop-feedback-reply" aria-label="Phản hồi của shop">
                         <div className="shop-reply-header">
                           <ShieldCheck size={13} className="shop-reply-badge-icon" />
-                          <b>ANH LỚN SHOP trả lời</b>
+                          <b>NOVA SHOP trả lời</b>
                         </div>
                         <p className="shop-reply-text">{item.adminResponse}</p>
                       </section>

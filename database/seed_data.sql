@@ -1,4 +1,4 @@
--- Dữ liệu mẫu cho website thời trang nam ANH LỚN SHOP.
+-- Dữ liệu mẫu cho website thời trang nam Nova Shop.
 -- Mật khẩu tài khoản mẫu là: password
 
 -- Tương thích với database cũ còn cột products.stock.
@@ -140,11 +140,11 @@ SELECT 'admin@shop.com', 'Quản trị viên', NULL, NULL, '$2a$10$tAL0K4zyrX8mc
 WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = 'admin@shop.com');
 
 INSERT INTO survey_definitions(title, description, status, starts_at)
-SELECT 'Gu thời trang của bạn', 'Trả lời nhanh để ANH LỚN SHOP gợi ý những món đồ hợp với bạn hơn.', 'PUBLISHED', now()
+SELECT 'Gu thời trang của bạn', 'Trả lời nhanh để Nova Shop gợi ý những món đồ hợp với bạn hơn.', 'PUBLISHED', now()
 WHERE NOT EXISTS (SELECT 1 FROM survey_definitions WHERE title = 'Gu thời trang của bạn');
 
 UPDATE survey_definitions
-SET description = 'Trả lời nhanh để ANH LỚN SHOP gợi ý những món đồ hợp với bạn hơn.'
+SET description = 'Trả lời nhanh để Nova Shop gợi ý những món đồ hợp với bạn hơn.'
 WHERE title = 'Gu thời trang của bạn';
 
 INSERT INTO store_vouchers(code, discount_type, discount_value, min_order_amount, usage_limit, active)

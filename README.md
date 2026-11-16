@@ -1,4 +1,4 @@
-# ANH LỚN SHOP - Hệ thống bán hàng và quản lý quan hệ khách hàng (CRM)
+# Nova Shop - Hệ thống bán hàng và quản lý quan hệ khách hàng (CRM)
 
 Đồ án môn **Hệ thống thông tin doanh nghiệp**, xây dựng website bán thời trang nam kết hợp CRM. Hệ thống không chỉ hỗ trợ mua hàng mà còn tổng hợp hồ sơ khách hàng, phân nhóm, khảo sát, tiếp nhận yêu cầu hỗ trợ và theo dõi công việc chăm sóc sau bán.
 

@@ -1,4 +1,4 @@
-# Anh Lớn shop — Cửa hàng thời trang nam
+# Nova Shop — Cửa hàng thời trang nam
 
 React/Vite customer storefront for men's clothing. The UI is Vietnamese throughout and uses the sequence-diagram APIs directly; no mock product dataset is bundled in the frontend.
 

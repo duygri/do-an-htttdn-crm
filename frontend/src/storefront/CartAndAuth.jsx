@@ -157,7 +157,7 @@ export function AuthModal({ page = false, mode, onModeChange, onClose, onAuthent
         <div className="auth-mark">
           AL<span>SHOP</span>
         </div>
-        <p className="kicker">ANH LỚN SHOP</p>
+        <p className="kicker">NOVA SHOP</p>
         <h2>
           {mode === "login" ? "Chào mừng trở lại." : "Tạo tài khoản mới."}
         </h2>
