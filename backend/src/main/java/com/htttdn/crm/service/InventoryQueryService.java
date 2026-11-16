@@ -70,6 +70,25 @@ public class InventoryQueryService {
     }
 
     @Transactional(readOnly = true)
+    public List<MovementView> exportMovements(Long productId, String type, Instant from, Instant to) {
+        String normalized = type == null || type.isBlank() ? null : type.trim().toUpperCase(Locale.ROOT);
+        if (normalized != null && !TYPES.contains(normalized)) throw bad();
+        if (from != null && to != null && from.isAfter(to)) throw bad();
+        Specification<StockMovement> spec = (root, query, cb) -> {
+            if (query.getResultType() != Long.class) root.fetch("product", JoinType.LEFT);
+            var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
+            if (productId != null) predicates.add(cb.equal(root.get("product").get("id"), productId));
+            if (normalized != null) predicates.add(cb.equal(root.get("movementType"), normalized));
+            if (from != null) predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
+            if (to != null) predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), to));
+            return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        };
+        var pageable = PageRequest.of(0, 10000,
+            Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
+        return movements.findAll(spec, pageable).map(this::view).getContent();
+    }
+
+    @Transactional(readOnly = true)
     public Page<LowStockRow> lowStock(Long supplierId, String category, int page, int size) {
         if (page < 0 || size < 1 || size > 100) throw bad();
         int fallback = settings.getInt("inventory.lowStockDefault");

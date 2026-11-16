@@ -3,10 +3,10 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import ManagerApp from './ManagerApp';
-import { adminApi, adminRefreshSession } from './manager-api';
+import { adminApi, adminDownload, adminRefreshSession } from './manager-api';
 
 vi.mock('./manager-api', async importOriginal => ({
-  ...(await importOriginal()), adminApi: vi.fn(), adminRefreshSession: vi.fn(),
+  ...(await importOriginal()), adminApi: vi.fn(), adminDownload: vi.fn(), adminRefreshSession: vi.fn(),
 }));
 
 const lowRow = { productId: 7, name: 'Áo sơ mi', category: 'Áo', supplierId: 2, stock: 2, threshold: 5, updatedAt: '2026-11-01T02:00:00Z' };
@@ -17,6 +17,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   window.history.replaceState({}, '', '/manager/inventory');
   adminRefreshSession.mockResolvedValue({ manager: { fullName: 'Quản lý kho' } });
+  adminDownload.mockResolvedValue(undefined);
   adminApi.mockImplementation(async (url, options = {}) => {
     if (options.method === 'PATCH') return { ...lowRow, threshold: options.body.threshold };
     if (url.includes('/inventory/low-stock')) return page([lowRow]);
@@ -80,4 +81,71 @@ it('lists the inventory section in the manager navigation', async () => {
   const button = within(nav).getByRole('button', { name: 'Tồn kho' });
   fireEvent.click(button);
   await waitFor(() => expect(window.location.pathname).toBe('/manager/inventory'));
+});
+
+const draftDetail = {
+  id: 6, code: 'KK-6', status: 'DRAFT', note: '',
+  items: [{ id: 61, productId: 7, productName: 'Áo sơ mi', systemQuantity: 10, countedQuantity: null, difference: null }],
+};
+
+function stocktakeApi(url, options = {}) {
+  if (options.method === 'PATCH' && url.includes('/stocktakes/6/items')) {
+    return { ...draftDetail, items: [{ ...draftDetail.items[0], countedQuantity: 8, difference: -2 }] };
+  }
+  if (options.method === 'POST' && url === '/api/manager/stocktakes') return draftDetail;
+  if (options.method === 'POST' && url === '/api/manager/stocktakes/6/complete') {
+    return { ...draftDetail, status: 'COMPLETED', items: [{ ...draftDetail.items[0], countedQuantity: 8, difference: -2 }] };
+  }
+  if (url === '/api/manager/stocktakes/6') return draftDetail;
+  if (url.includes('/api/manager/stocktakes?')) {
+    return page([{ id: 6, code: 'KK-6', status: 'DRAFT', itemCount: 1, countedCount: 0, createdAt: '2026-11-01T02:00:00Z' }]);
+  }
+  if (url === '/api/manager/reports/inventory') {
+    return {
+      totalValue: 60000, totalUnits: 5, missingCostProducts: 0, lowStockCount: 1,
+      categories: [{ category: 'Áo', units: 5, value: 60000 }],
+      products: [{ productId: 7, name: 'Áo sơ mi', category: 'Áo', stock: 5, threshold: 5, unitCost: 12000, value: 60000, lowStock: true }],
+    };
+  }
+  return null;
+}
+
+it('creates, counts and completes a stocktake', async () => {
+  const normal = adminApi.getMockImplementation();
+  adminApi.mockImplementation((url, options) => stocktakeApi(url, options) ?? normal(url, options));
+  render(<ManagerApp />);
+  fireEvent.click(await screen.findByRole('tab', { name: 'Kiểm kê' }));
+  expect(await screen.findByText('KK-6')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Tạo phiếu kiểm kê' }));
+  expect(await screen.findByText('Phiếu KK-6 — Đang mở')).toBeTruthy();
+  await waitFor(() => expect(adminApi).toHaveBeenCalledWith('/api/manager/stocktakes',
+    { method: 'POST', body: { note: '', productIds: [] } }));
+
+  fireEvent.change(screen.getByLabelText('Số đếm Áo sơ mi'), { target: { value: '8' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Lưu số đếm' }));
+  await waitFor(() => expect(adminApi).toHaveBeenCalledWith('/api/manager/stocktakes/6/items', {
+    method: 'PATCH', body: [{ itemId: 61, countedQuantity: 8, note: null }],
+  }));
+
+  fireEvent.click(screen.getByRole('button', { name: 'Hoàn tất kiểm kê' }));
+  await waitFor(() => expect(adminApi).toHaveBeenCalledWith('/api/manager/stocktakes/6/complete', { method: 'POST' }));
+  expect(await screen.findByText('Phiếu KK-6 — Hoàn tất')).toBeTruthy();
+});
+
+it('shows inventory value with category totals and downloads CSV files', async () => {
+  const normal = adminApi.getMockImplementation();
+  adminApi.mockImplementation((url, options) => stocktakeApi(url, options) ?? normal(url, options));
+  render(<ManagerApp />);
+  fireEvent.click(await screen.findByRole('tab', { name: 'Giá trị tồn' }));
+  expect(await screen.findByText('60.000 đ', { selector: 'strong' })).toBeTruthy();
+  expect(screen.getByText('Áo sơ mi')).toBeTruthy();
+  expect(screen.getByText('Sắp hết')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Xuất CSV' }));
+  expect(adminDownload).toHaveBeenCalledWith('/api/manager/reports/inventory.csv', 'ton-kho.csv');
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Thẻ kho' }));
+  await screen.findByText('Bán đơn #9009');
+  fireEvent.click(screen.getByRole('button', { name: 'Xuất CSV' }));
+  expect(adminDownload).toHaveBeenCalledWith(expect.stringContaining('/api/manager/inventory/movements.csv?'), 'the-kho.csv');
 });

@@ -5,6 +5,7 @@ import com.htttdn.crm.service.AuditTrail;
 import com.htttdn.crm.service.InventoryQueryService;
 import com.htttdn.crm.service.InventoryReportService;
 import com.htttdn.crm.service.StocktakeService;
+import com.htttdn.crm.util.Csv;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,6 +60,30 @@ public class ManagerInventoryController {
     @GetMapping("/reports/inventory")
     public InventoryReportService.View inventoryReport() {
         return reports.report();
+    }
+
+    @GetMapping("/inventory/movements.csv")
+    public ResponseEntity<String> movementsCsv(
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to) {
+        List<String> rows = new java.util.ArrayList<>();
+        rows.add(Csv.line("id", "createdAt", "productId", "productName", "type", "quantity",
+            "stockBefore", "stockAfter", "actor", "note"));
+        inventory.exportMovements(productId, type, from, to).forEach(movement -> rows.add(Csv.line(
+            movement.id(), movement.createdAt(), movement.productId(), movement.productName(), movement.type(),
+            movement.quantity(), movement.stockBefore(), movement.stockAfter(), movement.actorName(), movement.note())));
+        return Csv.response("the-kho.csv", rows);
+    }
+
+    @GetMapping("/reports/inventory.csv")
+    public ResponseEntity<String> inventoryCsv() {
+        List<String> rows = new java.util.ArrayList<>();
+        rows.add(Csv.line("productId", "name", "category", "stock", "unitCost", "value"));
+        reports.report().products().forEach(product -> rows.add(Csv.line(product.productId(), product.name(),
+            product.category(), product.stock(), product.unitCost(), product.value())));
+        return Csv.response("ton-kho.csv", rows);
     }
 
     @PostMapping("/stocktakes")
