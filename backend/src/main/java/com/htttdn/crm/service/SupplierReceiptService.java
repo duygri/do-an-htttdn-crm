@@ -47,6 +47,7 @@ public class SupplierReceiptService {
         if(request==null||request.items()==null||request.items().isEmpty())throw bad("Phiếu nhập hàng phải có ít nhất một dòng sản phẩm.");
         if(request.invoiceDate().isAfter(LocalDate.now().plusDays(1)))throw bad("Ngày hóa đơn không hợp lệ.");
         Supplier supplier=suppliers.findById(request.supplierId()).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"SUPPLIER_NOT_FOUND","Không tìm thấy nhà cung cấp."));
+        if(!supplier.active)throw new ApiException(HttpStatus.CONFLICT,"SUPPLIER_INACTIVE","Nhà cung cấp đã ngừng hợp tác, không thể tạo phiếu nhập mới.");
         SupplierReceipt receipt=new SupplierReceipt();
         receipt.setSupplier(supplier);
         receipt.setInvoiceNumber(request.invoiceNumber().trim());

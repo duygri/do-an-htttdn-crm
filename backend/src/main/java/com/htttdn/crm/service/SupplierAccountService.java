@@ -92,8 +92,16 @@ public class SupplierAccountService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PaymentView> payments(Long supplierId, int page, int size) {
+    public List<ReceiptRow> allReceipts(Long supplierId) {
         supplier(supplierId);
+        return receipts.findAll((root, query, cb) -> cb.equal(root.get("supplier").get("id"), supplierId),
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "invoiceDate")
+                    .and(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id")))
+            .stream().map(this::receiptRow).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PaymentView> payments(Long supplierId, int page, int size) {        supplier(supplierId);
         if (page < 0 || size < 1 || size > 100) throw bad("INVALID_PAGINATION", "Phân trang không hợp lệ.");
         return payments.findBySupplierIdOrderByPaidAtDescIdDesc(supplierId, PageRequest.of(page, size))
             .map(this::paymentView);

@@ -29,5 +29,5 @@ public class DirectoryService {
   if(!code.matches("[A-Z0-9_-]{1,40}")||suppliers.existsByCodeIgnoreCaseAndIdNot(code,id==null?-1L:id))throw VoucherService.bad("INVALID_SUPPLIER_CODE","Mã nhà cung cấp không hợp lệ hoặc đã tồn tại.");
   s.code=code;s.name=input.name.trim();s.email=input.email;s.phone=input.phone;s.address=input.address;s.notes=input.notes;s.active=input.active;return suppliers.save(s);
  }
- @Transactional public Product assign(Long productId,Long supplierId){Product p=products.findLockedById(productId).orElseThrow();if(supplierId!=null&&!suppliers.existsById(supplierId))throw VoucherService.bad("SUPPLIER_NOT_FOUND","Không tìm thấy nhà cung cấp.");p.setSupplierId(supplierId);return products.save(p);}
+ @Transactional public Product assign(Long productId,Long supplierId){Product p=products.findLockedById(productId).orElseThrow();if(supplierId!=null){Supplier s=suppliers.findById(supplierId).orElseThrow(()->VoucherService.bad("SUPPLIER_NOT_FOUND","Không tìm thấy nhà cung cấp."));if(!s.active)throw new com.htttdn.crm.exception.ApiException(org.springframework.http.HttpStatus.CONFLICT,"SUPPLIER_INACTIVE","Nhà cung cấp đã ngừng hợp tác, không thể gán sản phẩm mới.");}p.setSupplierId(supplierId);return products.save(p);}
 }

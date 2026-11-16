@@ -2,10 +2,14 @@ package com.htttdn.crm.service;
 
 import com.htttdn.crm.entity.*;
 import com.htttdn.crm.exception.ApiException;
+import com.htttdn.crm.security.JwtTokenService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -14,12 +18,17 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:supplieraccounts;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","spring.datasource.driver-class-name=org.h2.Driver","spring.datasource.username=sa","spring.datasource.password=","spring.jpa.database-platform=org.hibernate.dialect.H2Dialect","spring.jpa.hibernate.ddl-auto=create-drop","crm.care-reminders.enabled=false"})
+@AutoConfigureMockMvc
 @Transactional
 class SupplierAccountIntegrationTest {
     @Autowired SupplierAccountService accounts;
     @Autowired EntityManager em;
+    @Autowired MockMvc mvc;
+    @Autowired JwtTokenService jwt;
 
     User user(String role) {
         var user = new User();
@@ -152,5 +161,85 @@ class SupplierAccountIntegrationTest {
             () -> accounts.detail(999999L));
         assertEquals("SUPPLIER_NOT_FOUND", unknownSupplier.code());
         assertThrows(ApiException.class, () -> accounts.payments(999999L, 0, 20));
+    }
+
+    @Test void detailAndPaymentEndpointsRequireManagerRole() throws Exception {
+        var supplier = supplier();
+        var product = product(supplier, "Áo E", 2);
+        var receipt = receipt(supplier, product, "40000.00");
+        em.flush();
+        var manager = jwt.issue(user("MANAGER").getId(), "MANAGER");
+        var customer = jwt.issue(user("CUSTOMER").getId(), "CUSTOMER");
+
+        mvc.perform(get("/api/manager/suppliers/" + supplier.id).header("Authorization", "Bearer " + manager))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(supplier.code))
+            .andExpect(jsonPath("$.outstanding").value(40000.00))
+            .andExpect(jsonPath("$.products.length()").value(1));
+        mvc.perform(get("/api/manager/suppliers/" + supplier.id).header("Authorization", "Bearer " + customer))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/manager/suppliers/" + supplier.id)).andExpect(status().isUnauthorized());
+
+        mvc.perform(post("/api/manager/suppliers/" + supplier.id + "/payments")
+                .header("Authorization", "Bearer " + manager)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"receiptId\":" + receipt.getId() + ",\"amount\":15000,\"paidAt\":\"2026-11-10\",\"method\":\"CASH\",\"note\":\"Tiền mặt\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.amount").value(15000.00))
+            .andExpect(jsonPath("$.method").value("CASH"));
+        mvc.perform(get("/api/manager/suppliers/" + supplier.id + "/payments")
+                .header("Authorization", "Bearer " + manager))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].receiptNumber").value(receipt.getInvoiceNumber()));
+    }
+
+    @Test void archivedSupplierBlocksAssignmentAndReceiptsButKeepsPayables() throws Exception {
+        var supplier = supplier();
+        var product = product(supplier, "Áo F", 3);
+        var receipt = receipt(supplier, product, "25000.00");
+        em.flush();
+        var manager = jwt.issue(user("MANAGER").getId(), "MANAGER");
+
+        mvc.perform(patch("/api/manager/suppliers/" + supplier.id + "/status")
+                .header("Authorization", "Bearer " + manager)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"active\":false}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.active").value(false));
+        mvc.perform(patch("/api/manager/suppliers/" + supplier.id + "/status")
+                .header("Authorization", "Bearer " + manager)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"active\":false}"))
+            .andExpect(status().isOk());
+
+        mvc.perform(patch("/api/manager/products/" + product.getId() + "/supplier")
+                .header("Authorization", "Bearer " + manager)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"supplierId\":" + supplier.id + "}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("SUPPLIER_INACTIVE"));
+        mvc.perform(post("/api/manager/supplier-receipts")
+                .header("Authorization", "Bearer " + manager)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"supplierId\":" + supplier.id + ",\"invoiceNumber\":\"HD-NEW\",\"invoiceDate\":\"2026-11-12\",\"items\":[{\"productId\":" + product.getId() + ",\"quantity\":1,\"unitCost\":1000}]}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("SUPPLIER_INACTIVE"));
+
+        mvc.perform(get("/api/manager/suppliers/" + supplier.id).header("Authorization", "Bearer " + manager))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.active").value(false));
+        mvc.perform(post("/api/manager/suppliers/" + supplier.id + "/payments")
+                .header("Authorization", "Bearer " + manager)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"receiptId\":" + receipt.getId() + ",\"amount\":5000,\"paidAt\":\"2026-11-12\",\"method\":\"BANK_TRANSFER\"}"))
+            .andExpect(status().isCreated());
+
+        var csv = mvc.perform(get("/api/manager/suppliers/" + supplier.id + "/reports/summary.csv")
+                .header("Authorization", "Bearer " + manager))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith("text/csv"))
+            .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("cong-no-ncc.csv")))
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(csv.startsWith("\uFEFF"));
+        assertTrue(csv.contains("receiptId,invoiceNumber,invoiceDate,totalAmount,paidAmount,outstanding"));
+        assertTrue(csv.contains(receipt.getInvoiceNumber() + ",2026-11-01,25000.00,5000.00,20000.00"));
     }
 }
