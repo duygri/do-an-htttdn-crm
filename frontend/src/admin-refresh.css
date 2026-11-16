@@ -1,0 +1,302 @@
+/* ============================================================
+   Admin Cockpit Refresh — lớp thắng cuối cùng trong cascade.
+   Import SAU admin-aurora.css. Mọi rule scope
+   .admin-shell.internal-portal (KHÔNG rule trần — Manager dùng
+   .admin-shell.manager-shell, thiếu .internal-portal nên an toàn).
+   Cấm !important: active nav link đã có background/color
+   !important ở internal-portal.css — chỉ đè thuộc tính còn lại.
+   ============================================================ */
+
+/* ---------- 1. Tokens ---------- */
+.admin-shell.internal-portal {
+  --adm-radius-pill: 13px;
+  --adm-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --adm-speed: 0.15s ease;
+  --adm-text-xs: 11px;
+  --adm-text-sm: 12.5px;
+  --adm-text-base: 14px;
+  --adm-text-lg: 15px;
+  --adm-text-h1: 22px;
+  --adm-track-tight: -0.02em;
+  --adm-track-caps: 0.14em;
+  --adm-ink: #e6e9fb;
+  --adm-ink-dim: #aab3e6;
+  --adm-eyebrow: #8b93c9;
+  --adm-violet: #635bff;
+  --adm-cyan: #27c5d2;
+
+  /* Bóng nâng cấp: tint indigo thay đen trần */
+  --admin-shadow-sm: 0 1px 2px rgb(38 42 92 / 6%), 0 8px 24px rgb(38 42 92 / 7%);
+  --admin-shadow-md: 0 14px 38px rgb(38 42 92 / 13%), 0 2px 8px rgb(38 42 92 / 6%);
+  --admin-shadow-lg: 0 30px 80px rgb(38 42 92 / 24%), 0 6px 18px rgb(38 42 92 / 11%);
+}
+
+.admin-shell.internal-portal[data-theme="dark"] {
+  --admin-shadow-sm: 0 1px 2px rgb(0 0 0 / 28%), 0 8px 26px rgb(0 0 0 / 22%);
+  --admin-shadow-md: 0 18px 44px rgb(0 0 0 / 34%), 0 3px 10px rgb(0 0 0 / 26%);
+  --admin-shadow-lg: 0 34px 90px rgb(0 0 0 / 46%), 0 8px 22px rgb(0 0 0 / 32%);
+}
+
+/* ---------- 2. Pseudo-header — thay "ADMIN HỆ THỐNG" ---------- */
+.admin-shell.internal-portal .internal-nav::before {
+  content: "ĐIỀU HÀNH";
+  display: block;
+  margin: 2px 0 8px;
+  padding: 0 13px;
+  color: var(--adm-eyebrow);
+  font: 700 10.5px/1 "Manrope", system-ui, sans-serif;
+  letter-spacing: var(--adm-track-caps);
+  text-transform: uppercase;
+  user-select: none;
+}
+
+/* ---------- 3. Sidebar chrome — indigo đêm, cả 2 theme ---------- */
+.admin-shell.internal-portal .internal-sidebar {
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgb(99 91 255 / 16%), transparent 55%),
+    radial-gradient(120% 50% at 100% 100%, rgb(39 197 210 / 7%), transparent 55%),
+    linear-gradient(180deg, #101736, #0a0f24);
+  color: var(--adm-ink);
+  border-right: 1px solid rgb(99 91 255 / 14%);
+  box-shadow: inset -1px 0 0 rgb(99 91 255 / 6%), 14px 0 34px rgb(5 8 22 / 20%);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  /* Thumb scrollbar riêng cho rail tối, ghi đè token portal */
+  --sb-thumb: #2c3560;
+  --sb-thumb-hover: #3d4780;
+  --sb-thumb-active: #9c96ff;
+  --sb-track: transparent;
+}
+
+/* ---------- 4. Brand + collapse toggle ---------- */
+.admin-shell.internal-portal .internal-brand-icon {
+  background: linear-gradient(135deg, #635bff, #4638d6);
+  color: #f2f1ff;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgb(99 91 255 / 30%), 0 6px 18px rgb(99 91 255 / 30%);
+}
+
+.admin-shell.internal-portal .internal-brand-title h2 {
+  color: var(--adm-ink);
+  font-size: var(--adm-text-lg);
+  font-weight: 800;
+  letter-spacing: var(--adm-track-tight);
+}
+
+.admin-shell.internal-portal .internal-brand-title small { color: var(--adm-eyebrow); }
+
+.admin-shell.internal-portal .internal-collapse-toggle {
+  color: var(--adm-ink-dim);
+  border: 1px solid rgb(99 91 255 / 20%);
+  border-radius: var(--adm-radius-pill);
+  background: rgb(99 91 255 / 7%);
+  transition: background var(--adm-speed), color var(--adm-speed), border-color var(--adm-speed);
+}
+
+.admin-shell.internal-portal .internal-collapse-toggle:hover {
+  background: rgb(99 91 255 / 15%);
+  color: #eef0ff;
+  border-color: rgb(99 91 255 / 34%);
+}
+
+/* ---------- 5. Nav links ---------- */
+.admin-shell.internal-portal .internal-nav-link {
+  color: var(--adm-ink-dim);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--adm-radius-pill);
+  transition:
+    background var(--adm-speed),
+    color var(--adm-speed),
+    box-shadow var(--adm-speed),
+    transform var(--adm-speed);
+}
+
+.admin-shell.internal-portal .internal-nav-link:hover {
+  background: rgb(99 91 255 / 13%);
+  color: #eef0ff;
+}
+
+.admin-shell.internal-portal .internal-nav-link:active { transform: scale(0.985); }
+
+/* Active: background/color bị !important khóa ở internal-portal.css
+   (solid violet — đẹp trên nền indigo) → chỉ đè phần còn lại */
+.admin-shell.internal-portal .internal-nav-link[aria-current="page"],
+.admin-shell.internal-portal .internal-nav-link.active {
+  border-radius: var(--adm-radius-pill);
+  box-shadow:
+    0 4px 16px rgb(99 91 255 / 38%),
+    inset 0 0 0 1px rgb(255 255 255 / 18%);
+}
+
+/* ---------- 6. Divider + section title + external links ---------- */
+.admin-shell.internal-portal .internal-sidebar-divider {
+  background: rgb(99 91 255 / 13%);
+  margin: 12px 13px;
+}
+
+.admin-shell.internal-portal .internal-sidebar-section-title {
+  color: var(--adm-eyebrow);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: var(--adm-track-caps);
+  padding: 0 13px;
+}
+
+.admin-shell.internal-portal .internal-nav-link.external { color: var(--adm-eyebrow); }
+
+.admin-shell.internal-portal .internal-nav-link.external:hover { color: #eef0ff; }
+
+.admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-sidebar-divider,
+.admin-shell.internal-portal .internal-sidebar.is-collapsed .internal-sidebar-section-title {
+  display: none;
+}
+
+/* ---------- 7. Footer ---------- */
+.admin-shell.internal-portal .internal-user-card {
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(99 91 255 / 14%);
+  border-radius: 14px;
+}
+
+.admin-shell.internal-portal .internal-user-avatar {
+  background: linear-gradient(135deg, #635bff, #4638d6);
+  color: #f2f1ff;
+}
+
+.admin-shell.internal-portal .internal-user-card small { color: var(--adm-eyebrow); }
+
+.admin-shell.internal-portal .internal-logout-btn {
+  color: #c3b8e8;
+  border: 1px solid transparent;
+  border-radius: var(--adm-radius-pill);
+  transition: background var(--adm-speed), color var(--adm-speed), border-color var(--adm-speed);
+}
+
+.admin-shell.internal-portal .internal-logout-btn:hover {
+  background: rgb(228 84 107 / 12%);
+  color: #f3a8b6;
+  border-color: rgb(228 84 107 / 26%);
+}
+
+/* ---------- 8. Topbar ---------- */
+.admin-shell.internal-portal .internal-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: color-mix(in srgb, var(--admin-bg) 78%, transparent);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-shell.internal-portal .internal-header h1 {
+  font-size: var(--adm-text-h1);
+  font-weight: 800;
+  letter-spacing: var(--adm-track-tight);
+}
+
+.admin-shell.internal-portal .internal-breadcrumb { font-size: var(--adm-text-sm); }
+
+.admin-shell.internal-portal .internal-live-badge { color: var(--admin-muted); }
+
+.admin-shell.internal-portal .internal-live-badge i {
+  background: var(--adm-cyan);
+  box-shadow: 0 0 0 3px rgb(39 197 210 / 18%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .admin-shell.internal-portal .internal-live-badge i { animation: adm-pulse 2.4s ease-in-out infinite; }
+}
+
+@keyframes adm-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgb(39 197 210 / 18%); }
+  50% { box-shadow: 0 0 0 6px rgb(39 197 210 / 6%); }
+}
+
+.admin-shell.internal-portal .internal-theme-toggle {
+  border-radius: 11px;
+  transition:
+    border-color var(--adm-speed),
+    box-shadow var(--adm-speed),
+    transform var(--adm-speed);
+}
+
+.admin-shell.internal-portal .internal-theme-toggle:hover {
+  border-color: var(--admin-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-primary) 18%, transparent);
+  transform: translateY(-1px);
+}
+
+/* ---------- 9. Hero, KPI, cards, tables, dialogs ---------- */
+.admin-shell.internal-portal .internal-kpi-card,
+.admin-shell.internal-portal .admin-card {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  box-shadow: var(--admin-shadow-sm);
+  transition:
+    box-shadow var(--adm-speed),
+    transform var(--adm-speed),
+    border-color var(--adm-speed);
+}
+
+.admin-shell.internal-portal .internal-kpi-card:hover,
+.admin-shell.internal-portal .admin-card:hover {
+  box-shadow: var(--admin-shadow-md);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--admin-primary) 30%, var(--admin-border));
+}
+
+.admin-shell.internal-portal .admin-table-wrap {
+  border-radius: var(--admin-radius-lg);
+  border: 1px solid var(--admin-border);
+  box-shadow: var(--admin-shadow-sm);
+  overflow: hidden;
+}
+
+.admin-shell.internal-portal .admin-table-wrap th {
+  font-size: var(--adm-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--adm-track-caps);
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--admin-text) 58%, transparent);
+  background: color-mix(in srgb, var(--admin-input) 55%, transparent);
+  padding: 11px 16px;
+}
+
+.admin-shell.internal-portal .admin-table-wrap td {
+  font-size: var(--adm-text-base);
+  padding: 13px 16px;
+}
+
+.admin-shell.internal-portal [role="dialog"] {
+  border-radius: var(--admin-radius-xl);
+  box-shadow: var(--admin-shadow-lg);
+  border: 1px solid var(--admin-border);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .admin-shell.internal-portal [role="dialog"] { animation: adm-dialog-in 0.22s var(--adm-ease-out); }
+}
+
+@keyframes adm-dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- 10. Login ---------- */
+.admin-shell.internal-portal .internal-login {
+  background:
+    radial-gradient(90% 70% at 12% 8%, rgb(99 91 255 / 18%), transparent 60%),
+    radial-gradient(80% 60% at 88% 92%, rgb(39 197 210 / 10%), transparent 55%),
+    linear-gradient(160deg, #0d1330, #070b1c);
+}
+
+.admin-shell.internal-portal .internal-login {
+  background-color: color-mix(in srgb, #141b3d 82%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgb(99 91 255 / 18%);
+  border-radius: var(--admin-radius-xl);
+  box-shadow: var(--admin-shadow-lg);
+}
