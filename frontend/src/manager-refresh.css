@@ -1,0 +1,327 @@
+/* ============================================================
+   Manager Cockpit Refresh — lớp thắng cuối cùng trong cascade.
+   Import SAU manager-cockpit.css. Mọi rule scope
+   .manager-shell.admin-shell / .manager-login.admin-login
+   để không leak sang Admin portal. Không dùng !important.
+   ============================================================ */
+
+/* ---------- 1. Tokens ---------- */
+.manager-shell.admin-shell,
+.manager-login.admin-login {
+  --mgr-font-display: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mgr-text-xs: 11px;
+  --mgr-text-sm: 12.5px;
+  --mgr-text-base: 14px;
+  --mgr-text-lg: 15px;
+  --mgr-text-h1: 22px;
+  --mgr-track-tight: -0.02em;
+  --mgr-track-nav: 0.01em;
+  --mgr-track-caps: 0.14em;
+  --mgr-sp-1: 4px;
+  --mgr-sp-2: 8px;
+  --mgr-sp-3: 12px;
+  --mgr-sp-4: 16px;
+  --mgr-sp-6: 24px;
+  --mgr-sp-8: 32px;
+  --mgr-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --mgr-speed: 0.15s ease;
+  --mgr-radius-pill: 13px;
+  --mgr-accent: #59d5a9;
+  --mgr-accent-2: #55c9c0;
+
+  /* Bóng nâng cấp: tint xanh lá thay về đen trần */
+  --admin-shadow-sm: 0 1px 2px rgb(16 40 32 / 5%), 0 8px 24px rgb(16 40 32 / 6%);
+  --admin-shadow-md: 0 14px 38px rgb(16 40 32 / 12%), 0 2px 8px rgb(16 40 32 / 6%);
+  --admin-shadow-lg: 0 30px 80px rgb(16 40 32 / 22%), 0 6px 18px rgb(16 40 32 / 10%);
+}
+
+.manager-shell.admin-shell[data-theme="dark"] {
+  --admin-shadow-sm: 0 1px 2px rgb(0 0 0 / 26%), 0 8px 26px rgb(0 0 0 / 20%);
+  --admin-shadow-md: 0 18px 44px rgb(0 0 0 / 32%), 0 3px 10px rgb(0 0 0 / 24%);
+  --admin-shadow-lg: 0 34px 90px rgb(0 0 0 / 44%), 0 8px 22px rgb(0 0 0 / 30%);
+}
+
+/* ---------- 2. Gỡ pseudo-header "WORKSPACE" ---------- */
+.manager-shell.admin-shell .admin-sidebar nav::before { content: none; }
+
+/* ---------- 3. Sidebar chrome — evergreen tối ở cả hai theme ---------- */
+.manager-shell.admin-shell .admin-sidebar {
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgb(89 213 169 / 14%), transparent 55%),
+    radial-gradient(120% 50% at 100% 100%, rgb(85 201 192 / 8%), transparent 55%),
+    linear-gradient(180deg, #0c1a15, #08110d);
+  color: #e8f3ee;
+  border-right: 1px solid rgb(89 213 169 / 10%);
+  box-shadow: inset -1px 0 0 rgb(89 213 169 / 6%), 14px 0 34px rgb(6 14 11 / 18%);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  /* Thumb scrollbar riêng cho rail tối, ghi đè token portal */
+  --sb-thumb: #2e4f43;
+  --sb-thumb-hover: #3d6154;
+  --sb-thumb-active: #59d5a9;
+  --sb-track: transparent;
+}
+
+.manager-shell.admin-shell[data-theme="dark"] .admin-sidebar {
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgb(89 213 169 / 12%), transparent 55%),
+    radial-gradient(120% 50% at 100% 100%, rgb(85 201 192 / 7%), transparent 55%),
+    linear-gradient(180deg, #08120e, #050b09);
+}
+
+.manager-shell.admin-shell .admin-sidebar .admin-brand,
+.manager-shell.admin-shell .admin-sidebar .manager-sidebar-footer {
+  color: #e8f3ee;
+}
+
+.manager-shell.admin-shell .admin-sidebar .admin-brand small { color: #7d998d; }
+
+.manager-shell.admin-shell .admin-brand-mark {
+  background: linear-gradient(135deg, #59d5a9, #2f8f6f);
+  color: #06110c;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgb(89 213 169 / 28%), 0 6px 18px rgb(89 213 169 / 24%);
+}
+
+/* Nút thu gọn sidebar → ghost chip */
+.manager-shell.admin-shell .admin-collapse-toggle {
+  color: #8fae9f;
+  border: 1px solid rgb(89 213 169 / 16%);
+  border-radius: var(--mgr-radius-pill);
+  background: rgb(89 213 169 / 6%);
+  transition: background var(--mgr-speed), color var(--mgr-speed), border-color var(--mgr-speed);
+}
+
+.manager-shell.admin-shell .admin-collapse-toggle:hover {
+  background: rgb(89 213 169 / 14%);
+  color: #d9efe5;
+  border-color: rgb(89 213 169 / 30%);
+}
+
+/* Footer / profile / logout chuyển palette dark-chrome */
+.manager-shell.admin-shell .manager-sidebar-footer {
+  border-top: 1px solid rgb(89 213 169 / 12%);
+}
+
+.manager-shell.admin-shell .admin-profile > span {
+  background: rgb(89 213 169 / 14%);
+  color: #7fe3bd;
+  border: 1px solid rgb(89 213 169 / 22%);
+}
+
+.manager-shell.admin-shell .admin-profile b { color: #e8f3ee; }
+.manager-shell.admin-shell .admin-profile small { color: #7d998d; }
+
+.manager-shell.admin-shell .admin-logout {
+  color: #a9c2b7;
+  border-radius: var(--mgr-radius-pill);
+  border: 1px solid transparent;
+}
+
+.manager-shell.admin-shell .admin-logout:hover {
+  background: rgb(224 122 95 / 10%);
+  color: #f2b8a4;
+  border-color: rgb(224 122 95 / 22%);
+}
+
+/* ---------- 4. Nav buttons ---------- */
+.manager-shell.admin-shell .admin-sidebar nav { padding: var(--mgr-sp-2) var(--mgr-sp-3); gap: 2px; }
+
+.manager-shell.admin-shell .admin-sidebar nav button {
+  position: relative;
+  color: #a9c2b7;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: var(--mgr-track-nav);
+  border-radius: var(--mgr-radius-pill);
+  padding: 9px 13px;
+  transition:
+    background var(--mgr-speed),
+    color var(--mgr-speed),
+    box-shadow var(--mgr-speed),
+    transform var(--mgr-speed);
+}
+
+.manager-shell.admin-shell .admin-sidebar nav button:hover {
+  background: rgb(89 213 169 / 10%);
+  color: #eef7f2;
+}
+
+.manager-shell.admin-shell .admin-sidebar nav button:active { transform: scale(0.985); }
+
+.manager-shell.admin-shell .admin-sidebar nav button.active {
+  background: linear-gradient(120deg, rgb(89 213 169 / 20%), rgb(85 201 192 / 10%));
+  color: #7fe3bd;
+  box-shadow:
+    inset 0 0 0 1px rgb(89 213 169 / 26%),
+    0 4px 14px rgb(89 213 169 / 12%);
+}
+
+.manager-shell.admin-shell .admin-sidebar nav button.active svg { color: var(--mgr-accent); }
+
+/* ---------- 5. Group labels ---------- */
+.manager-shell.admin-shell .manager-nav-group-label {
+  margin: 14px 0 6px;
+  padding: 0 13px;
+  font-size: var(--mgr-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--mgr-track-caps);
+  text-transform: uppercase;
+  color: #6f8a7f;
+  user-select: none;
+}
+
+.manager-shell.admin-shell .admin-sidebar.is-collapsed .manager-nav-group-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Collapsed: nút căn giữa, bỏ padding ngang lớn */
+.manager-shell.admin-shell .admin-sidebar.is-collapsed nav button { padding: 9px 0; justify-content: center; }
+
+/* ---------- 7. Topbar ---------- */
+.manager-shell.admin-shell .admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: color-mix(in srgb, var(--admin-bg) 78%, transparent);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border-bottom: 1px solid var(--admin-border);
+  padding: 10px var(--mgr-sp-6);
+}
+
+.manager-shell .admin-breadcrumb { font-size: var(--mgr-text-sm); }
+
+.manager-shell.admin-shell .admin-theme-toggle,
+.manager-shell.admin-shell .admin-topbar a {
+  border-radius: 11px;
+  transition:
+    border-color var(--mgr-speed),
+    box-shadow var(--mgr-speed),
+    background var(--mgr-speed),
+    transform var(--mgr-speed);
+}
+
+.manager-shell.admin-shell .admin-theme-toggle:hover,
+.manager-shell.admin-shell .admin-topbar a:hover {
+  border-color: var(--admin-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-primary) 18%, transparent);
+  transform: translateY(-1px);
+}
+
+/* ---------- 8. Cards, heading, tables, dialogs ---------- */
+.manager-shell.admin-shell .admin-card {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  box-shadow: var(--admin-shadow-sm);
+  transition:
+    box-shadow var(--mgr-speed),
+    transform var(--mgr-speed),
+    border-color var(--mgr-speed);
+}
+
+.manager-shell.admin-shell .admin-card:hover {
+  box-shadow: var(--admin-shadow-md);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--admin-primary) 30%, var(--admin-border));
+}
+
+.manager-shell .admin-page-heading h1 {
+  font-family: var(--mgr-font-display);
+  font-size: var(--mgr-text-h1);
+  font-weight: 800;
+  letter-spacing: var(--mgr-track-tight);
+}
+
+.manager-shell.admin-shell .admin-table-wrap {
+  border-radius: var(--admin-radius-lg);
+  box-shadow: var(--admin-shadow-sm);
+  border: 1px solid var(--admin-border);
+  overflow: hidden;
+}
+
+.manager-shell.admin-shell .admin-table-wrap th {
+  font-size: var(--mgr-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--mgr-track-caps);
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--admin-text) 58%, transparent);
+  background: color-mix(in srgb, var(--admin-input) 55%, transparent);
+  padding: 11px var(--mgr-sp-4);
+}
+
+.manager-shell.admin-shell .admin-table-wrap td {
+  font-size: var(--mgr-text-base);
+  padding: 13px var(--mgr-sp-4);
+}
+
+.manager-shell.admin-shell [role="dialog"] {
+  border-radius: var(--admin-radius-xl);
+  box-shadow: var(--admin-shadow-lg);
+  border: 1px solid var(--admin-border);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .manager-shell.admin-shell [role="dialog"] {
+    animation: mgr-dialog-in 0.22s var(--mgr-ease-out);
+  }
+}
+
+@keyframes mgr-dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- 9. Bell panels — sửa màu trắng hard-code ---------- */
+.manager-shell .manager-notice-panel {
+  background: var(--admin-card);
+  color: var(--admin-text);
+  border: 1px solid var(--admin-border);
+  box-shadow: var(--admin-shadow-lg);
+  border-radius: var(--admin-radius-lg);
+  backdrop-filter: none;
+}
+
+.manager-shell .manager-notice-panel h2 {
+  color: color-mix(in srgb, var(--admin-text) 72%, transparent);
+}
+
+.manager-shell .manager-notice-item,
+.manager-shell .manager-notice-panel .manager-notification-item {
+  background: var(--admin-input);
+  color: var(--admin-text);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  transition: border-color var(--mgr-speed), background var(--mgr-speed);
+}
+
+.manager-shell .manager-notice-item:hover,
+.manager-shell .manager-notice-panel .manager-notification-item:hover {
+  border-color: color-mix(in srgb, var(--admin-primary) 40%, var(--admin-border));
+}
+
+.manager-shell .manager-notice-panel .manager-notification-item strong { color: var(--admin-text); }
+.manager-shell .manager-notice-panel .manager-notification-item span { color: color-mix(in srgb, var(--admin-text) 72%, transparent); }
+.manager-shell .manager-notice-panel .manager-notification-item small { color: color-mix(in srgb, var(--admin-text) 52%, transparent); }
+
+/* ---------- 10. Login — viewport gradient + card glass ---------- */
+.manager-login.admin-login {
+  background:
+    radial-gradient(90% 70% at 12% 8%, rgb(89 213 169 / 16%), transparent 60%),
+    radial-gradient(80% 60% at 88% 92%, rgb(85 201 192 / 10%), transparent 55%),
+    linear-gradient(160deg, #0a1712, #050c09 70%);
+}
+
+.manager-login.admin-login .admin-login-card {
+  background: color-mix(in srgb, var(--admin-card, #0e1a16) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgb(89 213 169 / 16%);
+  border-radius: var(--admin-radius-xl, 28px);
+  box-shadow: var(--admin-shadow-lg, 0 34px 90px rgb(0 0 0 / 40%));
+}

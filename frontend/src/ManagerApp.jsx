@@ -59,7 +59,11 @@ import {
   Building2,
   ReceiptText,
   FileText,
-  Warehouse
+  Warehouse,
+  ListChecks,
+  ClipboardCheck,
+  BarChart3,
+  LifeBuoy
 } from "lucide-react";
 import {
   adminApi,
@@ -77,30 +81,55 @@ const money = (value) =>
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 const pageData = (value) => value?.content || [];
-const navItems = [
-  ["dashboard", "Tổng quan"],
-  ["users", "Khách hàng"],
-  ["care", "Chăm sóc khách hàng"],
-  ["my-tasks", "Việc của tôi"],
-  ["care-dashboard", "Hiệu quả chăm sóc"],
-  ["products", "Sản phẩm"],
-  ["suppliers", "Nhà cung cấp"],
-  ["supplier-receipts", "Phiếu nhập hàng"],
-  ["inventory", "Tồn kho"],
-  ["orders", "Đơn hàng"],
-  ["invoices", "Hóa đơn"],
-  ["feedback", "Phản hồi"],
-  ["support-tickets", "Phiếu hỗ trợ"],
-  ["surveys", "Khảo sát"],
-  ["reports", "Báo cáo"],
-  ["vouchers", "Mã giảm giá"],
+const navSections = [
+  { id: "workspace", label: "Tổng quan", items: [["dashboard", "Tổng quan"]] },
+  {
+    id: "crm",
+    label: "Khách hàng & CRM",
+    items: [
+      ["users", "Khách hàng"],
+      ["care", "Chăm sóc khách hàng"],
+      ["my-tasks", "Việc của tôi"],
+      ["care-dashboard", "Hiệu quả chăm sóc"],
+      ["feedback", "Phản hồi"],
+      ["support-tickets", "Phiếu hỗ trợ"],
+    ],
+  },
+  {
+    id: "catalog",
+    label: "Sản phẩm & Kho",
+    items: [
+      ["products", "Sản phẩm"],
+      ["suppliers", "Nhà cung cấp"],
+      ["supplier-receipts", "Phiếu nhập hàng"],
+      ["inventory", "Tồn kho"],
+    ],
+  },
+  {
+    id: "sales",
+    label: "Bán hàng",
+    items: [
+      ["orders", "Đơn hàng"],
+      ["invoices", "Hóa đơn"],
+      ["vouchers", "Mã giảm giá"],
+    ],
+  },
+  {
+    id: "insights",
+    label: "Báo cáo & Khảo sát",
+    items: [
+      ["surveys", "Khảo sát"],
+      ["reports", "Báo cáo"],
+    ],
+  },
 ];
+const navItems = navSections.flatMap((g) => g.items);
 const validSections = new Set(navItems.map(([key]) => key));
 const navIcons = {
   dashboard: LayoutDashboard,
   users: UsersIcon,
   care: ClipboardList,
-  'my-tasks': ClipboardList,
+  'my-tasks': ListChecks,
   'care-dashboard': Activity,
   products: Package,
   suppliers: Building2,
@@ -109,9 +138,9 @@ const navIcons = {
   orders: ShoppingCart,
   invoices: FileText,
   feedback: MessageSquare,
-  'support-tickets': MessageSquare,
-  surveys: ClipboardList,
-  reports: Activity,
+  'support-tickets': LifeBuoy,
+  surveys: ClipboardCheck,
+  reports: BarChart3,
   vouchers: TicketPercent,
 };
 const statusLabels = {
@@ -319,21 +348,28 @@ export default function ManagerApp() {
           </button>
         </div>
         <nav aria-label="Chức năng quản lý">
-          {navItems.map(([key, label]) => {
-            const Icon = navIcons[key];
-            return (
-              <button
-                key={key}
-                className={section === key ? "active" : ""}
-                aria-current={section === key ? "page" : undefined}
-                title={sidebarCollapsed ? label : undefined}
-                onClick={() => go(key)}
-              >
-                <Icon size={17} aria-hidden="true" />
-                <span className="admin-nav-label">{label}</span>
-              </button>
-            );
-          })}
+          {navSections.map((group) => (
+            <React.Fragment key={group.id}>
+              <p className="manager-nav-group-label" aria-hidden="true">
+                {group.label}
+              </p>
+              {group.items.map(([key, label]) => {
+                const Icon = navIcons[key];
+                return (
+                  <button
+                    key={key}
+                    className={section === key ? "active" : ""}
+                    aria-current={section === key ? "page" : undefined}
+                    title={sidebarCollapsed ? label : undefined}
+                    onClick={() => go(key)}
+                  >
+                    <Icon size={17} aria-hidden="true" />
+                    <span className="admin-nav-label">{label}</span>
+                  </button>
+                );
+              })}
+            </React.Fragment>
+          ))}
         </nav>
         <div className="manager-sidebar-footer">
         <div className="admin-profile">
