@@ -50,7 +50,7 @@ Manager mở **Hóa đơn** (`/manager/invoices`) hoặc bấm **Hóa đơn** tr
 - `POST /api/manager/orders/{id}/invoice` với body tùy chọn `{ "note": "..." }`.
 - Khách xem hóa đơn của đơn mình: `GET /api/orders/{id}/invoice`; đơn của người khác trả `404`.
 
-Số hóa đơn là `HD-<orderCode>`. Hóa đơn chụp lại người bán (cấu hình `app.invoice.seller-*`), người mua, địa chỉ giao, từng dòng sản phẩm, tạm tính, giảm giá và tổng tiền tại thời điểm phát hành. Không phát hành cho đơn `CANCELLED` hoặc đơn không có dòng sản phẩm. Giao diện hỗ trợ in trực tiếp bằng hộp thoại in của trình duyệt.
+Số hóa đơn là `HD-<orderCode>`. Hóa đơn chụp lại người bán (cấu hình trong **Admin → Cấu hình**, khóa `invoice.seller.*`), người mua, địa chỉ giao, từng dòng sản phẩm, tạm tính, giảm giá và tổng tiền tại thời điểm phát hành. Không phát hành cho đơn `CANCELLED` hoặc đơn không có dòng sản phẩm. Giao diện hỗ trợ in trực tiếp bằng hộp thoại in của trình duyệt.
 
 ## Gỡ hoàn tiền
 

@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:revenuereport;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","spring.datasource.driver-class-name=org.h2.Driver","spring.datasource.username=sa","spring.datasource.password=","spring.jpa.database-platform=org.hibernate.dialect.H2Dialect","spring.jpa.hibernate.ddl-auto=create-drop","crm.care-reminders.enabled=false"})
 @AutoConfigureMockMvc @Transactional
 class CashflowReportIntegrationTest {
-    @Autowired CashflowReportService report;@Autowired EntityManager em;@Autowired PaymentReconciliationService reconciliation;@Autowired MockMvc mvc;@Autowired JwtTokenService jwt;@Autowired SupplierReceiptService receipts;
+    @Autowired CashflowReportService report;@Autowired EntityManager em;@Autowired PaymentReconciliationService reconciliation;@Autowired MockMvc mvc;@Autowired JwtTokenService jwt;@Autowired SupplierReceiptService receipts;@Autowired SettingsService settings;
     final Instant from=Instant.parse("2026-09-30T17:00:00Z"),to=Instant.parse("2026-10-02T17:00:00Z");
     User user(String role){var u=new User();u.setEmail(UUID.randomUUID()+"@revenue.test");u.setFullName(role);u.setPhone("0900000000");u.setRole(role);u.setPasswordHash("test-only");em.persist(u);return u;}
     Order order(String method,String status,String payment,long total,Instant paid){var o=new Order();o.setCustomer(user("CUSTOMER"));o.setOrderCode(Math.abs(UUID.randomUUID().getLeastSignificantBits()%900000000000L));o.setPaymentMethod(method);o.setPaymentStatus(payment);o.setStatus(status);o.setTotalAmount(BigDecimal.valueOf(total));o.paidAt=paid;em.persist(o);return o;}
@@ -77,6 +77,33 @@ class CashflowReportIntegrationTest {
     @Test void firstConfirmationHasAnImmutableMilestoneAndLegacyPaidIsNotBackfilled(){
         var o=order("PAYOS","PENDING","PENDING",100000,null);var p=new Payment();p.setOrder(o);p.setAmount(o.getTotalAmount());em.persist(p);reconciliation.paid(o,p,null);Instant at=o.paidAt;assertNotNull(at);reconciliation.paid(o,p,null);assertEquals(at,o.paidAt);
         var legacy=order("PAYOS","COMPLETED","PAID",100000,null);var old=new Payment();old.setOrder(legacy);old.setAmount(legacy.getTotalAmount());old.setStatus("PAID");em.persist(old);reconciliation.paid(legacy,old,null);assertNull(legacy.paidAt);
+    }
+
+    Order invoiceOrder(long code,long total){
+        var o=new Order();o.setCustomer(user("CUSTOMER"));o.setOrderCode(code);o.setStatus("DELIVERED");o.setPaymentMethod("COD");o.setPaymentStatus("PAID");o.setTotalAmount(BigDecimal.valueOf(total));o.setDeliveryAddress("1 Đường thử");em.persist(o);
+        var c=new Category();c.setName("Category");em.persist(c);var p=new Product();p.setCategoryEntity(c);p.setName("Áo thử");p.setPrice(BigDecimal.valueOf(total));em.persist(p);
+        var line=new OrderItem();line.setOrder(o);line.setProduct(p);line.setQuantity(1);line.setUnitPrice(BigDecimal.valueOf(total));o.getItems().add(line);em.persist(line);
+        em.flush();return o;
+    }
+
+    @Test void invoiceSellerSnapshotComesFromSystemSettings() throws Exception {
+        var admin=user("ADMIN");
+        var manager=jwt.issue(user("MANAGER").getId(),"MANAGER");
+        var first=invoiceOrder(990011L,100000);
+        mvc.perform(post("/api/manager/orders/"+first.getId()+"/invoice").header("Authorization","Bearer "+manager).contentType("application/json").content("{}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.sellerName").value("Anh Lon Shop"))
+            .andExpect(jsonPath("$.sellerAddress").value(org.hamcrest.Matchers.nullValue()));
+        settings.update(java.util.Map.of("invoice.seller.name","Shop Test","invoice.seller.address","1 Đường Test"),
+            new AuditTrail.Actor(admin.getId(),admin.getFullName(),"ADMIN"));
+        var second=invoiceOrder(990012L,200000);
+        mvc.perform(post("/api/manager/orders/"+second.getId()+"/invoice").header("Authorization","Bearer "+manager).contentType("application/json").content("{}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.sellerName").value("Shop Test"))
+            .andExpect(jsonPath("$.sellerAddress").value("1 Đường Test"));
+        mvc.perform(get("/api/manager/orders/"+first.getId()+"/invoice").header("Authorization","Bearer "+manager))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.sellerName").value("Anh Lon Shop"));
     }
 
     @Test void managerIssuesOneSnapshotInvoiceAndCustomerCanReadIt()throws Exception{
