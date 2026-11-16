@@ -6,10 +6,10 @@ const EDITORIAL_IMAGE = '/images/figma/daily-uniform.png';
 export default function StorefrontHome({ products = [], onCatalog, onProduct, imageSrc = value => value }) {
   const featured = products.find(product => product.imageUrl) || null;
   return <>
-    <section className="shop-editorial" aria-label="Khám phá phong cách Anh Lớn Shop">
+    <section className="shop-editorial" aria-label="Khám phá phong cách Nova Shop">
       <div className="shop-editorial-copy">
-        <div className="shop-signal"><span>DROP 01</span><i>NEW SEASON / ANH LỚN</i></div>
-        <p className="shop-eyebrow"><span/> ANH LỚN / THE DAILY UNIFORM</p>
+        <div className="shop-signal"><span>DROP 01</span><i>NEW SEASON / NOVA SHOP</i></div>
+        <p className="shop-eyebrow"><span/> NOVA SHOP / THE DAILY UNIFORM</p>
         <h1>Mặc khác đi.<br/><em>Theo cách của anh.</em></h1>
         <p className="shop-editorial-description">Những phom dáng mới cho tủ đồ mỗi ngày — dễ mặc, có chủ đích và đủ khác biệt để được nhớ đến.</p>
         <div className="shop-editorial-actions"><button className="button shop-primary" onClick={() => onCatalog('')}>Khám phá sản phẩm <ArrowUpRight size={19}/></button><button className="shop-text-link" onClick={() => onCatalog('Áo thun')}>Bắt đầu với áo thun <ArrowRight size={17}/></button></div>
@@ -23,7 +23,7 @@ export default function StorefrontHome({ products = [], onCatalog, onProduct, im
         <img
           className="shop-editorial-image"
           src={featured ? imageSrc(featured.imageUrl) : EDITORIAL_IMAGE}
-          alt={featured ? featured.name : 'Phong cách menswear tối giản của Anh Lớn Shop'}
+          alt={featured ? featured.name : 'Phong cách menswear tối giản của Nova Shop'}
           fetchPriority="high"
           onError={event => {
             event.currentTarget.onerror = null;

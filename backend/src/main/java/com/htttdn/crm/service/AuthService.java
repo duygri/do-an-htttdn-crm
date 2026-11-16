@@ -60,7 +60,7 @@ public class AuthService {
         String code=deliver?Base64.getUrlEncoder().withoutPadding().encodeToString(bytes):String.format("%06d",new SecureRandom().nextInt(1_000_000));
         if(deliver){
             String link=mail.link("/dat-lai-mat-khau#email="+java.net.URLEncoder.encode(normalized,StandardCharsets.UTF_8)+"&code="+code);
-            try { mail.send(normalized,"ANH LỚN SHOP — Đặt lại mật khẩu","Mở liên kết để đặt lại mật khẩu:\n"+link+"\n\nLiên kết có hiệu lực "+resetCodeMinutes+" phút, dùng một lần. Nếu không yêu cầu, bạn có thể bỏ qua email này.","password-reset-"+UUID.randomUUID()); }
+            try { mail.send(normalized,"Nova Shop — Đặt lại mật khẩu","Mở liên kết để đặt lại mật khẩu:\n"+link+"\n\nLiên kết có hiệu lực "+resetCodeMinutes+" phút, dùng một lần. Nếu không yêu cầu, bạn có thể bỏ qua email này.","password-reset-"+UUID.randomUUID()); }
             catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Password reset email delivery failed"); return null; }
         }
         resetTokens.deleteByCustomerId(user.getId());resetTokens.flush();

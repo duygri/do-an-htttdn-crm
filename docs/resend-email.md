@@ -6,7 +6,7 @@ Website vẫn dùng `https://anhlonshop.onrender.com`; tên miền website độ
 
 - `RESEND_API_KEY`: khóa Sending access, chỉ nhập trong Render Environment. Không commit, không gửi vào chat.
 - `RESEND_ENABLED=true`.
-- `RESEND_FROM=ANH LỚN SHOP <onboarding@resend.dev>`.
+- `RESEND_FROM=Nova Shop <onboarding@resend.dev>`.
 - `RESEND_TEST_MODE=true` (mặc định).
 - `RESEND_TEST_RECIPIENT`: email đăng ký tài khoản Resend.
 - `PUBLIC_ORIGIN=https://anhlonshop.onrender.com`.

@@ -21,7 +21,7 @@ import java.util.*;
 public class TransactionalMail {
     @Value("${RESEND_API_KEY:}") private String apiKey;
     @Value("${RESEND_ENABLED:false}") private boolean enabled;
-    @Value("${RESEND_FROM:ANH LỚN SHOP <onboarding@resend.dev>}") private String from;
+    @Value("${RESEND_FROM:Nova Shop <onboarding@resend.dev>}") private String from;
     @Value("${RESEND_TEST_MODE:true}") private boolean testMode;
     @Value("${RESEND_TEST_RECIPIENT:}") private String testRecipient;
     @Value("${PUBLIC_ORIGIN:}") private String origin;

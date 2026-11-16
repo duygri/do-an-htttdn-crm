@@ -660,7 +660,7 @@ function App() {
     <div className={catalogPage ? "site-shell catalog-page" : `site-shell ${!checkoutPage && !ordersRoute && !extraPage ? 'shop-home-page' : ''}`} data-shop-theme={shopTheme}>
       <div className="announcement">
         <span>ĐỔI SIZE TRONG 30 NGÀY</span>
-        <span className="announcement-secondary">ANH LỚN / NEW FORM</span>
+        <span className="announcement-secondary">NOVA SHOP / NEW FORM</span>
       </div>
       <header className="site-header">
         <button
@@ -676,7 +676,7 @@ function App() {
           )}
         </button>
         <a className="wordmark" href="/" onClick={goHome}>
-          ANH LỚN <em>SHOP · MENSWEAR</em>
+          NOVA <em>SHOP · MENSWEAR</em>
         </a>
         <nav
           className={`main-nav ${mobileMenuOpen ? "is-open" : ""}`}
@@ -775,7 +775,7 @@ function App() {
                     goHome();
                   }}
                 >
-                  ANH LỚN <em>SHOP</em>
+                  NOVA <em>SHOP</em>
                 </a>
               </div>
               <button
@@ -1477,14 +1477,14 @@ function App() {
       <footer className="footer">
         <div className="footer-brand">
           <a className="wordmark" href="/" onClick={goHome}>
-            ANH LỚN <em>SHOP</em>
+            NOVA <em>SHOP</em>
           </a>
           <p>Thời trang nam tinh giản & hiện đại. Tỉ mỉ từ chất liệu, chuẩn phom dáng cho tủ đồ phái mạnh mỗi ngày.</p>
           <div className="footer-contact-details">
             <span>Hotline: <b>1900 6868</b> (8:30 – 22:00)</span>
             <span>Email: <b>cskh@anhlonshop.vn</b></span>
           </div>
-          <small>© 2026 ANH LỚN SHOP. BẢO LƯU MỌI QUYỀN.</small>
+          <small>© 2026 NOVA SHOP. BẢO LƯU MỌI QUYỀN.</small>
         </div>
         <div>
           <b>KHÁM PHÁ</b>

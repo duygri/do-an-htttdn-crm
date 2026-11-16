@@ -17,7 +17,7 @@ it('keeps the size-exchange announcement without a free-shipping promotion in bo
   const view = render(<App/>);
   const banner = view.container.querySelector('.announcement');
   expect(banner.textContent).toContain('ĐỔI SIZE TRONG 30 NGÀY');
-  expect(banner.textContent).toContain('ANH LỚN / NEW FORM');
+  expect(banner.textContent).toContain('NOVA SHOP / NEW FORM');
   expect(banner.textContent).not.toMatch(/699|miễn phí|freeship/i);
   fireEvent.click(screen.getByLabelText('Chuyển sang chế độ tối'));
   expect(banner.textContent).toContain('ĐỔI SIZE TRONG 30 NGÀY');
