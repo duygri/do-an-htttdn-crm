@@ -23,11 +23,13 @@ public class StockService {
     private final ProductRepository products;
     private final EntityManager em;
     private final StockMovementRepository movements;
+    private final InternalNoticeService notices;
 
-    public StockService(ProductRepository products, EntityManager em, StockMovementRepository movements) {
+    public StockService(ProductRepository products, EntityManager em, StockMovementRepository movements, InternalNoticeService notices) {
         this.products = products;
         this.em = em;
         this.movements = movements;
+        this.notices = notices;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -68,6 +70,7 @@ public class StockService {
             movement.setActorName(actor.name());
         }
         movements.save(movement);
+        notices.notifyLowStock(product, before, after);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

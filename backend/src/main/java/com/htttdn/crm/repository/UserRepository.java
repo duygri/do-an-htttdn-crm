@@ -15,4 +15,5 @@ public interface UserRepository extends JpaRepository<User,Long>, JpaSpecificati
     Page<User> findActiveCustomers(@org.springframework.data.repository.query.Param("q") String q, Pageable pageable);
     long countByRoleAndDeletedAtIsNull(String role);
     long countByRoleAndLockedTrueAndDeletedAtIsNull(String role);
+    List<User> findByRoleAndLockedFalseAndDeletedAtIsNull(String role);
 }

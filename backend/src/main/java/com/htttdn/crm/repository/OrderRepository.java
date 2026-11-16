@@ -21,4 +21,6 @@ public interface OrderRepository extends JpaRepository<Order,Long>, org.springfr
     boolean existsEligiblePurchase(@Param("customerId") Long customerId,@Param("productId") Long productId,@Param("statuses") Collection<String> statuses);
     @Query("select o from Order o where o.paymentMethod='PAYOS' and o.paymentStatus='PENDING' and o.status<>'CANCELLED' and o.expiresAt is not null and o.expiresAt<:now") List<Order> findExpiredPending(@Param("now") java.time.Instant now);
     @Query("select coalesce(sum(case when o.paymentMethod='PAYOS' and o.paymentStatus='PAID' then o.totalAmount when o.paymentMethod='COD' and o.codCollectedAt is not null then coalesce(o.codCollectedAmount,0) else 0 end),0) from Order o") java.math.BigDecimal revenue();
+    @Query("select count(o) from Order o where o.status in ('PENDING','CONFIRMED','PREPARING') and o.createdAt<:before")
+    long countStale(@Param("before") java.time.Instant before);
 }
