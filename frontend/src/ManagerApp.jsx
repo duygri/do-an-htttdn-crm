@@ -21,6 +21,7 @@ const RetentionReport = React.lazy(() => import('./RetentionReport'));
 const SupportTickets = React.lazy(()=>import('./SupportTickets'));
 const ManagerSuppliers = React.lazy(()=>import('./ManagerSuppliers'));
 const ManagerSupplierReceipts = React.lazy(()=>import('./ManagerSupplierReceipts'));
+const ManagerInventory = React.lazy(()=>import('./ManagerInventory'));
 const ManagerInvoices = React.lazy(()=>import('./ManagerInvoices'));
 const RevenueReport = React.lazy(()=>import('./RevenueReport'));
 import {
@@ -56,7 +57,8 @@ import {
   Sparkles,
   Building2,
   ReceiptText,
-  FileText
+  FileText,
+  Warehouse
 } from "lucide-react";
 import {
   adminApi,
@@ -82,6 +84,7 @@ const navItems = [
   ["products", "Sản phẩm"],
   ["suppliers", "Nhà cung cấp"],
   ["supplier-receipts", "Phiếu nhập hàng"],
+  ["inventory", "Tồn kho"],
   ["orders", "Đơn hàng"],
   ["invoices", "Hóa đơn"],
   ["feedback", "Phản hồi"],
@@ -100,6 +103,7 @@ const navIcons = {
   products: Package,
   suppliers: Building2,
   "supplier-receipts": ReceiptText,
+  inventory: Warehouse,
   orders: ShoppingCart,
   invoices: FileText,
   feedback: MessageSquare,
@@ -413,6 +417,7 @@ export default function ManagerApp() {
         {section === "products" && <Products notify={notify} />}{" "}
         {section === "suppliers" && <ManagerSuppliers />}
         {section === "supplier-receipts" && <ManagerSupplierReceipts />}
+        {section === "inventory" && <ManagerInventory />}
         {section === "orders" && <Orders notify={notify} />}{" "}
         {section === "invoices" && <ManagerInvoices />}
         {section === "feedback" && <Feedback notify={notify} />}{" "}
