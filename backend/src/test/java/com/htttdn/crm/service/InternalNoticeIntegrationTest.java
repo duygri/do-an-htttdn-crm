@@ -5,11 +5,14 @@ import com.htttdn.crm.entity.Order;
 import com.htttdn.crm.entity.Product;
 import com.htttdn.crm.entity.User;
 import com.htttdn.crm.repository.InternalNoticeRepository;
+import com.htttdn.crm.security.JwtTokenService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -18,8 +21,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:internalnotices;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","spring.datasource.driver-class-name=org.h2.Driver","spring.datasource.username=sa","spring.datasource.password=","spring.jpa.database-platform=org.hibernate.dialect.H2Dialect","spring.jpa.hibernate.ddl-auto=create-drop","crm.care-reminders.enabled=false","app.notices.enabled=false"})
+@AutoConfigureMockMvc
 @Transactional
 class InternalNoticeIntegrationTest {
     @Autowired InternalNoticeService notices;
@@ -27,6 +35,8 @@ class InternalNoticeIntegrationTest {
     @Autowired OperationsNoticeScheduler scheduler;
     @Autowired InternalNoticeRepository repo;
     @Autowired EntityManager em;
+    @Autowired MockMvc mvc;
+    @Autowired JwtTokenService jwt;
 
     User user(String role, boolean locked) {
         var user = new User();
@@ -108,5 +118,42 @@ class InternalNoticeIntegrationTest {
         InternalNotice notice = repo.findAll().get(0);
         assertEquals("STALE_ORDERS", notice.getNoticeType());
         assertEquals("/manager/orders", notice.getLink());
+    }
+
+    @Test void managersOnlySeeAndReadTheirOwnNoticesThroughTheApi() throws Exception {
+        var first = user("MANAGER", false);
+        var second = user("MANAGER", false);
+        var customer = user("CUSTOMER", false);
+        notices.notifyManagers("LOW_STOCK", "Sắp hết", "Áo sơ mi còn 3", "/manager/inventory", "LOW_STOCK:7:2026-11-16");
+        String firstToken = "Bearer " + jwt.issue(first.getId(), "MANAGER");
+        String secondToken = "Bearer " + jwt.issue(second.getId(), "MANAGER");
+
+        mvc.perform(get("/api/manager/notices").header("Authorization", firstToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.page.content.length()").value(1))
+            .andExpect(jsonPath("$.page.content[0].type").value("LOW_STOCK"))
+            .andExpect(jsonPath("$.unread").value(1));
+        mvc.perform(get("/api/manager/notices").header("Authorization", secondToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.page.content.length()").value(1));
+
+        Long firstNoticeId = repo.findAll().stream()
+            .filter(notice -> notice.getRecipient().getId().equals(first.getId()))
+            .findFirst().orElseThrow().getId();
+        mvc.perform(patch("/api/manager/notices/" + firstNoticeId + "/read").header("Authorization", secondToken))
+            .andExpect(status().isNotFound());
+        mvc.perform(patch("/api/manager/notices/" + firstNoticeId + "/read").header("Authorization", firstToken))
+            .andExpect(status().isNoContent());
+        mvc.perform(get("/api/manager/notices/summary").header("Authorization", firstToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.unreadCount").value(0));
+
+        mvc.perform(patch("/api/manager/notices/read-all").header("Authorization", secondToken))
+            .andExpect(status().isNoContent());
+        mvc.perform(get("/api/manager/notices/summary").header("Authorization", secondToken))
+            .andExpect(jsonPath("$.unreadCount").value(0));
+
+        mvc.perform(get("/api/manager/notices").header("Authorization", "Bearer " + jwt.issue(customer.getId(), "CUSTOMER")))
+            .andExpect(status().isForbidden());
     }
 }

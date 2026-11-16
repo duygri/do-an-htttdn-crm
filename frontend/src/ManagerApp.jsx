@@ -4,6 +4,7 @@ import ManagerOrderDetail from './ManagerOrderDetail';
 import SourceCareCreator from './SourceCareCreator';
 import ManagerMyTasks,{MyTaskSummary,CareTaskDetail} from './ManagerMyTasks';
 import ManagerNotificationBell from './ManagerNotificationBell';
+import ManagerNoticeBell from './ManagerNoticeBell';
 import CustomerLifecycle, {CustomerLifecycleFilters} from './CustomerLifecycle';
 import { useManagerResource, useManagerList, ManagerSyncStatus, useManagerReadPause } from "./useManagerResource";
 import {CustomerCreate,SurveyAudience} from './ManagerTools';
@@ -368,6 +369,7 @@ export default function ManagerApp() {
           </div>
           <div className="admin-topbar-actions">
             <ManagerNotificationBell go={go} location={path}/>
+            <ManagerNoticeBell go={go} location={path}/>
             <span className="admin-live-dot">DỮ LIỆU TRỰC TIẾP</span>
             <button
               className="manager-theme-toggle"
