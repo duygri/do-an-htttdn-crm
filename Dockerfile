@@ -15,6 +15,7 @@ COPY backend/src/main/java ./src/main/java
 COPY deploy/application.yml ./src/main/resources/application.yml
 # Idempotent migrations applied by spring.sql.init before Hibernate validates the schema.
 COPY database/migration_supplier_receipts_invoices.sql ./src/main/resources/db/migration_supplier_receipts_invoices.sql
+COPY database/migration_inventory_suppliers_loyalty.sql ./src/main/resources/db/migration_inventory_suppliers_loyalty.sql
 COPY --from=web /web/dist ./src/main/resources/static
 RUN mvn -B -DskipTests package
 
