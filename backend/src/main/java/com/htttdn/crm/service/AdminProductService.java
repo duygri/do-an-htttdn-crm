@@ -41,7 +41,7 @@ public class AdminProductService extends AdminServiceSupport {
         },org.springframework.data.domain.PageRequest.of(page,size,org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.fromString(direction),sort).and(org.springframework.data.domain.Sort.by("id").descending())));
     }
     public java.util.List<String> categoryNames(){return categories.findAll().stream().map(Category::getName).sorted().toList();}
-    @Transactional public Product create(ProductRequest request) { Product product = new Product(); copy(product, request);product.setStock(request.stock());products.save(product);audit("CREATE","PRODUCT",product.getId(),java.util.Map.of(),product); return product; }
+    @Transactional public Product create(ProductRequest request) { Product product = new Product(); copy(product, request);product.setStock(request.stock());products.save(product);stockService.initial(product);audit("CREATE","PRODUCT",product.getId(),java.util.Map.of(),product); return product; }
     @Transactional public Product update(Long id, ProductRequest request) { Product product = get(id);var before=snapshot(product); copy(product, request); product.setUpdatedAt(Instant.now());audit("UPDATE","PRODUCT",id,before,product); return products.save(product); }
     @Transactional public void archive(Long id) { Product product = get(id);var before=snapshot(product); product.setActive(false); products.save(product);if(!before.equals(snapshot(product)))audit("ARCHIVE","PRODUCT",id,before,product); }
     @Transactional public void restore(Long id) {
@@ -50,7 +50,7 @@ public class AdminProductService extends AdminServiceSupport {
         var before=snapshot(product);product.setActive(true);product.setUpdatedAt(Instant.now());
         products.save(product);audit("RESTORE","PRODUCT",id,before,product);
     }
-    @Transactional public Product stock(Long id, StockRequest request) { Product product = get(id);var before=snapshot(product); product.setStock(request.quantity()); product.setUpdatedAt(Instant.now());if(!before.equals(snapshot(product)))audit("STOCK","PRODUCT",id,before,product); return products.save(product); }
+    @Transactional public Product stock(Long id, StockRequest request) { Product product = get(id);var before=snapshot(product); stockService.adjust(product, request.quantity(), "Điều chỉnh thủ công tại trang sản phẩm");if(!before.equals(snapshot(product)))audit("STOCK","PRODUCT",id,before,product); return product; }
     private Product get(Long id) { return stockService.lockProduct(id).orElseThrow(); }
     private void copy(Product p, ProductRequest r) {
         // Edit forms can carry stale quantities. Only create and the explicit stock API set stock.

@@ -11,7 +11,7 @@ import static org.mockito.Mockito.*;
 
 class StockServiceTest {
     final ProductRepository products=mock(ProductRepository.class);
-    final StockService service=new StockService(products,mock(jakarta.persistence.EntityManager.class));
+    final StockService service=new StockService(products,mock(jakarta.persistence.EntityManager.class),mock(com.htttdn.crm.repository.StockMovementRepository.class));
     Product product(long id) { Product p=new Product(); ReflectionTestUtils.setField(p,"id",id); p.setStock(8); return p; }
     void line(Order o,Product p,int quantity) { OrderItem i=new OrderItem(); i.setProduct(p); i.setQuantity(quantity); o.getItems().add(i); }
     @Test void groupsVariantsLocksInOrderAndReleasesOnlyOnce() {

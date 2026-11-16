@@ -67,11 +67,13 @@ public class OrderService {
         requested = grouped.values().stream().sorted(Comparator.comparing(RequestedItem::productId)).toList();
         Instant now = Instant.now(); Order order = new Order(); order.setCustomer(customer); order.setOrderCode(nextCode()); order.setDeliveryAddress(request.deliveryAddress().trim()); order.setPaymentMethod(method); order.setCreatedAt(now); order.setUpdatedAt(now); order.setStatus("PENDING"); order.setPaymentStatus("COD".equals(method) ? "COD" : "PENDING"); order.setExpiresAt("COD".equals(method) ? null : now.plus(Duration.ofMinutes(15)));
         BigDecimal subtotal = BigDecimal.ZERO;
+        Map<Long, Integer> wanted = new HashMap<>();
         for (RequestedItem line : requested) {
             if (line == null || line.productId() == null || line.quantity() < 1) throw invalidCart();
             Product product = stock.lockProduct(line.productId()).filter(Product::isActive).orElseThrow(this::invalidCart); validateVariant(product, line.size(), line.color());
-            if (line.quantity() > product.getStock()) throw new ApiException(HttpStatus.CONFLICT, "OUT_OF_STOCK", "Sản phẩm " + product.getName() + " không đủ số lượng.");
-            product.setStock(product.getStock() - line.quantity()); product.setUpdatedAt(now); products.save(product);
+            long totalWanted = (long) wanted.getOrDefault(product.getId(), 0) + line.quantity();
+            if (totalWanted > product.getStock()) throw new ApiException(HttpStatus.CONFLICT, "OUT_OF_STOCK", "Sản phẩm " + product.getName() + " không đủ số lượng.");
+            wanted.put(product.getId(), (int) totalWanted);
             OrderItem item = new OrderItem(); item.setOrder(order); item.setProduct(product); item.setQuantity(line.quantity()); item.setSize(clean(line.size())); item.setColor(clean(line.color())); item.setUnitPrice(CartService.price(product)); order.getItems().add(item);
             subtotal = subtotal.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
         }
@@ -80,7 +82,7 @@ public class OrderService {
         if (request.voucherCode() != null && !request.voucherCode().isBlank()) { applied = vouchers.reserve(request.voucherCode(), subtotal, order); discount = order.getDiscountAmount(); }
         order.setDiscountAmount(discount); order.setTotalAmount(subtotal.subtract(discount).max(BigDecimal.ZERO));
         if ("PAYOS".equals(method) && order.getTotalAmount().signum() > 0) payos.requireConfigured();
-        orders.save(order); if(applied!=null) vouchers.record(order,applied);
+        orders.save(order); stock.sell(order); if(applied!=null) vouchers.record(order,applied);
         // Consume only purchased variants; keep unselected lines and any remaining quantity.
         Map<CartLineKey, Integer> remainingPurchase = new HashMap<>();
         grouped.forEach((key, line) -> remainingPurchase.put(key, line.quantity()));

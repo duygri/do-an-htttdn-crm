@@ -58,7 +58,7 @@ class OrderConfirmationTest {
     final PayosService payos = mock(PayosService.class);
     final FeedbackRepository feedback = mock(FeedbackRepository.class);
     final AuditTrail audit = mock(AuditTrail.class);
-    final StockService stock = new StockService(products,mock(jakarta.persistence.EntityManager.class));
+    final StockService stock = new StockService(products,mock(jakarta.persistence.EntityManager.class),mock(StockMovementRepository.class));
     final PaymentReconciliationService reconciliation = new PaymentReconciliationService(payos,attempts,payments,notifications);
     final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,stock,reconciliation);
 

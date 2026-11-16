@@ -49,6 +49,9 @@ public class Product {
     @Column(name = "quantity_remaining", nullable = false)
     private int stock;
 
+    @Column(name = "low_stock_threshold")
+    private Integer lowStockThreshold;
+
     @Column(name = "image_url", length = 2000)
     private String imageUrl;
 
@@ -86,6 +89,8 @@ public class Product {
     public void setSalePrice(BigDecimal value) { salePrice = value; }
     public int getStock() { return stock; }
     public void setStock(int value) { stock = value; }
+    public Integer getLowStockThreshold() { return lowStockThreshold; }
+    public void setLowStockThreshold(Integer value) { lowStockThreshold = value; }
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String value) { imageUrl = value; }
     public String getBadge() { return badge; }
