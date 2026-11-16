@@ -1,5 +1,5 @@
-import React,{useCallback,useMemo} from 'react';
-import {adminApi} from './manager-api';
+import React,{useCallback,useMemo,useState} from 'react';
+import {adminApi,adminDownload} from './manager-api';
 import {useManagerResource} from './useManagerResource';
 import {useManagerFilters,managerQuery} from './useManagerFilters';
 import './cashflow-report.css';
@@ -16,9 +16,12 @@ export default function RevenueReport(){
   const valid=!!filters.fromDate&&!!filters.toDate&&from<to&&(to-from)<=366*5*86400000&&['day','month','quarter','year'].includes(filters.groupBy);
   const fetcher=useCallback(signal=>adminApi('/api/manager/reports/revenue?'+managerQuery({from:from.toISOString(),to:to.toISOString(),groupBy:filters.groupBy}),{signal}),[filters.fromDate,filters.toDate,filters.groupBy]);
   const {data,loading,error,backgroundError,load}=useManagerResource(fetcher,{enabled:valid});
+  const [downloadError,setDownloadError]=useState('');
+  const exportCsv=async()=>{setDownloadError('');try{await adminDownload('/api/manager/reports/revenue.csv?'+managerQuery({from:from.toISOString(),to:to.toISOString(),groupBy:filters.groupBy}),'doanh-thu.csv');}catch(e){setDownloadError(e.message);}};
   const max=Math.max(1,...(data?.series||[]).flatMap(p=>[Number(p.collected),Number(p.purchaseCost)]));
   return <section className="cashflow-report" aria-label="Báo cáo doanh thu"><h3>Doanh thu</h3><p>Doanh thu tính theo tiền đã thu thực tế: PayOS xác nhận PAID hoặc COD đã được Manager xác nhận thu. Chi phí lấy từ phiếu nhập hàng theo ngày hóa đơn nhà cung cấp.</p>
-    <div className="cashflow-filters"><label>Từ ngày<input type="date" value={filters.fromDate} onChange={e=>change({fromDate:e.target.value})}/></label><label>Đến hết ngày<input type="date" value={filters.toDate} onChange={e=>change({toDate:e.target.value})}/></label><label>Nhóm theo<select value={filters.groupBy} onChange={e=>change({groupBy:e.target.value})}><option value="day">Ngày</option><option value="month">Tháng</option><option value="quarter">Quý</option><option value="year">Năm</option></select></label></div>
+    <div className="cashflow-filters"><label>Từ ngày<input type="date" value={filters.fromDate} onChange={e=>change({fromDate:e.target.value})}/></label><label>Đến hết ngày<input type="date" value={filters.toDate} onChange={e=>change({toDate:e.target.value})}/></label><label>Nhóm theo<select value={filters.groupBy} onChange={e=>change({groupBy:e.target.value})}><option value="day">Ngày</option><option value="month">Tháng</option><option value="quarter">Quý</option><option value="year">Năm</option></select></label><button type="button" className="admin-action" disabled={!valid} onClick={exportCsv}>Xuất CSV</button></div>
+    {downloadError&&<p role="alert">{downloadError}</p>}
     {!valid&&<p role="alert">Chọn khoảng ngày hợp lệ, tối đa 5 năm.</p>}
     {valid&&(error||backgroundError)&&<div role="alert">{data&&'Đang giữ số liệu gần nhất. '}{error||backgroundError} <button className="admin-action" onClick={()=>load(true)}>Thử lại</button></div>}
     {valid&&loading&&!data&&<p role="status">Đang tải báo cáo doanh thu…</p>}

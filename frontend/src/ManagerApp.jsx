@@ -63,6 +63,7 @@ import {
 } from "lucide-react";
 import {
   adminApi,
+  adminDownload,
   adminEndpoints,
   adminRefreshSession,
   adminSignIn,
@@ -1011,6 +1012,18 @@ function Users({ notify, location, go }) {
           {data?.totalElements ?? filteredUsers.length} khách hàng
         </span>
         <button className="admin-action" onClick={() => searchUsers(search)}>Tìm khách hàng</button>
+        <button
+          className="admin-action"
+          onClick={async () => {
+            try {
+              await adminDownload(`/api/manager/customers.csv${query ? `?${new URLSearchParams({ q: query })}` : ""}`, "khach-hang.csv");
+            } catch (error) {
+              notify(error.message, "error");
+            }
+          }}
+        >
+          Xuất CSV
+        </button>
       </div>
       <CustomerLifecycleFilters params={params} onChange={changeFilters}/>
       <button type="button" className="admin-action" onClick={()=>go(groupSurveyRoute(params),{createGroupedSurvey:true})}>Tạo khảo sát cho nhóm này</button>
@@ -1799,6 +1812,19 @@ function Orders({ notify }) {
         </div>
         <span>{data?.totalElements ?? 0} đơn hàng</span>
         <button type="button" className="admin-action" onClick={load} aria-label="Tải lại trạng thái thanh toán"><RefreshCw size={16} /> Tải lại</button>
+        <button
+          type="button"
+          className="admin-action"
+          onClick={async () => {
+            try {
+              await adminDownload(`/api/manager/orders.csv?${managerQuery({ status: query.status, q: query.q, from: query.from, to: query.to })}`, "don-hang.csv");
+            } catch (error) {
+              notify(error.message, "error");
+            }
+          }}
+        >
+          Xuất CSV
+        </button>
       </div>
       <div className="manager-advanced-filters">
         <label>Thanh toán<select value={filters.paymentStatus} onChange={e=>changeFilters({paymentStatus:e.target.value})}><option value="">Tất cả</option><option value="COD">COD</option><option value="PENDING">Chờ thanh toán</option><option value="PAID">Đã thanh toán</option><option value="EXPIRED">Hết hạn</option><option value="FAILED">Thất bại</option><option value="CANCELLED">Đã hủy thanh toán</option></select></label>
