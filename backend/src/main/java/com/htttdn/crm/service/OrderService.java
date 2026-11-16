@@ -34,11 +34,12 @@ public class OrderService {
     private final AuditTrail audit;
     private final StockService stock;
     private final PaymentReconciliationService reconciliation;
+    private final LoyaltyService loyalty;
     @org.springframework.beans.factory.annotation.Autowired private AbandonedOrderWorker expiryWorker;
 
     public OrderService(OrderRepository orders, ProductRepository products, CartItemRepository carts,
                         PaymentRepository payments, PaymentAttemptRepository attempts, PaymentWebhookEventRepository webhookEvents,
-                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit, StockService stock, PaymentReconciliationService reconciliation) {
+                        VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit, StockService stock, PaymentReconciliationService reconciliation, LoyaltyService loyalty) {
         this.orders = orders; this.products = products; this.carts = carts; this.payments = payments;
         this.attempts = attempts;
         this.webhookEvents = webhookEvents; this.vouchers = vouchers; this.notifications = notifications; this.payos = payos;
@@ -46,6 +47,7 @@ public class OrderService {
         this.audit = audit;
         this.stock = stock;
         this.reconciliation=reconciliation;
+        this.loyalty=loyalty;
     }
 
     @Transactional
@@ -309,6 +311,7 @@ public class OrderService {
             throw new ApiException(HttpStatus.CONFLICT, "RECEIPT_NOT_ALLOWED", "Chỉ xác nhận đơn đã giao và chưa có yêu cầu đổi trả. Vui lòng tải lại đơn hàng.");
         var before = AuditTrail.snapshot(order);
         order.setStatus("COMPLETED"); order.setUpdatedAt(Instant.now()); orders.save(order);
+        loyalty.awardForCompletedOrder(order);
         notifications.create(customer, "Đơn hàng hoàn thành", "Bạn đã xác nhận nhận hàng cho đơn #" + order.getOrderCode() + ".", "ORDER_COMPLETED", order.getId());
         recordCustomerAction(customer, "CUSTOMER_RECEIPT", order, before);
         return view(order);
