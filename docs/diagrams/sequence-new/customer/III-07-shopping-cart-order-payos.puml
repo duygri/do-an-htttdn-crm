@@ -50,7 +50,6 @@ note over API,DB
   Checkout exceptions roll back local order, stock and voucher writes.
   Voucher usage is recorded at checkout; there is no
   RESERVED/CONFIRMED voucher-state column or webhook finalization.
-  Optional order emails run after commit only when Resend is configured.
 end note
 
 == Return/cancel URL is display only ==

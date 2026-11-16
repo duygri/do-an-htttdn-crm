@@ -1,5 +1,8 @@
 # CHANGELOG PRD v1.2–v1.4
 
+> Trạng thái của nhánh triển khai này: repo không tích hợp gửi email; các ghi chú email bên dưới chỉ mô tả phiên bản cũ. Khôi phục mật khẩu trực tuyến chỉ có mã sáu chữ số trong profile development khi bật cờ.
+
+
 Ngày rà soát: 26/10/2026
 Phiên bản trước: v1.1
 
@@ -8,7 +11,7 @@ Phiên bản trước: v1.1
 | Đầu tài liệu | Phiên bản 1.1; rà soát 29/09/2026 | Phiên bản 1.4; rà soát 26/10/2026; Draft for team review | Đối chiếu code hiện tại; chưa có bằng chứng phê duyệt PRD |
 | 3.1 Trong phạm vi MVP | Chưa liệt kê hồ sơ 360°, phân nhóm vòng đời, chăm sóc, phiếu hỗ trợ, xử lý đổi trả Manager, hoàn tiền/thu COD/đối soát, báo cáo giữ chân/dòng tiền, audit log và thông báo Manager | Bổ sung các chức năng đó vào phạm vi MVP; ghi rõ hoàn tiền và thu COD được ghi nhận, không gửi lệnh hoàn tới payOS | `CustomerProfileController`, `CustomerLifecycleQuery`, `CustomerCareController`, `SupportTicketController`, `ManagerReturnController`, `ManagerRefundController`, `RetentionReportController`, `CashflowReportController`, `AuditLogController`, `ManagerCareInboxController` |
 | 3.2 Ngoài phạm vi — hoàn tiền | Hoàn tiền production và đối soát production được ghi ngoài phạm vi; chưa phân biệt ghi nhận nội bộ với giao dịch thực tế | Giữ hoàn tiền thực tế và đối soát production ngoài phạm vi; làm rõ MVP chỉ ghi nhận thủ công và không gửi lệnh hoàn payOS | `ManagerRefundController`; `RefundService.create`, `RefundService.process`, `RefundService.confirmCod`; `RefundService` không gọi PayOS refund API |
-| 3.2 Ngoài phạm vi — đặt lại mật khẩu | Chỉ mô tả mã development; chưa có email | Code có email Resend tùy chọn với token 43 ký tự, không trả mã; fallback sáu chữ số chỉ ở development. Demo tắt cả hai cờ; gửi email và production chưa xác minh | `AuthController`; `AuthService`; `RESEND_ENABLED=false`, `DEV_PASSWORD_RESET_ENABLED=false` trong cấu hình demo |
+| 3.2 Ngoài phạm vi — đặt lại mật khẩu | Code có email tùy chọn và mã development | Đã loại bỏ gửi email; mã sáu chữ số chỉ bật trong profile development khi `DEV_PASSWORD_RESET_ENABLED=true` | `AuthController`; `AuthService` |
 | FR-09 | Yêu cầu có tìm kiếm, phân trang, sửa và khóa tài khoản Customer | Giữ nguyên “sửa” vì code có route cập nhật hồ sơ Customer | `AdminUserController`: `PUT /api/manager/users/{id}`; `AdminUserService.update` cập nhật họ tên, điện thoại và sở thích |
 | FR-21 | Chưa có FR cho hồ sơ khách hàng 360° và lịch sử hoạt động | Thêm yêu cầu xem hồ sơ tổng hợp cùng các danh sách địa chỉ, đơn, feedback, khảo sát, voucher/lượt dùng và lịch sử hoạt động phân trang | `CustomerProfileController`; `CustomerProfileService.profile/addresses/orders/feedback/surveys/vouchers/voucherUsages`; `CustomerActivityService.list` |
 | FR-22 | Chưa có FR phân nhóm vòng đời | Thêm stage theo dữ liệu đơn hoàn tất, ngưỡng loyal 5 đơn hoặc 5.000.000 VND, dormant từ 30 ngày và các bộ lọc/phân trang | `AdminUserController.list`; `CustomerLifecycleQuery`; `CustomerLifecycle.calculate/stageSql` |
@@ -32,7 +35,7 @@ Phiên bản trước: v1.1
 
 ## Quyết định đã chốt và điểm dữ liệu chưa xác nhận
 
-- Email Resend là khả năng tùy chọn đã có code; token 43 ký tự, không trả mã email. Fallback sáu chữ số chỉ ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc production.
+- Gửi email đặt lại mật khẩu đã bị loại bỏ khỏi nhánh triển khai này. Khôi phục mật khẩu chỉ dùng mã sáu chữ số trong profile development khi bật `DEV_PASSWORD_RESET_ENABLED`; demo/nghiệm thu và production mặc định tắt.
 - Chỉ Admin tra cứu audit log. Không có endpoint/điều hướng audit Manager. Hoạt động Customer xem riêng ở hồ sơ 360°.
 - Demo/nghiệm thu bật `PAYOS_AUTO_CANCEL_ENABLED=true` với grace 24 giờ; mặc định code vẫn `false`.
 - Dữ liệu lịch sử trong bảng `audit_logs` chưa được kiểm tra; truy vấn đề xuất được ghi trong `docs/decisions-changelog.md`.

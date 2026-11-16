@@ -2,7 +2,7 @@
 
 Đồ án môn **Hệ thống thông tin doanh nghiệp**, xây dựng website bán thời trang nam kết hợp CRM. Hệ thống không chỉ hỗ trợ mua hàng mà còn tổng hợp hồ sơ khách hàng, phân nhóm, khảo sát, tiếp nhận yêu cầu hỗ trợ và theo dõi công việc chăm sóc sau bán.
 
-Dự án gồm ba giao diện độc lập **Khách hàng**, **Admin hệ thống** và **Nhân viên quản lý**, dùng chung backend và cơ sở dữ liệu PostgreSQL. Nội dung dưới đây mô tả chức năng đã có trong mã nguồn; các giới hạn triển khai được nêu riêng, không xem đây là hệ thống vận hành thương mại đã được chứng nhận.
+Dự án gồm ba giao diện độc lập **Khách hàng**, **Admin** và **Người quản lý**, dùng chung backend và cơ sở dữ liệu PostgreSQL. Nội dung dưới đây mô tả chức năng đã có trong mã nguồn; các giới hạn triển khai được nêu riêng, không xem đây là hệ thống vận hành thương mại đã được chứng nhận.
 
 ## Mục lục
 
@@ -53,12 +53,12 @@ Ba portal sử dụng luồng đăng nhập và phiên riêng. Backend kiểm tr
 - **Đơn hàng:** lịch sử có tab trạng thái, tìm kiếm/phân trang, xem chi tiết, tiếp tục thanh toán, hủy đơn theo điều kiện và xác nhận đã nhận hàng.
 - **Đánh giá/đổi trả:** đánh giá gắn với sản phẩm trong đơn hoàn thành; gửi yêu cầu đổi trả khi đủ điều kiện và theo dõi kết quả xử lý.
 - **Khảo sát/voucher:** trả lời khảo sát công khai hoặc được chỉ định, nhận voucher thưởng nếu được cấu hình; xem voucher cá nhân và ưu đãi cửa hàng còn hiệu lực.
-- **Hỗ trợ:** tạo phiếu gắn với đơn của mình nếu cần, gửi trao đổi và theo dõi tiến trình; không xem được ghi chú nội bộ của Manager.
+- **Hỗ trợ:** tạo phiếu gắn với đơn của mình nếu cần, gửi trao đổi và theo dõi tiến trình; không xem được ghi chú nội bộ của người quản lý.
 - **Thông báo:** xem và đánh dấu đã đọc các thông báo trong web. Có giao diện sáng/tối và bố cục responsive.
 
 Các trang thường dùng: `/san-pham/{id}`, `/gio-hang`, `/dat-hang`, `/don-hang`, `/tai-khoan`, `/tai-khoan/voucher`, `/khao-sat`, `/ho-tro`. Đường dẫn `/thanh-toan` phục vụ luồng quay về từ PayOS, không phải trang tạo đơn mới.
 
-### 2. Portal nhân viên quản lý
+### 2. Portal người quản lý
 
 - **Tổng quan:** chỉ số vận hành và liên kết nhanh đến đúng chức năng/bộ lọc.
 - **Khách hàng:** thêm/sửa, khóa/mở khóa, xóa mềm, tìm kiếm và lọc trên toàn bộ dữ liệu trước phân trang.
@@ -76,13 +76,13 @@ Các trang thường dùng: `/san-pham/{id}`, `/gio-hang`, `/dat-hang`, `/don-ha
 
 Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang mở được cập nhật mỗi 5 giây; tạm dừng khi tab bị ẩn hoặc người dùng đang nhập/gửi thao tác liên quan.
 
-### 3. Portal Admin hệ thống
+### 3. Portal Admin
 
 - Xem tổng quan và tra cứu sản phẩm bằng tìm kiếm, bộ lọc, sắp xếp và phân trang.
 - Tạo, sửa, khóa/mở khóa, xóa mềm và đổi quyền tài khoản ADMIN/MANAGER.
 - Bảo vệ thao tác tự khóa/xóa/đổi quyền và tài khoản Admin hoạt động cuối cùng.
 - Xem toàn bộ audit log, gồm cả các thao tác quản lý tài khoản nội bộ do Admin thực hiện.
-- Liên kết đến portal Manager và website khách hàng; không thay thế vai trò vận hành của Manager.
+- Liên kết đến portal Manager và website khách hàng; không thay thế vai trò vận hành của người quản lý.
 
 ## Quy tắc nghiệp vụ và chỉ số CRM
 
@@ -90,7 +90,7 @@ Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang 
 
 - Trạng thái xử lý đơn, thanh toán và đổi trả được quản lý riêng.
 - Luồng điển hình: **Chờ xác nhận → Đang xử lý → Đang giao → Đã giao/chờ khách xác nhận → Hoàn thành**. Đơn mới không được xem là hoàn thành chỉ vì đã thanh toán.
-- Chỉ khách sở hữu đơn đã giao, chưa có yêu cầu đổi trả mới xác nhận nhận hàng. Manager không hoàn thành đơn thay khách và không có tác vụ tự hoàn tất theo thời gian.
+- Chỉ khách sở hữu đơn đã giao, chưa có yêu cầu đổi trả mới xác nhận nhận hàng. Người quản lý không hoàn thành đơn thay khách và không có tác vụ tự hoàn tất theo thời gian.
 - Mỗi sản phẩm trong mỗi đơn hoàn thành chỉ đánh giá một lần; nhiều màu/size của cùng sản phẩm trong đơn dùng chung đánh giá. Bình luận tối đa 4.000 ký tự.
 - Đơn đã xác nhận nhận hàng và đã có đánh giá không được gửi yêu cầu đổi trả mới.
 - QR mặc định có hạn 15 phút. Trạng thái trả tiền do backend xác nhận qua PayOS; không tin tham số trên URL trình duyệt. Thử lại QR không tạo đơn mới hoặc trừ tồn kho lần nữa.
@@ -129,7 +129,7 @@ Phiếu hỗ trợ có luồng **Mới → Đang xử lý → Chờ khách → �
 | CI | GitHub Actions: backend verify, frontend build, lint tài liệu/PlantUML và CodeQL |
 | Thiết kế/tài liệu | Figma/Google Stitch, Markdown và sơ đồ PlantUML |
 
-Luồng chung: **Ba portal React → REST API Spring Boot → PostgreSQL**. PayOS là dịch vụ thanh toán bên ngoài, giao tiếp với backend qua API và webhook. Namespace nghiệp vụ Manager là `/api/manager/*`, quản trị hệ thống là `/api/admin/*`; API khách hàng dùng các đường dẫn như `/api/orders`, `/api/surveys`, `/api/support-tickets`.
+Luồng chung: **Ba portal React → REST API Spring Boot → PostgreSQL**. PayOS là dịch vụ thanh toán bên ngoài, giao tiếp với backend qua API và webhook. Namespace nghiệp vụ của người quản lý là `/api/manager/*`, quản trị hệ thống là `/api/admin/*`; API khách hàng dùng các đường dẫn như `/api/orders`, `/api/surveys`, `/api/support-tickets`.
 
 ## Cấu trúc thư mục
 
@@ -166,7 +166,7 @@ psql -U postgres -d htttdn -v ON_ERROR_STOP=1 -f database/seed_data.sql
 
 `schema.sql` là cấu trúc khởi tạo hiện tại; `seed_data.sql` thêm dữ liệu minh họa để demo. Không chạy seed tùy tiện trên dữ liệu thật.
 
-Tài khoản Admin minh họa do seed tạo là `admin@shop.com`, mật khẩu mẫu được ghi trong chính script seed. Chỉ dùng tài khoản mẫu ở local, đổi mật khẩu trước khi triển khai. Đăng nhập Admin để tạo tài khoản `MANAGER` với mật khẩu riêng; **không có tài khoản Manager mặc định**. Khách có thể đăng ký trên website.
+Tài khoản Admin minh họa do seed tạo là `admin@shop.com`, mật khẩu mẫu được ghi trong chính script seed. Chỉ dùng tài khoản mẫu ở local, đổi mật khẩu trước khi triển khai. Đăng nhập Admin để tạo tài khoản `MANAGER` với mật khẩu riêng; **không có tài khoản người quản lý mặc định**. Khách có thể đăng ký trên website.
 
 ### 3. Nâng cấp database đã có
 
@@ -257,12 +257,11 @@ Spring Boot không tự đọc file `.env`. Đặt các biến trong môi trư�
 | `PAYOS_AUTO_CANCEL_ENABLED` | `true` | `false` | Bật tự hủy đơn PayOS chưa thanh toán trong demo/nghiệm thu. |
 | `PAYOS_AUTO_CANCEL_GRACE_HOURS` | `24` | `24` | Thời gian chờ sau khi link thanh toán hết hạn. Số nguyên từ 1 đến 720 giờ; giá trị ngoài khoảng này khiến backend không khởi động. |
 | `DEV_PASSWORD_RESET_ENABLED` | `false` | `false` | Tắt nhánh mã sáu chữ số dành cho profile development. |
-| `RESEND_ENABLED` | `false` | `false` | Tắt nhánh khôi phục qua email và email đơn hàng trong bộ cấu hình demo này. |
 | `APP_PAYOS_AUTO_CANCEL_MS` (`app.payos.auto-cancel-ms`) | `300000` | `300000` | Chu kỳ kiểm tra tự hủy, tương đương 5 phút. |
 
 PayOS không có sandbox. COD là luồng smoke test mặc định; chỉ thử PayOS thật khi người phụ trách đã xác nhận tài khoản, số tiền giới hạn và thời điểm thực hiện. Không commit `PAYOS_CLIENT_ID`, `PAYOS_API_KEY` hoặc `PAYOS_CHECKSUM_KEY`.
 
-Code đã hỗ trợ khôi phục mật khẩu qua Resend khi cấu hình email hợp lệ; `DEV_PASSWORD_RESET_ENABLED=false` không tắt nhánh email. Bộ demo ở trên chủ động tắt cả hai cờ. Khi thử riêng luồng email, xem [cấu hình Resend](docs/resend-email.md); liên kết dùng token 43 ký tự, API không trả mã đặt lại trong chế độ email. Chưa xác nhận gửi email thật trong đợt rà soát tài liệu này.
+Khôi phục mật khẩu trực tuyến chỉ được bật khi `DEV_PASSWORD_RESET_ENABLED=true` và backend chạy profile `development`; mã đặt lại có sáu chữ số. Mặc định, demo/nghiệm thu và production đều tắt khôi phục này. Thông báo đơn được lưu trong ứng dụng; repo không gửi email ra ngoài.
 
 ## Cấu hình thanh toán PayOS
 
@@ -330,8 +329,8 @@ Tài liệu từng đợt có thể ghi kết quả kiểm tra ở thời điể
 ## Giới hạn và lưu ý triển khai
 
 - Đây là đồ án mô phỏng; cần rà soát bảo mật, cấu hình, hiệu năng, sao lưu/khôi phục và vận hành trước khi dùng thực tế.
-- Đã tích hợp email khôi phục mật khẩu và thông báo đơn qua Resend dưới cờ cấu hình. Bộ demo/nghiệm thu mặc định giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; nhánh mã sáu chữ số chỉ dành cho profile `development`. Việc gửi email thật và điều kiện triển khai được kiểm tra riêng theo [hướng dẫn Resend](docs/resend-email.md).
-- Chưa có email marketing, thông báo hệ điều hành, hoàn tiền tự động hoặc chiến dịch tự phát voucher. Nhắc việc và thông báo hiện tại nằm trong web.
+- Repo không tích hợp gửi email ra ngoài. Khôi phục mật khẩu chỉ có mã sáu chữ số trong profile `development` khi bật `DEV_PASSWORD_RESET_ENABLED`; thông báo đơn và nhắc việc hiện được lưu trong ứng dụng.
+- Chưa có email marketing, SMS/Zalo, thông báo hệ điều hành, hoàn tiền tự động hoặc chiến dịch tự phát voucher. Nhắc việc và thông báo hiện tại nằm trong web.
 - Báo cáo mua lại toàn thời gian chưa phải phân tích giữ chân theo cohort; giá trị đơn không phải tiền thực thu hay lợi nhuận.
 - Giao diện quản lý nhà cung cấp không nằm trong menu hiện tại; database/API có thể còn thành phần tương thích từ các phiên bản trước.
 - Khi triển khai frontend lên web server, cần cấu hình fallback phù hợp cho route phía client để mở URL trực tiếp/refresh không bị 404, đồng thời chuyển tiếp đúng API và cookie.

@@ -1,18 +1,18 @@
 # Nhật ký cập nhật quyết định
 
-Ngày cập nhật: 26/10/2026
+Ngày cập nhật: 16/11/2026
 Phạm vi: đối chiếu tài liệu với code hiện tại; không xác nhận triển khai production hoặc dữ liệu lịch sử.
 
 | Nội dung | Quyết định cũ (lịch sử, đã thay thế) | Mô tả hiện tại | Nguồn đối chiếu |
 | --- | --- | --- | --- |
 | Audit log | Admin toàn bộ; Manager lọc actor MANAGER | Chỉ Admin tra cứu qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit Manager. Timeline Customer riêng trong hồ sơ 360° | `AuditLogController`; `AuditLogQuery.list`; `CustomerActivityService.list` |
-| Khôi phục mật khẩu | Chỉ có mã development; email chưa có bằng chứng code | Code có email Resend tùy chọn với token 43 ký tự và liên kết reset, không trả mã trong response email. Fallback mã sáu chữ số chỉ ở development khi bật cờ | `AuthController`; `AuthService`; cấu hình Resend |
-| Demo/nghiệm thu | Không bật reset | Giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; khả năng email đã triển khai không đồng nghĩa đã gửi/nhận email hoặc xác minh production | Quyết định demo được giữ; cấu hình code |
+| Khôi phục mật khẩu và email đơn hàng | Từng có gửi email tùy chọn | Không gửi email ra ngoài; mã đặt lại sáu chữ số chỉ trong profile `development` khi bật cờ. Thông báo vẫn lưu trong ứng dụng | `AuthController`; `AuthService`; `NotificationService` |
+| Demo/nghiệm thu | Không bật reset | Giữ `DEV_PASSWORD_RESET_ENABLED=false`; khôi phục trực tuyến và gửi email ra ngoài đều không khả dụng | Quyết định demo; cấu hình code |
 | Tự hủy PayOS | Mặc định code tắt | Demo/nghiệm thu bật `PAYOS_AUTO_CANCEL_ENABLED=true`, grace 24 giờ; lịch mặc định 300000 ms. Chỉ tự hủy sau hạn và grace mới giải phóng tồn kho/voucher đúng một lần | `AbandonedOrderScheduler`; `AbandonedOrderWorker`; `StockService.release`; `VoucherService.release` |
 | Xác nhận nhận hàng | Chỉ nêu DELIVERED | DELIVERED và returnStatus NONE/null; chuyển COMPLETED. Gọi lại khi COMPLETED trả kết quả hiện có | `OrderService.confirmReceipt` |
 | Đổi trả | Mô tả thiếu các nhánh chuyển trạng thái | REQUESTED → APPROVED → COMPLETED hoặc REQUESTED → REJECTED | `ReturnManagementService.process` |
 
-PRD cập nhật lên v1.4. Tài liệu Use Case v2 phân biệt khả năng email tùy chọn, fallback development và cấu hình demo tắt; không tự mở rộng phạm vi nghiệm thu production.
+PRD cập nhật lên v1.4. Email ra ngoài không nằm trong phạm vi hiện tại; mã đặt lại development chỉ bật có chủ ý và không được xem là luồng nghiệm thu production.
 
 ## Hành vi audit đã đối chiếu
 
@@ -22,7 +22,7 @@ PRD cập nhật lên v1.4. Tài liệu Use Case v2 phân biệt khả năng ema
 
 ## Bằng chứng cấu hình
 
-- Demo/nghiệm thu giữ cả `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`. Email Resend cần được cấu hình để sử dụng; chưa xác minh gửi/nhận thực tế.
+- Demo/nghiệm thu giữ `DEV_PASSWORD_RESET_ENABLED=false`; không có tích hợp gửi email ra ngoài.
 - `AbandonedOrderScheduler` mặc định tắt, grace 24 giờ, chu kỳ `app.payos.auto-cancel-ms` mặc định 300000 ms.
 - Spring Boot không tự đọc `.env`; đặt biến trong môi trường tiến trình backend. Không commit secret.
 

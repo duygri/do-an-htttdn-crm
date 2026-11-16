@@ -61,9 +61,8 @@ C15 .> C08 : <<extend>>\n[khi đơn đủ điều kiện hủy]
 C17 .> C08 : <<extend>>\n[khi đơn đủ điều kiện đổi trả]
 C18 .> C08 : <<extend>>\n[khi thanh toán cần xử lý lại/đồng bộ]
 note bottom of C09
-Chỉ khả dụng khi dịch vụ email sẵn sàng, hoặc đồng thời
-profile development và DEV_PASSWORD_RESET_ENABLED=true.
-Email dùng liên kết một lần; chế độ dev hỗ trợ mã thử nghiệm.
+Chỉ khả dụng khi profile development và DEV_PASSWORD_RESET_ENABLED=true.
+Hệ thống cấp mã đặt lại sáu chữ số; không gửi email.
 end note
 note bottom of C08
 UC-07 bao gồm giỏ hàng và đặt hàng trong cùng một Use Case; UC-14 chỉ xem ví voucher.

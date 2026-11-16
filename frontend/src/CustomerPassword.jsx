@@ -28,7 +28,7 @@ export default function CustomerPassword({ initialMode, onNavigate, onNotice }) 
         const result = await api(endpoints.forgotPassword, { method: 'POST', body: { email: form.email } });
         if (alive.current) {
           setForm(current => ({ ...current, code: result.resetCode || '' }));
-          setSent(result.message || 'Nếu tài khoản hợp lệ, liên kết đặt lại mật khẩu sẽ được gửi tới email của bạn.');
+          setSent(result.message || 'Nếu tài khoản hợp lệ, mã đặt lại mật khẩu sẽ được cung cấp trong môi trường development.');
           if (result.resetCode) onNavigate('/dat-lai-mat-khau');
         }
       } else {
@@ -39,7 +39,7 @@ export default function CustomerPassword({ initialMode, onNavigate, onNotice }) 
     finally { lock.current = false; if (alive.current) setBusy(false); }
   };
   const field = (name, label, props = {}) => <label>{label}<input required {...props} value={form[name]} onChange={event => setForm(current => ({ ...current, [name]: event.target.value }))}/></label>;
-  if(initialMode!=='change' && !recovery)return <div className="customer-page-body"><section className="auth-modal password-modal"><p className="kicker">BẢO MẬT TÀI KHOẢN</p><h1>{title}</h1><p>Khôi phục mật khẩu trực tuyến chưa được bật vì chưa có kênh gửi mã an toàn. Vui lòng liên hệ cửa hàng qua thông tin ở chân trang để được hỗ trợ.</p>{recoveryError&&<p role="alert">{recoveryError}</p>}<button className="button button-dark" onClick={()=>onNavigate('/dang-nhap')}>Về đăng nhập</button></section></div>;
+  if(initialMode!=='change' && !recovery)return <div className="customer-page-body"><section className="auth-modal password-modal"><p className="kicker">BẢO MẬT TÀI KHOẢN</p><h1>{title}</h1><p>Khôi phục mật khẩu trực tuyến chỉ được bật trong môi trường development. Vui lòng liên hệ cửa hàng để được hỗ trợ.</p>{recoveryError&&<p role="alert">{recoveryError}</p>}<button className="button button-dark" onClick={()=>onNavigate('/dang-nhap')}>Về đăng nhập</button></section></div>;
   return <div className="customer-page-body"><section className="auth-modal password-modal">
     <p className="kicker">BẢO MẬT TÀI KHOẢN</p><h1>{title}</h1>
     <p>Mật khẩu mới cần có ít nhất 8 ký tự, gồm chữ và số.</p>
@@ -47,9 +47,9 @@ export default function CustomerPassword({ initialMode, onNavigate, onNotice }) 
     {sent && <p role="status">{sent}</p>}
     <form onSubmit={submit}><fieldset disabled={busy}>
       {initialMode === 'change' ? field('currentPassword', 'Mật khẩu hiện tại', { type: 'password', autoComplete: 'current-password' }) : field('email', 'Email', { type: 'email', autoComplete: 'email' })}
-      {initialMode === 'reset' && !form.code && <p>Mở liên kết trong email để đặt lại mật khẩu, hoặc yêu cầu liên kết mới.</p>}
+      {initialMode === 'reset' && !form.code && <p>Nhập mã đặt lại mật khẩu được cấp trong môi trường development.</p>}
       {initialMode !== 'forgot' && field('newPassword', 'Mật khẩu mới', { type: 'password', minLength: 8, autoComplete: 'new-password' })}
-      <button className="button button-dark" disabled={busy || (initialMode === 'reset' && !form.code)}>{busy ? 'Đang xử lý...' : initialMode === 'forgot' ? 'Gửi liên kết đặt lại' : title}</button>
+      <button className="button button-dark" disabled={busy || (initialMode === 'reset' && !form.code)}>{busy ? 'Đang xử lý...' : initialMode === 'forgot' ? 'Lấy mã đặt lại' : title}</button>
     </fieldset></form>
     <div className="auth-switch"><button onClick={() => onNavigate(initialMode === 'change' ? '/quen-mat-khau' : '/dang-nhap')}>{initialMode === 'change' ? 'Quên mật khẩu?' : 'Về đăng nhập'}</button></div>
   </section></div>;

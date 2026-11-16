@@ -73,14 +73,14 @@ Dữ liệu khách hàng và bán hàng thường bị phân tán trong nhiều 
 
 - Merchant go-live, hoàn tiền production và đối soát production. Trong MVP, hoàn tiền và thu COD được ghi nhận thủ công; hệ thống không gửi lệnh hoàn tới payOS. Tích hợp payOS được mô tả trong MVP; kiểm thử giao dịch thật là hoạt động riêng, có kiểm soát và không phải bước smoke test mặc định.
 - Tích hợp đơn vị vận chuyển thực tế.
-- Social login, xác thực đa yếu tố và nghiệm thu khôi phục mật khẩu qua email ở production. Code hỗ trợ tùy chọn gửi liên kết đặt lại qua Resend khi được cấu hình, dùng token 43 ký tự và không trả mã trong response email. Fallback mã sáu chữ số chỉ bật bằng `DEV_PASSWORD_RESET_ENABLED` ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc vận hành production.
+- Social login, xác thực đa yếu tố và khôi phục mật khẩu qua email nằm ngoài phạm vi. Khôi phục trực tuyến chỉ hỗ trợ mã sáu chữ số trong profile `development` khi bật `DEV_PASSWORD_RESET_ENABLED`; các môi trường khác yêu cầu khách liên hệ cửa hàng.
 - Ứng dụng native cho Android hoặc iOS.
 - Dự báo doanh thu bằng machine learning.
 - Triển khai production, autoscaling và vận hành 24/7.
 
 ### 3.3. Quyết định đã chốt
 
-- **Đặt lại mật khẩu:** Code hỗ trợ tùy chọn gửi liên kết đặt lại qua Resend khi được cấu hình, dùng token 43 ký tự và không trả mã trong response email. Fallback mã sáu chữ số chỉ bật bằng `DEV_PASSWORD_RESET_ENABLED` ở development. Demo/nghiệm thu giữ `RESEND_ENABLED=false` và `DEV_PASSWORD_RESET_ENABLED=false`; chưa xác minh gửi/nhận email hoặc vận hành production.
+- **Đặt lại mật khẩu:** Không gửi email. Mã sáu chữ số chỉ dùng trong profile `development` khi bật `DEV_PASSWORD_RESET_ENABLED`; mặc định chức năng trực tuyến bị tắt.
 - **Audit log:** Chỉ Admin tra cứu audit log qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit cho Manager. Lịch sử hoạt động Customer được xem riêng trong hồ sơ 360°.
 - **Tự hủy PayOS:** mặc định code tắt. Môi trường demo/nghiệm thu đặt `PAYOS_AUTO_CANCEL_ENABLED=true` và `PAYOS_AUTO_CANCEL_GRACE_HOURS=24`; Spring Boot không tự đọc `.env`, nên phải đặt biến vào môi trường tiến trình backend. Cấu hình này bật kiểm tra định kỳ; chỉ giải phóng tồn kho và voucher khi đã xác minh chưa thanh toán và hủy đơn thành công. Đơn chưa xác minh được vẫn giữ tồn kho/voucher và cần đối soát.
 
