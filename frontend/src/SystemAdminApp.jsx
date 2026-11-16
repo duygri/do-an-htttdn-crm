@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { adminApi, adminRefreshSession, adminSignIn, adminSignOut } from './api';
 import InternalDirectory from './InternalDirectory';
 import AuditLogs from './AuditLogs';
+import AdminSettings from './AdminSettings';
 import './internal-portal.css';
 import {
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   ChevronRight,
   Shield,
   Server,
+  Settings,
   Database,
   Lock,
   ArrowRight,
@@ -29,6 +31,7 @@ const menu = {
   dashboard: 'Tổng quan',
   accounts: 'Tài khoản nội bộ',
   products: 'Sản phẩm',
+  settings: 'Cấu hình',
   'audit-logs': 'Nhật ký thao tác',
 };
 
@@ -36,6 +39,7 @@ const menuIcons = {
   dashboard: LayoutDashboard,
   accounts: ShieldCheck,
   products: Package,
+  settings: Settings,
   'audit-logs': Activity,
 };
 
@@ -533,7 +537,7 @@ export default function SystemAdminApp() {
                 </div>
               </div>
             ) : (
-              section === 'audit-logs' ? <AuditLogs /> : menu[section] && <InternalDirectory key={section} kind={section} />
+              section === 'audit-logs' ? <AuditLogs /> : section === 'settings' ? <AdminSettings /> : menu[section] && <InternalDirectory key={section} kind={section} />
             )}
           </main>
         </>
