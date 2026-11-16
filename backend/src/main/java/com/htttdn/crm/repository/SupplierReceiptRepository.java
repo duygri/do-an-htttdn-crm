@@ -13,4 +13,10 @@ public interface SupplierReceiptRepository extends JpaRepository<SupplierReceipt
 
     @Query("select r from SupplierReceipt r where (:supplierId is null or r.supplier.id=:supplierId) and (:from is null or r.invoiceDate>=:from) and (:to is null or r.invoiceDate<=:to) order by r.invoiceDate desc, r.id desc")
     Page<SupplierReceipt> search(@Param("supplierId") Long supplierId,@Param("from") LocalDate from,@Param("to") LocalDate to,Pageable pageable);
+
+    java.util.List<SupplierReceipt> findTop10BySupplierIdOrderByInvoiceDateDescIdDesc(Long supplierId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from SupplierReceipt r where r.id=:id")
+    java.util.Optional<SupplierReceipt> findLockedById(@Param("id") Long id);
 }
