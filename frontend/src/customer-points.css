@@ -1,0 +1,10 @@
+.profile-points { display: grid; gap: 12px; padding: 18px; border: 1px solid rgba(0, 0, 0, .12); border-radius: 14px; background: #fbf9f5; margin-top: 16px; }
+.profile-points-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.profile-points-head h3 { margin: 0; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; }
+.profile-points-head strong { font-size: 20px; }
+.profile-points p { margin: 0; font-size: 13px; line-height: 1.5; color: #4a4a4a; }
+.profile-points-result { color: #0f6b3f; font-weight: 600; }
+.profile-points-history { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.profile-points-history li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 10px; background: #fff; font-size: 13px; }
+.profile-points-history b.positive { color: #0f6b3f; }
+.profile-points-history b.negative { color: #b3341f; }
