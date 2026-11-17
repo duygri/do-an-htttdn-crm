@@ -1,0 +1,82 @@
+/* Biểu đồ cột dọc + thanh % sản phẩm.
+   Nạp SAU cashflow-report.css và finance-report-extra.css (xem RevenueReport.jsx). */
+.cashflow-report {
+  --chart-plot: 240px;
+  --chart-gutter: 88px;
+  --chart-label: 28px;
+  --chart-collected: #16a34a;
+  --chart-cost: #ea580c;
+  --chart-grid: color-mix(in srgb, var(--admin-border, #94a3b8) 70%, transparent);
+  --chart-track: color-mix(in srgb, var(--admin-border, #94a3b8) 35%, transparent);
+}
+.cashflow-report .cashflow-intro { margin: 0 0 .5rem; color: var(--admin-muted, #475569); line-height: 1.6; }
+
+.cashflow-legend { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; margin: .5rem 0 .75rem; font-size: .8125rem; color: var(--admin-muted, #475569); }
+.cashflow-legend span { display: inline-flex; align-items: center; gap: .4rem; }
+.cashflow-legend i { width: .65rem; height: .65rem; border-radius: 3px; display: inline-block; }
+.cashflow-legend .is-collected i { background: var(--chart-collected); }
+.cashflow-legend .is-cost i { background: var(--chart-cost); }
+
+.cashflow-chart { display: grid; grid-template-columns: var(--chart-gutter) minmax(0, 1fr); gap: 0 .25rem; margin: .5rem 0 1rem; min-width: 0; }
+.cashflow-chart__axis { position: relative; height: var(--chart-plot); margin-bottom: var(--chart-label); font-size: .6875rem; font-variant-numeric: tabular-nums; color: var(--admin-muted, #475569); }
+.cashflow-chart__axis span { position: absolute; right: .35rem; transform: translateY(50%); white-space: nowrap; }
+.cashflow-chart__axis span:first-child { transform: translateY(0); }
+
+.cashflow-chart__scroll { overflow-x: auto; overflow-y: hidden; min-width: 0; padding-bottom: .35rem; scrollbar-width: thin; overscroll-behavior-x: contain; }
+.cashflow-chart__scroll:focus-visible, .cashflow-chart__group:focus-visible { outline: 3px solid var(--admin-primary, #3b82f6); outline-offset: 2px; border-radius: 6px; }
+.cashflow-chart__canvas { position: relative; height: calc(var(--chart-plot) + var(--chart-label)); min-width: 100%; }
+
+.cashflow-chart__grid { position: absolute; left: 0; right: 0; top: 0; bottom: var(--chart-label); pointer-events: none; }
+.cashflow-chart__grid span { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--chart-grid); }
+.cashflow-chart__grid span:last-child { border-top-style: solid; }
+
+.cashflow-chart__groups { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; justify-content: center; margin: 0; padding: 0; list-style: none; }
+.cashflow-chart__group { position: relative; flex: 1 1 0; min-width: 34px; max-width: 96px; display: flex; flex-direction: column; align-items: center; border-radius: 6px 6px 0 0; }
+.cashflow-chart__group:hover, .cashflow-chart__group:focus-visible { background: color-mix(in srgb, var(--admin-primary, #3b82f6) 7%, transparent); z-index: 2; }
+.cashflow-chart__plot { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 3px; padding: 0 18%; box-sizing: border-box; }
+.cashflow-chart__bar { flex: 1 1 0; min-width: 4px; max-width: 18px; height: 0; border-radius: 4px 4px 0 0; transition: height .25s ease, filter .15s ease; }
+.cashflow-chart__bar.is-collected { background: var(--chart-collected); }
+.cashflow-chart__bar.is-cost { background: var(--chart-cost); }
+.cashflow-chart__group:hover .cashflow-chart__bar, .cashflow-chart__group:focus-visible .cashflow-chart__bar { filter: saturate(1.15) brightness(1.05); }
+
+.cashflow-chart__label { height: var(--chart-label); display: flex; align-items: center; justify-content: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .6875rem; color: var(--admin-muted, #475569); }
+
+.cashflow-chart__tooltip { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); z-index: 6; display: none; flex-direction: column; gap: 2px; min-width: 11rem; max-width: 16rem; padding: .5rem .625rem; border: 1px solid var(--admin-border, #cbd5e1); border-radius: 10px; background: var(--admin-card, #fff); color: var(--admin-text, #0f172a); box-shadow: 0 12px 28px rgb(15 23 42 / 18%); font-size: .75rem; line-height: 1.45; white-space: nowrap; pointer-events: none; }
+.cashflow-chart__tooltip b { font-size: .75rem; }
+.cashflow-chart__tooltip span { display: flex; align-items: center; gap: .35rem; }
+.cashflow-chart__tooltip i { flex: none; width: .6rem; height: .6rem; border-radius: 3px; display: inline-block; }
+.cashflow-chart__tooltip i.is-collected { background: var(--chart-collected); }
+.cashflow-chart__tooltip i.is-cost { background: var(--chart-cost); }
+.cashflow-chart__group:hover .cashflow-chart__tooltip, .cashflow-chart__group:focus-visible .cashflow-chart__tooltip { display: flex; }
+.cashflow-chart__group:nth-child(1) .cashflow-chart__tooltip, .cashflow-chart__group:nth-child(2) .cashflow-chart__tooltip { left: 0; transform: none; }
+.cashflow-chart__group:nth-last-child(1) .cashflow-chart__tooltip, .cashflow-chart__group:nth-last-child(2) .cashflow-chart__tooltip { left: auto; right: 0; transform: none; }
+
+.cashflow-chart.is-day .cashflow-chart__group { min-width: 26px; max-width: 44px; }
+.cashflow-chart.is-day .cashflow-chart__plot { gap: 2px; padding: 0 12%; }
+.cashflow-chart.is-medium .cashflow-chart__label { font-size: .625rem; }
+.cashflow-chart.is-dense .cashflow-chart__label { visibility: hidden; }
+
+.cashflow-report .cashflow-share { min-width: 9rem; }
+.cashflow-report .cashflow-share__track { display: block; width: 7rem; max-width: 100%; height: 8px; margin-top: 4px; border-radius: 999px; background: var(--chart-track); overflow: hidden; }
+.cashflow-report .cashflow-share__fill { display: block; height: 100%; border-radius: inherit; background: var(--chart-collected); transition: width .25s ease; }
+
+.manager-shell[data-theme="dark"] .cashflow-report {
+  --chart-collected: #22c55e;
+  --chart-cost: #f97316;
+  --chart-grid: color-mix(in srgb, var(--admin-border, #334155) 85%, transparent);
+  --chart-track: color-mix(in srgb, var(--admin-border, #334155) 70%, transparent);
+}
+.manager-shell[data-theme="dark"] .cashflow-chart__tooltip { box-shadow: 0 14px 34px rgb(0 0 0 / 45%); }
+
+@media (max-width: 800px) {
+  .cashflow-report { --chart-plot: 200px; --chart-gutter: 76px; }
+  .cashflow-chart__bar { max-width: 14px; }
+}
+@media (max-width: 480px) {
+  .cashflow-report { --chart-plot: 170px; --chart-gutter: 64px; }
+  .cashflow-chart__group { min-width: 28px; }
+  .cashflow-report .cashflow-share__track { width: 5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cashflow-chart__bar, .cashflow-chart__tooltip, .cashflow-report .cashflow-share__fill { transition: none; }
+}

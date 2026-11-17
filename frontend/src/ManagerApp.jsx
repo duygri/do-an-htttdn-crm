@@ -120,6 +120,7 @@ const navSections = [
     items: [
       ["surveys", "Khảo sát"],
       ["reports", "Báo cáo"],
+      ["revenue", "Doanh thu"],
     ],
   },
 ];
@@ -141,6 +142,7 @@ const navIcons = {
   'support-tickets': LifeBuoy,
   surveys: ClipboardCheck,
   reports: BarChart3,
+  revenue: DollarSign,
   vouchers: TicketPercent,
 };
 const statusLabels = {
@@ -211,6 +213,19 @@ const normalizeAdminPath = (value) => {
       : `/manager/${key}`
     : "/manager";
 };
+const REVENUE_LEGACY_KEYS = ["fromDate", "toDate", "groupBy"];
+export const legacyRevenueTarget = (value) => {
+  const [base, rawQuery = ""] = value.split("?");
+  if (base !== "/manager/reports") return null;
+  const params = new URLSearchParams(rawQuery);
+  if (params.get("tab") !== "revenue") return null;
+  const next = new URLSearchParams();
+  for (const key of REVENUE_LEGACY_KEYS) {
+    const item = params.get(key);
+    if (item) next.set(key, item);
+  }
+  return `/manager/revenue${next.size ? `?${next}` : ""}`;
+};
 
 export default function ManagerApp() {
   const [path, setPath] = useState(window.location.pathname + window.location.search);
@@ -243,6 +258,12 @@ export default function ManagerApp() {
     setPath(target);
     setMobileMenuOpen(false);
   };
+  useEffect(() => {
+    const target = legacyRevenueTarget(path);
+    if (!target) return;
+    window.history.replaceState({}, "", target);
+    setPath(target);
+  }, [path]);
   const notify = (message, type = "success") => {
     setNotice({ message, type });
     window.setTimeout(() => setNotice(null), 3500);
@@ -463,6 +484,7 @@ export default function ManagerApp() {
         {section==='support-tickets'&&<SupportTickets manager admin={admin} location={path} navigate={go}/>}
         {section === "surveys" && <Surveys notify={notify} location={path} go={go} />}
         {section === "reports" && <Reports go={go} />}
+        {section === "revenue" && <RevenuePage />}
         {section === "vouchers" && <AdminVouchers />}
         {section === "care" && <CustomerCare go={go} location={path}/>}
         {section === "care-dashboard" && <CareDashboard go={go} location={path}/>}
@@ -603,7 +625,7 @@ function Dashboard({ go }) {
           icon={DollarSign}
           color="green"
           detail="PayOS đã thanh toán và COD đã thu thực tế"
-          onClick={() => go("reports")}
+          onClick={() => go("revenue")}
         />
         <Stat
           label="Tổng đơn hàng"
@@ -765,7 +787,7 @@ function Dashboard({ go }) {
           })}
           <small className="admin-data-note">
             Doanh thu đã thu chỉ gồm PayOS đã thanh toán và COD đã xác nhận thu.
-            Xem chi tiết theo tháng/quý/năm trong Báo cáo → Doanh thu.
+            Xem chi tiết theo tháng/quý/năm tại mục Doanh thu.
           </small>
         </section>
         <section className="admin-panel admin-account-overview">
@@ -3109,15 +3131,29 @@ function SurveyReports() {
   );
 }
 
+export function RevenuePage() {
+  return (
+    <div className="admin-panel">
+      <PanelTitle
+        title="Doanh thu"
+        subtitle="Doanh thu đã thu, chi phí nhập hàng, tiền đã trả nhà cung cấp và đóng góp theo sản phẩm."
+      />
+      <React.Suspense fallback={<PanelLoading />}>
+        <RevenueReport />
+      </React.Suspense>
+    </div>
+  );
+}
+
 export function Reports({go}) {
   const [filters, change] = useManagerFilters({tab:'customers'});
-  const tab = ['customers','surveys','retention','revenue'].includes(filters.tab) ? filters.tab : 'customers';
+  const tab = ['customers','surveys','retention'].includes(filters.tab) ? filters.tab : 'customers';
   const setTab = next => change({tab:next,page:''});
   return (
     <div className="admin-panel">
       <PanelTitle
         title="Báo cáo"
-        subtitle={tab==='revenue'?'Doanh thu đã thu, chi phí nhập hàng và chênh lệch theo ngày/tháng/quý/năm.':'Dữ liệu tổng hợp toàn bộ thời gian.'}
+        subtitle="Dữ liệu tổng hợp toàn bộ thời gian."
       />
       <div className="admin-report-tabs">
         <button
@@ -3139,9 +3175,8 @@ export function Reports({go}) {
         <button className={tab === 'retention' ? 'admin-primary' : 'admin-action'} aria-pressed={tab === 'retention'} onClick={() => setTab('retention')}>
           <TrendingUp size={15} aria-hidden="true" />Giữ chân khách hàng
         </button>
-        <button className={tab==='revenue'?'admin-primary':'admin-action'} aria-pressed={tab==='revenue'} onClick={()=>setTab('revenue')}><DollarSign size={15} aria-hidden="true"/>Doanh thu</button>
       </div>
-      {tab === 'revenue' ? <React.Suspense fallback={<PanelLoading/>}><RevenueReport/></React.Suspense> : tab === 'customers' ? <CustomerReport /> : tab === 'surveys' ? <SurveyReports /> : <React.Suspense fallback={<PanelLoading />}><RetentionReport go={go} /></React.Suspense>}
+      {tab === 'customers' ? <CustomerReport /> : tab === 'surveys' ? <SurveyReports /> : <React.Suspense fallback={<PanelLoading />}><RetentionReport go={go} /></React.Suspense>}
     </div>
   );
 }
