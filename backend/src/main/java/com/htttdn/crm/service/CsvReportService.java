@@ -33,11 +33,20 @@ public class CsvReportService {
     public ResponseEntity<String> revenueCsv(Instant from, Instant to, String groupBy) {
         var report = cashflow.report(from, to, groupBy);
         List<String> rows = new ArrayList<>();
-        rows.add(Csv.line("period", "collected", "collectedOrders", "purchaseCost", "difference"));
+        rows.add(Csv.line("period", "collected", "collectedOrders", "purchaseCost", "paidToSuppliers", "difference"));
         report.series().forEach(series -> rows.add(Csv.line(
             series.period(), plain(series.collected()), series.collectedOrders(),
-            plain(series.purchaseCost()), plain(series.difference()))));
+            plain(series.purchaseCost()), plain(series.paidToSuppliers()), plain(series.difference()))));
         return Csv.response("doanh-thu.csv", rows);
+    }
+
+    public ResponseEntity<String> productRevenueCsv(Instant from, Instant to, String groupBy) {
+        var report = cashflow.report(from, to, groupBy);
+        List<String> rows = new ArrayList<>();
+        rows.add(Csv.line("productId", "productName", "quantity", "grossItemValue", "sharePercent"));
+        report.products().forEach(p -> rows.add(Csv.line(
+            p.productId(), p.name(), p.quantity(), plain(p.grossItemValue()), plain(p.share()))));
+        return Csv.response("doanh-thu-san-pham.csv", rows);
     }
 
     public ResponseEntity<String> ordersCsv(String status, String q, Instant from, Instant to) {

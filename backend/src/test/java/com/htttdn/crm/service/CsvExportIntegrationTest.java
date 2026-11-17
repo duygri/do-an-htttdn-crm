@@ -123,8 +123,8 @@ class CsvExportIntegrationTest {
                 .param("from", "2026-10-31T17:00:00Z").param("to", "2026-11-30T17:00:00Z").param("groupBy", "month")
                 .header("Authorization", token(manager)))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertTrue(body.contains("period,collected,collectedOrders,purchaseCost,difference"));
-        assertTrue(body.contains("2026-11,255000.00,1,40000.00,215000.00"));
+        assertTrue(body.contains("period,collected,collectedOrders,purchaseCost,paidToSuppliers,difference"));
+        assertTrue(body.contains("2026-11,255000.00,1,40000.00,0,215000.00"));
 
         mvc.perform(get("/api/manager/reports/revenue.csv")
                 .param("from", "2026-11-30T17:00:00Z").param("to", "2026-10-31T17:00:00Z").header("Authorization", token(manager)))

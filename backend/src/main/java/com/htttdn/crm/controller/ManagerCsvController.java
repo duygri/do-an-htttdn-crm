@@ -23,6 +23,13 @@ public class ManagerCsvController {
         return csv.revenueCsv(from, to, groupBy);
     }
 
+    @GetMapping("/reports/product-revenue.csv")
+    public ResponseEntity<String> productRevenue(@RequestParam(required = false) Instant from,
+                                                 @RequestParam(required = false) Instant to,
+                                                 @RequestParam(defaultValue = "month") String groupBy) {
+        return csv.productRevenueCsv(from, to, groupBy);
+    }
+
     @GetMapping("/orders.csv")
     public ResponseEntity<String> orders(@RequestParam(required = false) String status,
                                          @RequestParam(defaultValue = "") String q,
