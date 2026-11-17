@@ -43,6 +43,8 @@ const menuIcons = {
   'audit-logs': Activity,
 };
 
+const vnd = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0));
+
 const readStorage = (key) => {
   try {
     return window.localStorage.getItem(key);
@@ -71,6 +73,7 @@ export default function SystemAdminApp() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readStorage('admin-sidebar-collapsed') === 'true');
   const [form, setForm] = useState({ email: '', password: '' });
   const [overview, setOverview] = useState(null);
+  const [finance, setFinance] = useState(null);
   const [retry, setRetry] = useState(0);
   const sessionExpired = React.useRef(false);
 
@@ -151,6 +154,21 @@ export default function SystemAdminApp() {
       })
       .catch((e) => {
         if (alive && !sessionExpired.current) setError(e.message);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [session, retry]);
+
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    adminApi('/api/admin/reports/finance-summary')
+      .then((d) => {
+        if (alive) setFinance(d);
+      })
+      .catch(() => {
+        if (alive) setFinance(null);
       });
     return () => {
       alive = false;
@@ -407,6 +425,48 @@ export default function SystemAdminApp() {
                     <div className="internal-kpi-value">{overview ? overview.suppliers ?? 0 : '—'}</div>
                     <div className="internal-kpi-footer">
                       <span>Đối tác cung ứng đang kết nối</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Finance Metrics */}
+                <div className="internal-kpi-grid" role="group" aria-label="Thống kê tài chính">
+                  <div className="internal-kpi-card green">
+                    <div className="internal-kpi-header">
+                      <span className="internal-kpi-title">Tổng thu</span>
+                      <div className="internal-kpi-icon green">
+                        <CheckCircle2 size={20} />
+                      </div>
+                    </div>
+                    <div className="internal-kpi-value">{finance ? vnd(finance.collected) : '—'}</div>
+                    <div className="internal-kpi-footer">
+                      <span>Tiền đã thu thực tế năm nay</span>
+                    </div>
+                  </div>
+
+                  <div className="internal-kpi-card violet">
+                    <div className="internal-kpi-header">
+                      <span className="internal-kpi-title">Tổng chi</span>
+                      <div className="internal-kpi-icon violet">
+                        <Database size={20} />
+                      </div>
+                    </div>
+                    <div className="internal-kpi-value">{finance ? vnd(finance.purchaseCost) : '—'}</div>
+                    <div className="internal-kpi-footer">
+                      <span>Đã trả: {finance ? vnd(finance.paidToSuppliers) : '—'}</span>
+                    </div>
+                  </div>
+
+                  <div className="internal-kpi-card blue">
+                    <div className="internal-kpi-header">
+                      <span className="internal-kpi-title">Lợi nhuận</span>
+                      <div className="internal-kpi-icon blue">
+                        <Activity size={20} />
+                      </div>
+                    </div>
+                    <div className="internal-kpi-value">{finance ? vnd(finance.difference) : '—'}</div>
+                    <div className="internal-kpi-footer">
+                      <span>Tổng thu trừ chi phí nhập</span>
                     </div>
                   </div>
                 </div>

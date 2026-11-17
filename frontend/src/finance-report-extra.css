@@ -1,0 +1,9 @@
+/* Finance extras layered after cashflow-report.css.
+   Only additive rules: metrics grid that fits 5 cards and the full product table. */
+.cashflow-report .cashflow-metrics { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); }
+.cashflow-report .cashflow-products-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 6px 0 14px; }
+.cashflow-report .cashflow-products-table { max-height: 540px; overflow: auto; }
+.cashflow-report .cashflow-products-table thead th { position: sticky; top: 0; z-index: 1; background: inherit; }
+.cashflow-report .cashflow-share { white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) { .cashflow-report .cashflow-metrics { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 420px) { .cashflow-report .cashflow-metrics { grid-template-columns: 1fr; } }
