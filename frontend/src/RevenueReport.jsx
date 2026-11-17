@@ -5,39 +5,14 @@ import {useManagerFilters,managerQuery} from './useManagerFilters';
 import './cashflow-report.css';
 import './finance-report-extra.css';
 import './revenue-chart.css';
+import {compactVnd,GROUP_LABELS,niceScale,shortPeriod} from './charts/chart-math';
+export {compactVnd,niceScale} from './charts/chart-math';
 
 const money=value=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(Number(value||0));
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const defaults=()=>{const now=today();return{fromDate:`${now.slice(0,4)}-01-01`,toDate:now,groupBy:'month'};};
 const startOf=value=>new Date(`${value}T00:00:00+07:00`);
 const endExclusive=value=>{const date=startOf(value);date.setUTCDate(date.getUTCDate()+1);return date;};
-const GROUP_LABELS={day:'ngày',month:'tháng',quarter:'quý',year:'năm'};
-
-export function compactVnd(value){
-  const n=Number(value||0),abs=Math.abs(n),sign=n<0?'-':'';
-  const fmt=(x,unit)=>`${new Intl.NumberFormat('vi-VN',{maximumFractionDigits:1}).format(x)}${unit}`;
-  if(abs>=1e9)return sign+fmt(abs/1e9,' tỷ');
-  if(abs>=1e6)return sign+fmt(abs/1e6,' tr');
-  if(abs>=1e3)return sign+fmt(abs/1e3,'k');
-  return sign+fmt(abs,'');
-}
-
-export function niceScale(rawMax){
-  if(!(rawMax>0))return{max:0,ticks:[0]};
-  const rough=rawMax/4,power=10**Math.floor(Math.log10(rough)),norm=rough/power;
-  const step=(norm<=1?1:norm<=2?2:norm<=2.5?2.5:norm<=5?5:10)*power;
-  const max=Math.ceil(rawMax/step)*step;
-  const ticks=[];
-  for(let v=0;v<=max+step*1e-6;v+=step)ticks.push(Math.round(v*100)/100);
-  return{max,ticks};
-}
-
-const shortPeriod=(period,groupBy)=>{
-  if(groupBy==='day')return `${period.slice(8,10)}/${period.slice(5,7)}`;
-  if(groupBy==='month')return `${period.slice(5,7)}/${period.slice(2,4)}`;
-  if(groupBy==='quarter'){const [year,quarter]=period.split('-Q');return `Q${quarter}/${year.slice(2)}`;}
-  return period;
-};
 
 export default function RevenueReport(){
   const [filters,change]=useManagerFilters(useMemo(defaults,[]));

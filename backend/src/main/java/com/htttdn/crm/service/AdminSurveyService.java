@@ -51,7 +51,7 @@ public class AdminSurveyService extends AdminServiceSupport {
  if(value && users!=null){
  int pageNumber=0;org.springframework.data.domain.Page<User> batch;
  do{batch=users.findActiveCustomers("",org.springframework.data.domain.PageRequest.of(pageNumber++,100));for(User u:batch){
- if(!u.isLocked()&&("ALL".equals(s.getAudience())||s.getRecipients().contains(u.getId()))&&s.getNotified().add(u.getId()))notifications.create(u,"Khảo sát mới",s.getTitle(),"SURVEY_PUBLISHED",null);
+ if(!u.isLocked()&&("ALL".equals(s.getAudience())||s.getRecipients().contains(u.getId()))&&s.getNotified().add(u.getId()))notifications.createSurveyInvite(u,"Khảo sát mới: "+s.getTitle(),"Cửa hàng mời bạn tham gia khảo sát \""+s.getTitle()+"\". Đăng nhập để trả lời — liên kết sẽ đưa bạn thẳng tới khảo sát.",s.getId());
  }}while(batch.hasNext());
  }if(!before.equals(snapshot(s)))audit(value?"PUBLISH":"UNPUBLISH","SURVEY",id,before,s);return surveys.save(s);}
  @Transactional public void delete(Long id){Survey s=locked(id);if(s.getDeletedAt()==null){var before=snapshot(s);s.setDeletedAt(Instant.now());surveys.save(s);audit("DELETE","SURVEY",id,before,s);}}

@@ -19,6 +19,10 @@ import com.htttdn.crm.entity.*; import com.htttdn.crm.repository.CustomerNotific
         var n=save(recipient,title,content,"SURVEY_REWARD");notifications.save(n);
         publish(recipient,title,content+"\n\nXem voucher: "+mail.link("/tai-khoan/voucher"),"notification-"+n.getId());
     }
+    @Transactional public void createSurveyInvite(User recipient,String title,String content,Long surveyId){
+        var n=save(recipient,title,content,"SURVEY_PUBLISHED");notifications.save(n);
+        publish(recipient,title,content+"\n\nTham gia khảo sát: "+mail.link("/khao-sat/"+surveyId),"survey-invite-"+surveyId+"-"+recipient.getId());
+    }
     @Transactional public void accountNotice(User recipient,String title,String content){publish(recipient,title,content,"account-"+UUID.randomUUID());}
     @Transactional public void create(User customer,String title,String content,String type,Long orderId){
         var n=save(customer,title,content,type);n.setOrderId(orderId);notifications.save(n);

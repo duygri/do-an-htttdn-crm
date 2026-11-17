@@ -25,6 +25,7 @@ const ManagerSupplierReceipts = React.lazy(()=>import('./ManagerSupplierReceipts
 const ManagerInventory = React.lazy(()=>import('./ManagerInventory'));
 const ManagerInvoices = React.lazy(()=>import('./ManagerInvoices'));
 const RevenueReport = React.lazy(()=>import('./RevenueReport'));
+const ManagerDashboardStatistics = React.lazy(() => import('./ManagerDashboardStatistics'));
 import {
   Activity,
   LayoutDashboard,
@@ -120,7 +121,7 @@ const navSections = [
     items: [
       ["surveys", "Khảo sát"],
       ["reports", "Báo cáo"],
-      ["revenue", "Doanh thu"],
+      ["statistics", "Thống kê"],
     ],
   },
 ];
@@ -142,7 +143,7 @@ const navIcons = {
   'support-tickets': LifeBuoy,
   surveys: ClipboardCheck,
   reports: BarChart3,
-  revenue: DollarSign,
+  statistics: TrendingUp,
   vouchers: TicketPercent,
 };
 const statusLabels = {
@@ -203,28 +204,30 @@ const formatDate = (value) =>
       })
     : "—";
 const userOrigin = import.meta.env.VITE_SAME_ORIGIN === 'true' ? window.location.origin : (import.meta.env.VITE_USER_ORIGIN || "http://localhost:5173");
-const normalizeAdminPath = (value) => {
+export const normalizeAdminPath = (value) => {
   if (value === "/manager/login") return value;
   if (/^\/manager\/users\/[^/]+$/.test(value)) return value;
-  const key = value.replace(/^\/manager\/?/, "").split("/")[0] || "dashboard";
+  const rawKey = value.replace(/^\/manager\/?/, "").split("/")[0] || "dashboard";
+  const key = rawKey === "revenue" ? "statistics" : rawKey;
   return validSections.has(key)
     ? key === "dashboard"
       ? "/manager"
       : `/manager/${key}`
     : "/manager";
 };
-const REVENUE_LEGACY_KEYS = ["fromDate", "toDate", "groupBy"];
-export const legacyRevenueTarget = (value) => {
+const STATISTICS_LEGACY_KEYS = ["fromDate", "toDate", "groupBy"];
+export const legacyStatisticsTarget = (value) => {
   const [base, rawQuery = ""] = value.split("?");
-  if (base !== "/manager/reports") return null;
+  const isLegacyRevenue = base === "/manager/revenue";
+  const isLegacyReportTab = base === "/manager/reports" && new URLSearchParams(rawQuery).get("tab") === "revenue";
+  if (!isLegacyRevenue && !isLegacyReportTab) return null;
   const params = new URLSearchParams(rawQuery);
-  if (params.get("tab") !== "revenue") return null;
   const next = new URLSearchParams();
-  for (const key of REVENUE_LEGACY_KEYS) {
+  for (const key of STATISTICS_LEGACY_KEYS) {
     const item = params.get(key);
     if (item) next.set(key, item);
   }
-  return `/manager/revenue${next.size ? `?${next}` : ""}`;
+  return `/manager/statistics${next.size ? `?${next}` : ""}`;
 };
 
 export default function ManagerApp() {
@@ -259,7 +262,7 @@ export default function ManagerApp() {
     setMobileMenuOpen(false);
   };
   useEffect(() => {
-    const target = legacyRevenueTarget(path);
+    const target = legacyStatisticsTarget(path);
     if (!target) return;
     window.history.replaceState({}, "", target);
     setPath(target);
@@ -484,7 +487,7 @@ export default function ManagerApp() {
         {section==='support-tickets'&&<SupportTickets manager admin={admin} location={path} navigate={go}/>}
         {section === "surveys" && <Surveys notify={notify} location={path} go={go} />}
         {section === "reports" && <Reports go={go} />}
-        {section === "revenue" && <RevenuePage />}
+        {section === "statistics" && <StatisticsPage />}
         {section === "vouchers" && <AdminVouchers />}
         {section === "care" && <CustomerCare go={go} location={path}/>}
         {section === "care-dashboard" && <CareDashboard go={go} location={path}/>}
@@ -625,7 +628,7 @@ function Dashboard({ go }) {
           icon={DollarSign}
           color="green"
           detail="PayOS đã thanh toán và COD đã thu thực tế"
-          onClick={() => go("revenue")}
+          onClick={() => go("statistics")}
         />
         <Stat
           label="Tổng đơn hàng"
@@ -644,6 +647,10 @@ function Dashboard({ go }) {
           onClick={() => go("surveys")}
         />
       </div>
+
+      <React.Suspense fallback={<PanelLoading />}>
+        <ManagerDashboardStatistics go={go} />
+      </React.Suspense>
 
       {/* Operational Alert if Locked Customers Exist */}
       {Number(data.users.lockedCustomers) > 0 && (
@@ -787,7 +794,7 @@ function Dashboard({ go }) {
           })}
           <small className="admin-data-note">
             Doanh thu đã thu chỉ gồm PayOS đã thanh toán và COD đã xác nhận thu.
-            Xem chi tiết theo tháng/quý/năm tại mục Doanh thu.
+            Xem chi tiết theo tháng/quý/năm tại mục Thống kê.
           </small>
         </section>
         <section className="admin-panel admin-account-overview">
@@ -2530,6 +2537,7 @@ function Surveys({ notify, location = '', go }) {
 
   const publish = async (survey) => {
     if (busy) return;
+    const publishing = survey.status !== "PUBLISHED";
     setBusy(true);
     setFormError("");
     try {
@@ -2539,7 +2547,11 @@ function Surveys({ notify, location = '', go }) {
           (survey.status !== "PUBLISHED"),
         { method: "PATCH" }
       );
-      notify("Đã cập nhật phát hành khảo sát.");
+      notify(
+        publishing
+          ? "Đã phát hành khảo sát. Hệ thống đã tạo thông báo và gửi email mời tới khách hàng đủ điều kiện."
+          : "Đã thu hồi khảo sát."
+      );
       await load();
     } catch (e) {
       setFormError(e.message);
@@ -2569,7 +2581,7 @@ function Surveys({ notify, location = '', go }) {
     <div className="admin-panel">
       <PanelTitle
         title="Khảo sát"
-        subtitle="Tạo câu hỏi trắc nghiệm và phát hành cho khách hàng."
+        subtitle="Tạo câu hỏi trắc nghiệm và phát hành cho khách hàng. Khi phát hành, khách hàng đủ điều kiện sẽ nhận thông báo trong ứng dụng và email mời làm khảo sát."
       />
 
       <div className="admin-table-toolbar">
@@ -3131,11 +3143,11 @@ function SurveyReports() {
   );
 }
 
-export function RevenuePage() {
+export function StatisticsPage() {
   return (
     <div className="admin-panel">
       <PanelTitle
-        title="Doanh thu"
+        title="Thống kê"
         subtitle="Doanh thu đã thu, chi phí nhập hàng, tiền đã trả nhà cung cấp và đóng góp theo sản phẩm."
       />
       <React.Suspense fallback={<PanelLoading />}>

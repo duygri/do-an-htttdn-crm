@@ -24,11 +24,18 @@ import {
   Lock,
   ArrowRight,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  ChartColumn
 } from 'lucide-react';
+
+const AdminStatistics = React.lazy(() => import('./AdminStatistics'));
+const AdminStatisticsWidget = React.lazy(() =>
+  import('./AdminStatistics').then((module) => ({ default: module.AdminStatisticsWidget }))
+);
 
 const menu = {
   dashboard: 'Tổng quan',
+  statistics: 'Thống kê',
   accounts: 'Tài khoản nội bộ',
   products: 'Sản phẩm',
   settings: 'Cấu hình',
@@ -37,6 +44,7 @@ const menu = {
 
 const menuIcons = {
   dashboard: LayoutDashboard,
+  statistics: ChartColumn,
   accounts: ShieldCheck,
   products: Package,
   settings: Settings,
@@ -471,6 +479,10 @@ export default function SystemAdminApp() {
                   </div>
                 </div>
 
+                <React.Suspense fallback={null}>
+                  <AdminStatisticsWidget go={go} refreshKey={retry} />
+                </React.Suspense>
+
                 {/* Quick Actions Panel */}
                 <div className="internal-section-card">
                   <div className="internal-card-head">
@@ -597,7 +609,11 @@ export default function SystemAdminApp() {
                 </div>
               </div>
             ) : (
-              section === 'audit-logs' ? <AuditLogs /> : section === 'settings' ? <AdminSettings /> : menu[section] && <InternalDirectory key={section} kind={section} />
+              section === 'statistics' ? (
+                <React.Suspense fallback={<p className="internal-statistics-loading">Đang tải trang thống kê…</p>}>
+                  <AdminStatistics />
+                </React.Suspense>
+              ) : section === 'audit-logs' ? <AuditLogs /> : section === 'settings' ? <AdminSettings /> : menu[section] && <InternalDirectory key={section} kind={section} />
             )}
           </main>
         </>

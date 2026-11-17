@@ -1,0 +1,51 @@
+/* Admin statistics page: reuses internal portal cards and chart styles. */
+.internal-statistics-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.internal-statistics-page .internal-section-card {
+  min-width: 0;
+}
+
+.internal-statistics-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.internal-statistics-loading {
+  margin: 0;
+  padding: 24px;
+  color: var(--admin-muted, #64748b);
+}
+
+.admin-statistics-widget {
+  min-width: 0;
+}
+
+.admin-statistics-widget .stats-panel__head {
+  padding-bottom: 4px;
+}
+
+@media (max-width: 900px) {
+  .admin-statistics-widget .stats-chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .internal-statistics-page .internal-section-card {
+    padding: 18px;
+  }
+
+  .internal-statistics-actions {
+    justify-content: stretch;
+  }
+
+  .internal-statistics-actions .internal-sync-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
