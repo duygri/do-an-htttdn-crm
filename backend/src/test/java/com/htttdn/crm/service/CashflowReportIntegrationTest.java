@@ -178,4 +178,19 @@ class CashflowReportIntegrationTest {
             .andExpect(jsonPath("$.purchaseCost").exists()).andExpect(jsonPath("$.paidToSuppliers").exists())
             .andExpect(jsonPath("$.difference").exists()).andExpect(jsonPath("$.collectedOrders").exists());
     }
+
+    @Test void onlyAdminsCanReadTheStatisticsReportAndPeriodsAreValidated()throws Exception{
+        mvc.perform(get("/api/admin/reports/statistics")).andExpect(status().isUnauthorized());
+        for(String role:new String[]{"MANAGER","CUSTOMER"})mvc.perform(get("/api/admin/reports/statistics").header("Authorization","Bearer "+jwt.issue(user(role).getId(),role))).andExpect(status().isForbidden());
+        var admin=jwt.issue(user("ADMIN").getId(),"ADMIN");
+        mvc.perform(get("/api/admin/reports/statistics").param("from",from.toString()).param("to",to.toString()).param("groupBy","quarter")
+                .header("Authorization","Bearer "+admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.groupBy").value("quarter"))
+            .andExpect(jsonPath("$.series").isArray())
+            .andExpect(jsonPath("$.products").isArray())
+            .andExpect(jsonPath("$.collected").exists());
+        mvc.perform(get("/api/admin/reports/statistics").param("groupBy","week").header("Authorization","Bearer "+admin))
+            .andExpect(status().isBadRequest());
+    }
 }

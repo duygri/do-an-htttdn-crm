@@ -2,7 +2,7 @@
 import React from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { legacyRevenueTarget, Reports, RevenuePage } from './ManagerApp';
+import { legacyStatisticsTarget, normalizeAdminPath, Reports, StatisticsPage } from './ManagerApp';
 import { adminApi } from './manager-api';
 
 vi.mock('./manager-api', async original => ({ ...(await original()), adminApi: vi.fn() }));
@@ -19,11 +19,17 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it('moves legacy revenue links to the new page and keeps the report filters', () => {
-  expect(legacyRevenueTarget('/manager/reports?tab=revenue&fromDate=2026-03-01&groupBy=quarter&page=2'))
-    .toBe('/manager/revenue?fromDate=2026-03-01&groupBy=quarter');
-  expect(legacyRevenueTarget('/manager/reports?tab=retention')).toBeNull();
-  expect(legacyRevenueTarget('/manager/revenue')).toBeNull();
+it('moves legacy report and revenue links to the statistics page and keeps the filters', () => {
+  expect(legacyStatisticsTarget('/manager/reports?tab=revenue&fromDate=2026-03-01&groupBy=quarter&page=2'))
+    .toBe('/manager/statistics?fromDate=2026-03-01&groupBy=quarter');
+  expect(legacyStatisticsTarget('/manager/revenue?groupBy=year')).toBe('/manager/statistics?groupBy=year');
+  expect(legacyStatisticsTarget('/manager/reports?tab=retention')).toBeNull();
+  expect(legacyStatisticsTarget('/manager/statistics?groupBy=month')).toBeNull();
+});
+
+it('normalizes the legacy revenue route to the statistics section', () => {
+  expect(normalizeAdminPath('/manager/revenue')).toBe('/manager/statistics');
+  expect(normalizeAdminPath('/manager/statistics')).toBe('/manager/statistics');
 });
 
 it('no longer offers the revenue tab inside Reports', () => {
@@ -32,10 +38,10 @@ it('no longer offers the revenue tab inside Reports', () => {
   expect(screen.getByRole('button', { name: 'Giữ chân khách hàng', exact: true })).toBeTruthy();
 });
 
-it('renders the revenue page with a single page-level heading', async () => {
+it('renders the statistics page with a single page-level heading', async () => {
   adminApi.mockResolvedValue(report);
-  window.history.replaceState({}, '', '/manager/revenue');
-  render(<RevenuePage />);
-  expect(screen.getAllByRole('heading', { name: 'Doanh thu' })).toHaveLength(1);
+  window.history.replaceState({}, '', '/manager/statistics');
+  render(<StatisticsPage />);
+  expect(screen.getAllByRole('heading', { name: 'Thống kê' })).toHaveLength(1);
   expect(await screen.findByRole('region', { name: 'Báo cáo doanh thu' })).toBeTruthy();
 });
