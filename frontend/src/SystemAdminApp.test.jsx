@@ -62,8 +62,21 @@ it('keeps the portal usable when browser storage is blocked', async () => {
   await waitFor(() => expect(screen.getByRole('button', { name: 'Chế độ tối' })).toBeTruthy());
 });
 
-it('returns to the login screen when the admin session expires', async () => {
+it('shows the yearly finance totals on the dashboard', async () => {
   adminRefreshSession.mockResolvedValue({ admin: { fullName: 'Quản trị', email: 'admin@example.com' } });
+  adminApi.mockImplementation(async (url) => url.includes('finance-summary')
+    ? { collected: 500000, purchaseCost: 200000, paidToSuppliers: 120000, difference: 300000, collectedOrders: 3 }
+    : { accounts: 5, products: 12, suppliers: 3 });
+  render(<SystemAdminApp />, { wrapper });
+  const group = await screen.findByRole('group', { name: 'Thống kê tài chính' });
+  await waitFor(() => expect(group.textContent).toContain('500.000'));
+  expect(group.textContent).toContain('Đã trả:');
+  expect(group.textContent).toContain('120.000');
+  expect(group.textContent).toContain('300.000');
+  expect(screen.queryByText(/nhà cung cấp/i)).toBeNull();
+});
+
+it('returns to the login screen when the admin session expires', async () => {  adminRefreshSession.mockResolvedValue({ admin: { fullName: 'Quản trị', email: 'admin@example.com' } });
   adminApi.mockResolvedValue({ accounts: 5, products: 12, suppliers: 3 });
   render(<SystemAdminApp />, { wrapper });
   await waitFor(() => expect(screen.getByText('Đối tác cung ứng')).toBeTruthy());

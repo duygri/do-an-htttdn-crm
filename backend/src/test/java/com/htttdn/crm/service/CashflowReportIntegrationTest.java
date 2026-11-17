@@ -15,13 +15,14 @@ import java.time.*;
 import java.util.List;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:revenuereport;MODE=PostgreSQL;DB_CLOSE_DELAY=-1","spring.datasource.driver-class-name=org.h2.Driver","spring.datasource.username=sa","spring.datasource.password=","spring.jpa.database-platform=org.hibernate.dialect.H2Dialect","spring.jpa.hibernate.ddl-auto=create-drop","crm.care-reminders.enabled=false"})
 @AutoConfigureMockMvc @Transactional
 class CashflowReportIntegrationTest {
-    @Autowired CashflowReportService report;@Autowired EntityManager em;@Autowired PaymentReconciliationService reconciliation;@Autowired MockMvc mvc;@Autowired JwtTokenService jwt;@Autowired SupplierReceiptService receipts;@Autowired SettingsService settings;
+    @Autowired CashflowReportService report;@Autowired EntityManager em;@Autowired PaymentReconciliationService reconciliation;@Autowired MockMvc mvc;@Autowired JwtTokenService jwt;@Autowired SupplierReceiptService receipts;@Autowired SettingsService settings;@Autowired SupplierAccountService accounts;
     final Instant from=Instant.parse("2026-09-30T17:00:00Z"),to=Instant.parse("2026-10-02T17:00:00Z");
     User user(String role){var u=new User();u.setEmail(UUID.randomUUID()+"@revenue.test");u.setFullName(role);u.setPhone("0900000000");u.setRole(role);u.setPasswordHash("test-only");em.persist(u);return u;}
     Order order(String method,String status,String payment,long total,Instant paid){var o=new Order();o.setCustomer(user("CUSTOMER"));o.setOrderCode(Math.abs(UUID.randomUUID().getLeastSignificantBits()%900000000000L));o.setPaymentMethod(method);o.setPaymentStatus(payment);o.setStatus(status);o.setTotalAmount(BigDecimal.valueOf(total));o.paidAt=paid;em.persist(o);return o;}
@@ -126,5 +127,55 @@ class CashflowReportIntegrationTest {
         mvc.perform(post("/api/manager/orders/"+o.getId()+"/invoice").header("Authorization","Bearer "+jwt.issue(user("ADMIN").getId(),"ADMIN")).contentType("application/json").content("{}")).andExpect(status().isForbidden());
         var cancelled=order("COD","CANCELLED","CANCELLED",10000,null);item(cancelled,1,10000);em.flush();
         mvc.perform(post("/api/manager/orders/"+cancelled.getId()+"/invoice").header("Authorization","Bearer "+manager).contentType("application/json").content("{}")).andExpect(status().isConflict());
+    }
+
+    void pay(SupplierReceipt receipt,long amount,LocalDate date){
+        accounts.pay(receipt.getSupplier().id,
+            new SupplierAccountService.PaymentRequest(receipt.getId(),BigDecimal.valueOf(amount),date,"CASH",null),
+            new AuditTrail.Actor(user("ADMIN").getId(),"Test","ADMIN"));
+    }
+
+    @Test void paymentsBucketByPaidDateAndProductsAreComplete(){
+        var paid=order("PAYOS","COMPLETED","PAID",100000,from);item(paid,1,60000);item(paid,1,40000);
+        var cancelled=order("PAYOS","CANCELLED","PENDING",999999,null);item(cancelled,1,100000);
+        var supplier=supplier();var receipt=receipt(supplier,LocalDate.parse("2026-10-01"),100000);
+        pay(receipt,40000,LocalDate.parse("2026-10-02"));em.flush();
+
+        var r=report.report(from,to,"day");
+        assertEquals(0,BigDecimal.valueOf(100000).compareTo(r.collected()));
+        assertEquals(0,BigDecimal.valueOf(100000).compareTo(r.purchaseCost()));
+        assertEquals(0,BigDecimal.valueOf(40000).compareTo(r.paidToSuppliers()));
+        assertEquals(0,r.difference().signum());
+        var oct2=r.series().stream().filter(s->"2026-10-02".equals(s.period())).findFirst().orElseThrow();
+        assertEquals(0,BigDecimal.valueOf(40000).compareTo(oct2.paidToSuppliers()));
+        assertEquals(0,r.series().getFirst().paidToSuppliers().signum());
+
+        assertEquals(2,r.products().size());
+        assertEquals(0,BigDecimal.valueOf(60).compareTo(r.products().getFirst().share()));
+        var shareSum=r.products().stream().map(CashflowReportService.ProductShare::share).reduce(BigDecimal.ZERO,BigDecimal::add);
+        assertEquals(0,BigDecimal.valueOf(100).compareTo(shareSum));
+
+        var month=report.report(from,to,"month");
+        assertEquals(0,BigDecimal.valueOf(40000).compareTo(month.series().getFirst().paidToSuppliers()));
+    }
+
+    @Test void productRevenueCsvAndReversedRange()throws Exception{
+        var paid=order("PAYOS","COMPLETED","PAID",100000,from);item(paid,1,60000);item(paid,1,40000);em.flush();
+        var manager=jwt.issue(user("MANAGER").getId(),"MANAGER");
+        mvc.perform(get("/api/manager/reports/product-revenue.csv").param("from",from.toString()).param("to",to.toString()).header("Authorization","Bearer "+manager))
+            .andExpect(status().isOk())
+            .andExpect(content().string(containsString("productId,productName,quantity,grossItemValue,sharePercent")))
+            .andExpect(content().string(containsString("Sản phẩm thử")));
+        mvc.perform(get("/api/manager/reports/product-revenue.csv").param("from",to.toString()).param("to",from.toString()).header("Authorization","Bearer "+manager))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test void onlyAdminsCanReadFinanceSummary()throws Exception{
+        mvc.perform(get("/api/admin/reports/finance-summary")).andExpect(status().isUnauthorized());
+        for(String role:new String[]{"MANAGER","CUSTOMER"})mvc.perform(get("/api/admin/reports/finance-summary").header("Authorization","Bearer "+jwt.issue(user(role).getId(),role))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/reports/finance-summary").header("Authorization","Bearer "+jwt.issue(user("ADMIN").getId(),"ADMIN")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.collected").exists())
+            .andExpect(jsonPath("$.purchaseCost").exists()).andExpect(jsonPath("$.paidToSuppliers").exists())
+            .andExpect(jsonPath("$.difference").exists()).andExpect(jsonPath("$.collectedOrders").exists());
     }
 }

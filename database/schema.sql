@@ -656,6 +656,8 @@ CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier
   ON supplier_payments(supplier_id, paid_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_supplier_payments_receipt
   ON supplier_payments(receipt_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_paid_at
+  ON supplier_payments(paid_at);
 
 CREATE TABLE IF NOT EXISTS point_transactions (
   id BIGSERIAL PRIMARY KEY,
