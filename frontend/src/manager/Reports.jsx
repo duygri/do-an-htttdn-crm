@@ -208,7 +208,7 @@ export function Reports({go}) {
     <div className="admin-panel">
       <PanelTitle
         title="Báo cáo"
-        subtitle={tab==='cashflow'?'Khoản thu và hoàn đã xác nhận theo kỳ.':'Dữ liệu tổng hợp toàn bộ thời gian.'}
+        subtitle={tab==='cashflow'?'Khoản thu đã xác nhận theo kỳ.':'Dữ liệu tổng hợp toàn bộ thời gian.'}
       />
       <div className="admin-report-tabs">
         <button
