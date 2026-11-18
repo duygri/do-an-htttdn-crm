@@ -20,4 +20,9 @@ describe('E2E database safety', () => {
     expect(() => getE2EDatabaseSettings('postgresql://e2e:e2e@db.example.com:5432/crm_e2e'))
       .toThrow('E2E_DATABASE_URL must point to a local loopback PostgreSQL server.');
   });
+
+  it('refuses query parameters that can override the validated connection host', () => {
+    expect(() => getE2EDatabaseSettings('postgresql://e2e:e2e@localhost:5433/crm_e2e?host=db.example.com'))
+      .toThrow('E2E_DATABASE_URL must not include connection-override query parameters.');
+  });
 });

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { MANAGER_EMAIL, MANAGER_PASSWORD } from './credentials.js';
+import { CUSTOMER_BASE_URL, MANAGER_BASE_URL, MANAGER_EMAIL, MANAGER_PASSWORD } from './credentials.js';
 
 const apiResponse = (page, path, method = 'POST') =>
   page.waitForResponse((response) => {
@@ -24,7 +24,7 @@ test('customer can register and keep a session after a reload', async ({ page })
 
   expect((await registerResponse).status()).toBe(201);
   expect((await loginResponse).status()).toBe(200);
-  await expect(page).toHaveURL(/localhost:5173\/$/);
+  await expect(page).toHaveURL(`${CUSTOMER_BASE_URL}/`);
 
   await page.goto('/tai-khoan');
   await expect(page.getByRole('heading', { name: fullName })).toBeVisible();
@@ -38,7 +38,7 @@ test('customer can register and keep a session after a reload', async ({ page })
 });
 
 test('manager can sign in and load the live dashboard', async ({ page }) => {
-  await page.goto('http://localhost:5175/manager/login');
+  await page.goto(`${MANAGER_BASE_URL}/manager/login`);
   await page.getByLabel('EMAIL').fill(MANAGER_EMAIL);
   await page.getByLabel('MẬT KHẨU').fill(MANAGER_PASSWORD);
 
