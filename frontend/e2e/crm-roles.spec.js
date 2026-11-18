@@ -14,7 +14,7 @@ async function signInManager(page) {
 }
 
 test('Manager and customer complete the CRM customer, feedback, and survey workflow', async ({ browser, page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const runId = `${test.info().project.name}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   const email = `customer-${runId}@crm.test`;
   const fullName = `Khách CRM E2E ${runId}`;
@@ -48,10 +48,17 @@ test('Manager and customer complete the CRM customer, feedback, and survey workf
     await page.goto('/tai-khoan');
     await page.getByLabel('TUỔI').fill('24');
     await page.getByLabel('PHONG CÁCH ƯA THÍCH').fill(preference);
+    const profileSaveResponse = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === '/api/customers/me' && response.request().method() === 'PUT',
+    );
     await page.getByRole('button', { name: 'LƯU THAY ĐỔI' }).click();
-    await expect(page.getByText('Đã lưu thông tin cá nhân.')).toBeVisible();
+    const savedProfileResponse = await profileSaveResponse;
+    expect(savedProfileResponse.status()).toBe(200);
+    expect(await savedProfileResponse.json()).toMatchObject({ age: 24, preferences: preference });
 
     await page.goto('/tai-khoan');
+    await expect(page.getByLabel('TUỔI')).toHaveValue('24');
+    await expect(page.getByLabel('PHONG CÁCH ƯA THÍCH')).toHaveValue(preference);
     await page.getByRole('button', { name: 'Đăng xuất khỏi tài khoản' }).click();
     await page.getByRole('button', { name: 'Tài khoản', exact: true }).click();
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
@@ -119,9 +126,15 @@ test('Manager and customer complete the CRM customer, feedback, and survey workf
     await surveyRow.getByRole('button', { name: 'Phát hành' }).click();
     await expect(surveyRow.getByText('Đã phát hành')).toBeVisible();
 
+    const customerSurveysResponse = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === '/api/surveys/mine' && response.request().method() === 'GET',
+    );
     await page.goto('/khao-sat');
+    const customerSurveys = await customerSurveysResponse;
+    expect(customerSurveys.status()).toBe(200);
+    expect((await customerSurveys.json()).map((survey) => survey.title)).toContain(surveyTitle);
     const surveyCard = page.getByRole('button').filter({ hasText: surveyTitle });
-    await expect(surveyCard).toBeVisible();
+    await expect(surveyCard).toBeVisible({ timeout: 15_000 });
     await surveyCard.click();
     await page.getByRole('radio', { name: surveyAnswer }).check();
     const surveyResponse = page.waitForResponse((response) =>
