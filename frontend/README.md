@@ -28,7 +28,7 @@ The default API base URL is `http://localhost:8080`. Copy `.env.example` to `.en
 
 ## Full-stack E2E
 
-The Playwright suite runs the real customer portal, manager portal, Spring API, and a disposable PostgreSQL database. It covers customer registration and refresh-cookie session persistence, plus manager login and live dashboard reports.
+The Playwright suite runs the real customer, Admin, and Manager portals, Spring API, and a disposable PostgreSQL database. It covers Admin internal-account role management; Manager customer add/lock/delete, age and preference reports, feedback handling, survey publishing and statistics; and Customer registration/login, profile editing, product feedback, and survey completion. The same flows run in Chromium, Firefox, and WebKit.
 
 Requirements: Docker with its engine running, Java 21, Maven, and Node.js 20 or newer.
 
@@ -42,11 +42,11 @@ Then run the suite from `frontend`:
 
 ```powershell
 npm ci
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 $env:E2E_DATABASE_URL = 'postgresql://e2e:e2e@localhost:5433/crm_e2e'
 npm run test:e2e
 ```
 
-On Linux CI, install Chromium and its system dependencies with `npx playwright install --with-deps chromium`. Playwright starts the backend with Hibernate `create-drop`; startup refuses any E2E database whose name is not exactly `crm_e2e`. The manager test account and customer signup fixtures are isolated to this disposable database. Playwright writes traces, screenshots, video, and the HTML report under `test-results` and `playwright-report` when failures occur.
+To run one engine locally, add `-- --project=chromium`, `-- --project=firefox`, or `-- --project=webkit` to `npm run test:e2e`. On Linux CI, install all browser engines and system dependencies with `npx playwright install --with-deps chromium firefox webkit`. Playwright starts the three portals and backend with Hibernate `create-drop`; startup refuses any E2E database whose name is not exactly `crm_e2e` and requires a loopback PostgreSQL URL. E2E Admin/Manager accounts and the feedback product are isolated to this disposable database; each feedback test creates a completed order for its unique registered customer. Playwright writes traces, screenshots, video, and the HTML report under `test-results` and `playwright-report` when failures occur.
 
 Stop the local database from the repository root with `docker compose -f frontend/e2e/docker-compose.yml down`.

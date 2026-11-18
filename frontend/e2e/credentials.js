@@ -1,2 +1,9 @@
 export const MANAGER_EMAIL = 'manager-e2e@crm.test';
 export const MANAGER_PASSWORD = 'E2E_Manager123!';
+export const ADMIN_EMAIL = 'admin-e2e@crm.test';
+export const ADMIN_PASSWORD = 'E2E_Admin123!';
+export const CRM_FEEDBACK_PRODUCT_NAME = 'E2E CRM Feedback Product';
+export const CUSTOMER_BASE_URL = 'http://localhost:5183';
+export const ADMIN_BASE_URL = 'http://localhost:5184';
+export const MANAGER_BASE_URL = 'http://localhost:5185';
+export const API_BASE_URL = 'http://localhost:8182';
