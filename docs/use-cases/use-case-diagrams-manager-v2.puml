@@ -27,7 +27,7 @@ package "Phản hồi, khảo sát và hỗ trợ" {
 }
 package "Đơn hàng và chăm sóc" {
   usecase "UC-A09\nQuản lý trạng thái đơn" as MA09
-  usecase "UC-A16\nHoàn tiền/thu COD/đối soát" as MA16
+  usecase "UC-A16\nXác nhận thu COD/đối soát" as MA16
   usecase "UC-A17\nXử lý đổi trả" as MA17
   usecase "UC-A19\nChăm sóc khách hàng" as MA19
   usecase "UC-A23\nThông báo công việc nội bộ" as MA23
@@ -62,9 +62,8 @@ Manager --> MA20
 Manager --> MA21
 Manager --> MA22
 Manager --> MA23
-PayOS --> MA16 : Đối soát thanh toán\n(không gửi lệnh hoàn tiền)
+PayOS --> MA16 : Đối soát thanh toán
 Customer --> MA01
-Customer --> MA16
 Customer --> MA17
 Customer --> MA18
 MA17 .> MA09 : <<extend>>\n[khi đơn có yêu cầu đổi trả]
@@ -72,7 +71,7 @@ note bottom of Manager
 UC-A03 ở sơ đồ Manager chỉ mô tả đăng nhập Manager.
 Đăng nhập Admin được đặc tả riêng bằng UC-ADM01.
 Manager không có quyền xem audit log hệ thống.
-Hoàn tiền là xác nhận thủ công trên sổ hoàn tiền;
-PayOS dùng cho thanh toán và đối soát, không có API hoàn tiền trực tiếp.
+Quy trình hoàn tiền không nằm trong chức năng của hệ thống.
+COD cần Manager xác nhận; PayOS chỉ dùng cho thanh toán và đối soát.
 end note
 @enduml

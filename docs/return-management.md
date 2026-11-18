@@ -11,4 +11,4 @@ Manager lọc Đổi trả hoặc các bước chờ xử lý/đã chấp thuậ
 `PATCH /api/manager/orders/{id}/return` nhận `{ "status": "APPROVED|REJECTED|COMPLETED", "note": "..." }`.
 REQUESTED chỉ chuyển APPROVED hoặc REJECTED; APPROVED chỉ chuyển COMPLETED. Hai trạng thái cuối không sửa lại. Từ chối và hoàn tất cần nội dung không rỗng, tối đa 1.000 ký tự. Gửi lại cùng trạng thái/nội dung không tạo lịch sử hoặc thông báo trùng. Khóa đơn trong transaction tránh xử lý đồng thời; lịch sử và thông báo được lưu cùng transaction.
 
-Không tự hoàn tiền, cộng tồn kho, hoàn lượt voucher hay đổi trạng thái giao hàng/thanh toán. Hoàn tất chỉ ghi nhận cách giải quyết đã thực hiện bên ngoài. Khách đọc ghi chú trong chi tiết đơn và thông báo; không công khai ID nhân viên cho khách. Yêu cầu cũ vẫn giữ ngày/lý do đang có; không suy đoán lịch sử xử lý.
+Xử lý đổi trả không cộng tồn kho, hoàn lượt voucher hay đổi trạng thái giao hàng/thanh toán. Hoàn tất chỉ ghi nhận cách giải quyết đổi trả. Khách đọc ghi chú trong chi tiết đơn và thông báo; không công khai ID nhân viên cho khách. Yêu cầu cũ vẫn giữ ngày/lý do đang có; không suy đoán lịch sử xử lý.

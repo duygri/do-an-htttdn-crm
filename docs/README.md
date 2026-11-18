@@ -26,7 +26,7 @@ This folder contains product requirements, CRM workflow guides, use-case specifi
 - [Cashflow, voucher, and customer limits](cashflow-voucher-limits.md)
 - [Support tickets](support-tickets.md)
 - [Return management](return-management.md)
-- [Refund auto-cancellation](refunds-auto-cancellation.md)
+- [Payment collection and abandoned PayOS orders](payment-collection-abandoned-payos.md)
 - [Survey recipient groups](survey-recipient-groups.md)
 - [Customer survey filters](customer-survey-filters.md)
 

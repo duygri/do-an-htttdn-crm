@@ -8,7 +8,6 @@ const CustomerProfile = React.lazy(() => import('./CustomerProfile'));
 const CustomerCare = React.lazy(() => import('./CustomerCare'));
 const CareDashboard = React.lazy(() => import('./CareDashboard'));
 const SupportTickets = React.lazy(()=>import('./SupportTickets'));
-const ManagerRefunds = React.lazy(()=>import('./ManagerRefunds'));
 import {
   Activity,
   LayoutDashboard,
@@ -25,7 +24,6 @@ import {
   Sun,
   Moon,
   ExternalLink,
-  DollarSign,
   TicketPercent
 } from "lucide-react";
 import { Dashboard } from "./manager/Dashboard";
@@ -52,7 +50,6 @@ const navItems = [
   ["care-dashboard", "Hiệu quả chăm sóc"],
   ["products", "Sản phẩm"],
   ["orders", "Đơn hàng"],
-  ["refunds", "Hoàn tiền"],
   ["feedback", "Phản hồi"],
   ["support-tickets", "Phiếu hỗ trợ"],
   ["surveys", "Khảo sát"],
@@ -68,7 +65,6 @@ const navIcons = {
   'care-dashboard': Activity,
   products: Package,
   orders: ShoppingCart,
-  refunds: DollarSign,
   feedback: MessageSquare,
   'support-tickets': MessageSquare,
   surveys: ClipboardList,
@@ -322,7 +318,6 @@ export default function ManagerApp() {
         {section === "users" && (profileMatch ? <CustomerProfile key={profileMatch[1]} customerId={profileMatch[1]} location={path} go={go} /> : <Users notify={notify} location={path} go={go} />)}{" "}
         {section === "products" && <Products notify={notify} />}{" "}
         {section === "orders" && <Orders notify={notify} />}{" "}
-        {section === "refunds" && <ManagerRefunds/>}
         {section === "feedback" && <Feedback notify={notify} />}{" "}
         {section==='support-tickets'&&<SupportTickets manager location={path} navigate={go}/>}
         {section === "surveys" && <Surveys notify={notify} location={path} go={go} />}

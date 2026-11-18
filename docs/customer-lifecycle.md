@@ -5,7 +5,7 @@ Trang `/manager/users` và `/manager/users/{id}` tính tự động từ đơn `
 - Chưa mua hàng: 0 đơn; mua lần đầu: 1 đơn; quay lại: từ 2 đơn.
 - Thân thiết ưu tiên: từ 5 đơn **hoặc** giá trị từ 5.000.000 đ.
 - Lâu chưa mua lại: từ 30 ngày lịch `Asia/Ho_Chi_Minh` kể từ ngày đặt gần nhất trong đơn hoàn thành; không gắn cho khách chưa mua.
-- Giá trị là tổng tiền sau giảm giá, chưa trừ hoàn tiền, bao gồm đơn hoàn thành có đổi trả. Không phải tiền đã thu.
+- Giá trị là tổng tiền sau giảm giá, bao gồm đơn hoàn thành có đổi trả. Không phải tiền đã thu.
 
 `GET /api/manager/users` giữ `q,page,size`; thêm:
 

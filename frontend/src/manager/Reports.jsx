@@ -208,7 +208,7 @@ export function Reports({go}) {
     <div className="admin-panel">
       <PanelTitle
         title="Báo cáo"
-        subtitle={tab==='cashflow'?'Khoản thu và hoàn đã xác nhận theo kỳ.':'Dữ liệu tổng hợp toàn bộ thời gian.'}
+        subtitle={tab==='cashflow'?'Khoản thu đã xác nhận theo kỳ.':'Dữ liệu tổng hợp toàn bộ thời gian.'}
       />
       <div className="admin-report-tabs">
         <button
@@ -230,7 +230,7 @@ export function Reports({go}) {
         <button className={tab === 'retention' ? 'admin-primary' : 'admin-action'} aria-pressed={tab === 'retention'} onClick={() => setTab('retention')}>
           <TrendingUp size={15} aria-hidden="true" />Giữ chân khách hàng
         </button>
-        <button className={tab==='cashflow'?'admin-primary':'admin-action'} aria-pressed={tab==='cashflow'} onClick={()=>setTab('cashflow')}><DollarSign size={15} aria-hidden="true"/>Thu – hoàn tiền</button>
+        <button className={tab==='cashflow'?'admin-primary':'admin-action'} aria-pressed={tab==='cashflow'} onClick={()=>setTab('cashflow')}><DollarSign size={15} aria-hidden="true"/>Tiền thu</button>
       </div>
       {tab === 'cashflow' ? <React.Suspense fallback={<PanelLoading/>}><CashflowReport/></React.Suspense> : tab === 'customers' ? <CustomerReport /> : tab === 'surveys' ? <SurveyReports /> : <React.Suspense fallback={<PanelLoading />}><RetentionReport go={go} /></React.Suspense>}
     </div>

@@ -67,7 +67,10 @@ else Valid matching PAYOS payment
   alt Order already PAID or CANCELLED
     API -> API: Handle duplicate or late payment
     opt Additional successful payment / success after cancellation
-      API -> DB: Record PAID; flag multiple payments for review\nor request manual cancellation refund as applicable
+      API -> DB: Record PAID; flag multiple payments for review
+      opt Order was cancelled
+        API --> Customer: Payment received after cancellation; contact store for assistance
+      end
     end
   else Order still eligible for payment update
     API -> DB: Check event_key and record new webhook event

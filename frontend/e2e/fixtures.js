@@ -33,10 +33,8 @@ export async function createCompletedOrderForCustomer(email, orderCode) {
     const orderResult = await client.query(
       `INSERT INTO orders
          (customer_id, order_code, total_amount, status, payment_status, payment_method,
-          updated_at, discount_amount, return_status, stock_released, refund_status,
-          refunded_amount, refund_pending_amount, payment_review_required)
-       VALUES ($1, $2, $3, 'COMPLETED', 'PAID', 'COD', now(), 0, 'NONE', TRUE,
-               'NONE', 0, 0, FALSE)
+          updated_at, discount_amount, return_status, stock_released, payment_review_required)
+       VALUES ($1, $2, $3, 'COMPLETED', 'PAID', 'COD', now(), 0, 'NONE', TRUE, FALSE)
        RETURNING order_id`,
       [customerId, orderCode, product.price],
     );
