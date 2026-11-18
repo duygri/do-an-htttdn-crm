@@ -94,9 +94,9 @@ Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang 
 - Mỗi sản phẩm trong mỗi đơn hoàn thành chỉ đánh giá một lần; nhiều màu/size của cùng sản phẩm trong đơn dùng chung đánh giá. Bình luận tối đa 4.000 ký tự.
 - Đơn đã xác nhận nhận hàng và đã có đánh giá không được gửi yêu cầu đổi trả mới.
 - QR mặc định có hạn 15 phút. Trạng thái trả tiền do backend xác nhận qua PayOS; không tin tham số trên URL trình duyệt. Thử lại QR không tạo đơn mới hoặc trừ tồn kho lần nữa.
-- Có sổ hoàn tiền thủ công, xác nhận thu toàn bộ COD và cảnh báo đối soát PayOS. Tự hủy đơn PayOS bỏ dở sau hạn QR 24 giờ mặc định tắt; đọc [hướng dẫn migration, hoàn tiền và tự hủy](docs/refunds-auto-cancellation.md) trước khi bật. Không tự chuyển tiền hoặc xác nhận thu COD từ trạng thái giao hàng.
+- Manager xác nhận thu toàn bộ COD sau khi kiểm tra thực tế và có thể đối soát thanh toán PayOS. Tự hủy đơn PayOS bỏ dở sau hạn QR 24 giờ mặc định tắt; xem [hướng dẫn thu COD, đối soát và tự hủy PayOS](docs/payment-collection-abandoned-payos.md) trước khi bật.
 - Mỗi đơn dùng một voucher. Voucher thưởng khảo sát thuộc đúng tài khoản, có giới hạn lượt; điều kiện được kiểm tra lại khi đặt hàng.
-- Xử lý đổi trả không tự hoàn tiền, cộng tồn kho hoặc thay trạng thái thanh toán. Việc xử lý thực tế bên ngoài cần được ghi nhận đúng nghiệp vụ.
+- Manager xử lý yêu cầu đổi trả riêng với trạng thái thanh toán. Việc xử lý đổi trả không tự cộng tồn kho hoặc hoàn lượt voucher.
 
 ### Phân nhóm và báo cáo
 
@@ -108,7 +108,7 @@ Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang 
 | Khách thân thiết | Ít nhất 5 đơn hoàn thành **hoặc** giá trị đơn hoàn thành từ 5.000.000 đồng; ưu tiên nhóm này |
 | Lâu chưa mua lại | Nhãn bổ sung: đã mua và từ 30 ngày lịch Việt Nam kể từ ngày đặt gần nhất trong các đơn hoàn thành |
 | Tỷ lệ mua lại toàn thời gian | Khách có ít nhất hai đơn hoàn thành / khách có ít nhất một đơn hoàn thành × 100 |
-| Giá trị đơn hoàn thành | Tổng tiền sau giảm giá của đơn `COMPLETED`, chưa trừ hoàn tiền; không đồng nhất tiền đã thu |
+| Giá trị đơn hoàn thành | Tổng tiền sau giảm giá của đơn `COMPLETED`; không đồng nhất tiền đã thu |
 | Tỷ lệ đã giải quyết công việc chăm sóc | Số việc có kết quả `RESOLVED` / số việc hoàn thành đã ghi nhận kết quả hợp lệ × 100 |
 
 Các phép chia có mẫu số 0 trả 0. Ngày nghiệp vụ CRM dùng múi giờ `Asia/Ho_Chi_Minh`. Đơn hoàn thành có đổi trả vẫn nằm trong phép tính giá trị đơn hoàn thành. Chỉ số **Giá trị đơn chưa hủy** ở dashboard là một phép tính khác, không phải tiền thực thu.
@@ -320,7 +320,7 @@ GitHub Actions phân loại thay đổi để chạy backend `mvn verify`, front
 | Khảo sát theo nhóm | [Chốt người nhận từ bộ lọc](docs/survey-recipient-groups.md), [lọc theo khảo sát cụ thể](docs/customer-survey-filters.md) |
 | Hỗ trợ và đổi trả | [Phiếu hỗ trợ](docs/support-tickets.md), [xử lý đổi trả](docs/return-management.md) |
 | Voucher và đánh giá | [Voucher](database/VOUCHERS.md), [đánh giá và thưởng khảo sát](database/REVIEWS_REWARDS.md) |
-| Thu – hoàn tiền và giới hạn cá nhân | [Báo cáo, quy tắc voucher và migration](docs/cashflow-voucher-limits.md) |
+| Tiền thu đã xác nhận và giới hạn cá nhân | [Báo cáo, quy tắc voucher và migration](docs/cashflow-voucher-limits.md) |
 | Nhật ký và kiểm tra nghiệp vụ | [Audit log](docs/audit-logs.md), [ma trận QA](docs/crm-workflow-qa.md), [cấu hình demo](docs/env-demo.md), [quyết định và ghi nhận thay đổi](docs/decisions-changelog.md) |
 | Sơ đồ | [Thư mục sơ đồ](docs/diagrams/) |
 
@@ -330,7 +330,7 @@ Tài liệu từng đợt có thể ghi kết quả kiểm tra ở thời điể
 
 - Đây là đồ án mô phỏng; cần rà soát bảo mật, cấu hình, hiệu năng, sao lưu/khôi phục và vận hành trước khi dùng thực tế.
 - Repo không tích hợp gửi email ra ngoài. Khôi phục mật khẩu chỉ có mã sáu chữ số trong profile `development` khi bật `DEV_PASSWORD_RESET_ENABLED`; thông báo đơn và nhắc việc hiện được lưu trong ứng dụng.
-- Chưa có email marketing, SMS/Zalo, thông báo hệ điều hành, hoàn tiền tự động hoặc chiến dịch tự phát voucher. Nhắc việc và thông báo hiện tại nằm trong web.
+- Chưa có email marketing, SMS/Zalo, thông báo hệ điều hành, luồng hoàn tiền hoặc chiến dịch tự phát voucher. Nhắc việc và thông báo hiện tại nằm trong web.
 - Báo cáo mua lại toàn thời gian chưa phải phân tích giữ chân theo cohort; giá trị đơn không phải tiền thực thu hay lợi nhuận.
 - Giao diện quản lý nhà cung cấp không nằm trong menu hiện tại; database/API có thể còn thành phần tương thích từ các phiên bản trước.
 - Khi triển khai frontend lên web server, cần cấu hình fallback phù hợp cho route phía client để mở URL trực tiếp/refresh không bị 404, đồng thời chuyển tiếp đúng API và cookie.

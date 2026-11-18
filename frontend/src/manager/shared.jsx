@@ -82,8 +82,7 @@ export function OrderBadge({ status, order }) {
         <span className="admin-badge-dot" />
         {order ? displayOrderLabel(order, statusLabels) : statusLabels[status] || status}
       </span>
-      {order?.finance?.reviewRequired && <small className="refund-warning">Thanh toán cần kiểm tra</small>}
-      {Number(order?.finance?.refund?.pendingAmount) > 0 && <small>Còn khoản chờ hoàn tiền</small>}
+      {order?.finance?.reviewRequired && <small className="manager-payment-warning">Thanh toán cần kiểm tra</small>}
     </>
   );
 }

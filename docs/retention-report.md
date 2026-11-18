@@ -4,7 +4,7 @@ Mở `/manager/reports?tab=retention` bằng tài khoản MANAGER. API mới: `G
 
 ## Quy tắc
 
-- Chỉ CUSTOMER chưa xóa, bao gồm tài khoản bị khóa. Chỉ đơn COMPLETED; giá trị sau giảm giá, chưa trừ hoàn tiền, kể cả đơn có đổi trả.
+- Chỉ CUSTOMER chưa xóa, bao gồm tài khoản bị khóa. Chỉ đơn COMPLETED; giá trị sau giảm giá, kể cả đơn có đổi trả.
 - Khách đã mua: từ một đơn. Khách mua lại: từ hai đơn, không đồng nhất với nhóm quay lại hoặc thân thiết.
 - Tỷ lệ mua lại toàn thời gian = khách mua lại / khách đã mua × 100. Giá trị trung bình = tổng giá trị đơn hoàn thành / khách đã mua. Mẫu số 0 trả 0; làm tròn hai chữ số HALF_UP. Đây không phải báo cáo cohort hay tiền thực thu.
 - Bốn nhóm dùng chung CTE và ngưỡng với danh sách khách: chưa mua, mua lần đầu, quay lại, thân thiết. Thân thiết ưu tiên khi đạt 5 đơn hoặc 5 triệu đồng.

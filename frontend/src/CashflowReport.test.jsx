@@ -5,12 +5,12 @@ import {it,expect,vi,beforeEach,afterEach} from 'vitest';
 import CashflowReport from './CashflowReport';
 import {adminApi} from './manager-api';
 vi.mock('./manager-api',()=>({adminApi:vi.fn()}));
-const report={collected:100000,refunded:130000,net:-30000,collectedOrders:1,unknownMilestone:{orders:2,amount:50000},series:[{period:'2026-10-01',collected:100000,refunded:130000,net:-30000,collectedOrders:1}],topProducts:[{productId:1,name:'Áo thử',quantity:2,grossItemValue:150000}],updatedAt:'2026-10-01T00:00:00Z'};
+const report={collected:100000,collectedOrders:1,unknownMilestone:{orders:2,amount:50000},series:[{period:'2026-10-01',collected:100000,collectedOrders:1}],topProducts:[{productId:1,name:'Áo thử',quantity:2,grossItemValue:150000}],updatedAt:'2026-10-01T00:00:00Z'};
 const flush=async()=>{await act(async()=>{});};
 beforeEach(()=>{vi.useFakeTimers();vi.spyOn(document,'visibilityState','get').mockReturnValue('visible');adminApi.mockReset();adminApi.mockResolvedValue(report);window.history.replaceState({},'','/manager/reports?tab=cashflow&fromDate=2026-10-01&toDate=2026-10-02&groupBy=day');});
 afterEach(()=>{cleanup();vi.useRealTimers();vi.restoreAllMocks();});
-it('shows cashflow definitions, negative net and unknown legacy separately',async()=>{
- render(<CashflowReport/>);await flush();expect(screen.getByText('Thu ròng trong kỳ')).toBeTruthy();expect(screen.getAllByText(/-30\.000/).length).toBeGreaterThan(0);expect(screen.getByText(/Dữ liệu cũ chưa xác định mốc/)).toBeTruthy();expect(screen.getByText(/Không phải doanh thu ròng sản phẩm/)).toBeTruthy();
+it('shows confirmed collections and unknown legacy milestones separately',async()=>{
+ render(<CashflowReport/>);await flush();expect(screen.getByText('Đã xác nhận thu')).toBeTruthy();expect(screen.queryByText(/hoàn tiền|thu ròng/i)).toBeNull();expect(screen.getByText(/Dữ liệu cũ chưa xác định mốc/)).toBeTruthy();expect(screen.getByText(/Đây không phải lợi nhuận/)).toBeTruthy();
  const url=new URL(adminApi.mock.calls[0][0],'http://local');expect(url.searchParams.get('from')).toBe('2026-09-30T17:00:00.000Z');expect(url.searchParams.get('to')).toBe('2026-10-02T17:00:00.000Z');
 });
 it('keeps tab and filters in URL, changes grouping and restores back navigation',async()=>{

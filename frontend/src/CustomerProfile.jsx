@@ -58,7 +58,7 @@ export default function CustomerProfile({ customerId, location, go }) {
           ['Ngày đặt gần nhất (đơn hoàn thành)',date(summary.lastCompletedOrderAt)],
         ].map(([label,value]) => <div className="admin-panel" key={label}><span>{label}</span><strong>{value}</strong></div>)}
       </div>
-      <p className="profile-explanation">Giá trị đơn hoàn thành là tổng tiền sau giảm giá của đơn COMPLETED, chưa trừ hoàn tiền; bao gồm đơn có yêu cầu đổi trả. Đây không phải số tiền đã thu.</p>
+      <p className="profile-explanation">Giá trị đơn hoàn thành là tổng tiền sau giảm giá của đơn COMPLETED, bao gồm đơn có yêu cầu đổi trả. Đây không phải số tiền đã thu.</p>
       <div className="admin-panel">
         <nav className="profile-tabs" aria-label="Nội dung hồ sơ">{tabs.map(([key,label]) => <button key={key} className={tab === key ? 'admin-primary' : 'admin-action'} aria-current={tab === key ? 'page' : undefined} onClick={() => navigate(key)}>{label}</button>)}</nav>
         {tab==='care'?<CustomerCare customer={customer} go={go} location={location}/>:tab === 'vouchers' ? <div className="profile-voucher-sections"><ProfileList key="issued" base={base} kind="vouchers" title="Voucher được cấp"/><ProfileList key="usage" base={base} kind="voucher-usages" title="Lịch sử sử dụng" onDetail={setDetailId}/></div>

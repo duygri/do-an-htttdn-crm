@@ -16,7 +16,7 @@
 - Đổi sang Chờ khách/Đã giải quyết phải có nội dung công khai gửi khách. Ghi chú nội bộ và trả lời của Manager có thể ghi riêng; ghi chú nội bộ không tạo thông báo cho khách.
 - Phiếu đã giải quyết chỉ xem; nếu cần hỗ trợ thêm, tạo phiếu mới. Không có xóa cứng/xóa mềm hoặc tự đóng theo thời gian ở bản này.
 - Tiêu đề 1–150, nội dung/tin nhắn 1–4.000 ký tự sau trim. Tối đa 200 tin nhắn trao đổi/ghi chú, cho phép thêm một tin chốt khi giải quyết. Hội thoại lưu dạng JSON text trong cùng phiếu; chưa hỗ trợ file, ảnh, email, chat realtime hay SLA.
-- Mọi thay đổi khóa phiếu trong transaction. Cập nhật dùng `version`; xung đột trả 409 và giữ bản nháp trên web. Mã UUID cho lần tạo và mỗi tin nhắn chống trùng khi gửi lại sau mất phản hồi. Không tự sửa/hủy/thu tiền/hoàn tiền đơn liên quan hoặc đổi trạng thái việc chăm sóc.
+- Mọi thay đổi khóa phiếu trong transaction. Cập nhật dùng `version`; xung đột trả 409 và giữ bản nháp trên web. Mã UUID cho lần tạo và mỗi tin nhắn chống trùng khi gửi lại sau mất phản hồi. Không tự sửa/hủy/thu tiền đơn liên quan hoặc đổi trạng thái việc chăm sóc.
 
 ## API
 

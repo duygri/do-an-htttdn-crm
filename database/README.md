@@ -30,9 +30,11 @@ Available migrations:
 - [`migration_manager_portal.sql`](migration_manager_portal.sql)
 - [`migration_payos_attempts.sql`](migration_payos_attempts.sql)
 - [`migration_payos_qr.sql`](migration_payos_qr.sql)
-- [`migration_refunds_abandoned_payos.sql`](migration_refunds_abandoned_payos.sql)
+- [`migration_payment_collection_abandoned_payos.sql`](migration_payment_collection_abandoned_payos.sql): COD collection, PayOS review, and unpaid-link handling; no refund workflow.
 - [`migration_return_management.sql`](migration_return_management.sql)
 - [`migration_review_survey_rewards.sql`](migration_review_survey_rewards.sql)
 - [`migration_support_tickets.sql`](migration_support_tickets.sql)
 - [`migration_survey_management.sql`](migration_survey_management.sql)
 - [`migration_voucher_management.sql`](migration_voucher_management.sql)
+
+`migration_refunds_abandoned_payos.sql` is retained as a historical migration for databases that already applied it. Do not apply it to a new or upgraded database. Existing refund tables and columns are left untouched as historical data; the application no longer reads or writes them. The replacement payment migration above carries forward the COD, PayOS review, and abandoned-link fields still used by the application.

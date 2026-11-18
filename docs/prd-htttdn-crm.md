@@ -65,13 +65,13 @@ Dữ liệu khách hàng và bán hàng thường bị phân tán trong nhiều 
 - Hồ sơ khách hàng 360° và lịch sử hoạt động; phân nhóm vòng đời Customer.
 - Chăm sóc khách hàng bằng task, ghi chú, nhắc việc, kết quả chăm sóc và dashboard.
 - Phiếu hỗ trợ do Customer gửi và Manager xử lý; Manager xử lý yêu cầu đổi trả.
-- Ghi nhận thủ công hoàn tiền và thu COD; hỗ trợ đối soát thanh toán; không gửi lệnh hoàn tới payOS.
+- Xác nhận thu COD và đối soát thanh toán PayOS; không có luồng xử lý hoàn tiền.
 - Báo cáo giữ chân khách hàng và dòng tiền; audit log cho Admin và thông báo nội bộ cho Manager.
 - Kiểm thử, tài liệu kỹ thuật và demo.
 
 ### 3.2. Ngoài phạm vi MVP
 
-- Merchant go-live, hoàn tiền production và đối soát production. Trong MVP, hoàn tiền và thu COD được ghi nhận thủ công; hệ thống không gửi lệnh hoàn tới payOS. Tích hợp payOS được mô tả trong MVP; kiểm thử giao dịch thật là hoạt động riêng, có kiểm soát và không phải bước smoke test mặc định.
+- Merchant go-live và đối soát production. Xử lý hoàn tiền nằm ngoài phạm vi của hệ thống. Tích hợp payOS được mô tả trong MVP; kiểm thử giao dịch thật là hoạt động riêng, có kiểm soát và không phải bước smoke test mặc định.
 - Tích hợp đơn vị vận chuyển thực tế.
 - Social login, xác thực đa yếu tố và khôi phục mật khẩu qua email nằm ngoài phạm vi. Khôi phục trực tuyến chỉ hỗ trợ mã sáu chữ số trong profile `development` khi bật `DEV_PASSWORD_RESET_ENABLED`; các môi trường khác yêu cầu khách liên hệ cửa hàng.
 - Ứng dụng native cho Android hoặc iOS.
@@ -150,8 +150,8 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | FR-23 | Customer Care | Manager quản lý task, ghi chú, nhắc việc, kết quả và dashboard chăm sóc | Tạo/cập nhật task, follow-up và ghi chú; khi hoàn tất task phải có outcome hợp lệ. Dashboard trả task TODO, IN_PROGRESS, COMPLETED, quá hạn theo nhân viên và khách dormant chưa có task mở; Manager xem nhắc việc đến hạn | — |
 | FR-24 | Support | Customer gửi/theo dõi phiếu hỗ trợ; Manager tiếp nhận và xử lý | Customer tạo, xem và trả lời phiếu của mình; Manager tìm, xem, tạo, cập nhật và trả lời phiếu | — |
 | FR-25 | Returns | Manager xử lý yêu cầu đổi trả | Chỉ xử lý đơn DELIVERED/COMPLETED; REQUESTED chuyển sang APPROVED hoặc REJECTED; APPROVED mới chuyển sang COMPLETED. Từ chối và hoàn tất phải có ghi chú; lịch sử đổi trả được lưu | — |
-| FR-26 | Refund and Reconciliation | Manager ghi nhận hoàn tiền, thu COD và đối soát thanh toán | Chỉ ghi nhận hoàn cho đơn hủy hoặc đổi trả đã duyệt/hoàn tất; số tiền là VND nguyên dương và không vượt số tiền đã thu. Manager hoàn tất/từ chối với ghi chú; thu COD chỉ cho đơn DELIVERED/COMPLETED. Đối soát PayOS đọc trạng thái giao dịch; không gửi lệnh hoàn tới payOS | — |
-| FR-27 | Retention and Cashflow | Manager xem báo cáo giữ chân khách hàng và dòng tiền | Báo cáo giữ chân trả tổng khách, khách mua/lặp lại, repeat rate, giá trị và trung bình giá trị đơn hoàn tất, khách dormant, phân bố vòng đời, ngưỡng và phiếu hỗ trợ đã giải quyết. Dòng tiền nhận khoảng tối đa 366 ngày, nhóm ngày/tháng và trả số thu, hoàn, ròng, số đơn đã thu cùng 10 sản phẩm bán chạy | — |
+| FR-26 | Payment and Reconciliation | Manager xác nhận thu COD và đối soát PayOS | Chỉ xác nhận thu COD toàn bộ cho đơn DELIVERED/COMPLETED sau khi kiểm tra thực tế; thao tác gửi lại không ghi nhận lần thu thứ hai. Đối soát PayOS đọc trạng thái giao dịch; hệ thống không thực hiện hoặc ghi nhận quy trình hoàn tiền | — |
+| FR-27 | Retention and Cashflow | Manager xem báo cáo giữ chân khách hàng và tiền thu đã xác nhận | Báo cáo giữ chân trả tổng khách, khách mua/lặp lại, repeat rate, giá trị và trung bình giá trị đơn hoàn tất, khách dormant, phân bố vòng đời, ngưỡng và phiếu hỗ trợ đã giải quyết. Báo cáo tiền thu nhận khoảng tối đa 366 ngày, nhóm ngày/tháng và trả số tiền thu, số đơn đã thu, dữ liệu mốc chưa xác định cùng 10 sản phẩm bán chạy | — |
 | FR-28 | Audit | Admin tra cứu audit log | Chỉ Admin tra cứu audit log qua `/api/admin/audit-logs`; không có endpoint hoặc điều hướng audit cho Manager. Lịch sử hoạt động Customer được xem riêng trong hồ sơ 360°. Có bộ lọc và phân trang | — |
 | FR-29 | Manager Notifications | Manager xem thông báo nội bộ | Hộp thư gồm nhắc chăm sóc đến hạn/quá hạn và phiếu hỗ trợ được giao; xem số chưa đọc và danh sách phân trang; đánh dấu một hoặc tất cả thông báo đã đọc | — |
 
@@ -164,7 +164,7 @@ Customer chỉ được truy cập dữ liệu của chính mình. Backend phả
 | FR-23 | `CustomerCareController`: `/api/manager/care/dashboard`, `/care/tasks`, `/users/{id}/care/notes`; `CustomerCareService`, `CareDashboardService`, `CareReminderScheduler`, `CareReminderService` |
 | FR-24 | `SupportTicketController`: `/api/support-tickets` và `/api/manager/support-tickets`; `SupportTicketService` |
 | FR-25 | `ManagerReturnController`: `PATCH /api/manager/orders/{id}/return`; `ReturnManagementService`; Customer yêu cầu tại `OrderController`/`OrderService.requestReturn` |
-| FR-26 | `ManagerRefundController`: `/api/manager/orders/{id}/refunds`, `/refunds/{id}/complete`, `/refunds/{id}/reject`, `/orders/{id}/cod-collection`, `/orders/{id}/payment/reconcile`; `RefundService`, `PaymentReconciliationService` |
+| FR-26 | `ManagerOrderPaymentController`: `/api/manager/orders/{id}/cod-collection`, `/orders/{id}/payment/reconcile`; `PaymentCollectionService`, `PaymentReconciliationService` |
 | FR-27 | `RetentionReportController`: `GET /api/manager/reports/retention`; `CashflowReportController`: `GET /api/manager/reports/cashflow`; `RetentionReportService`, `CashflowReportService` |
 | FR-28 | `AuditLogController`: `GET /api/admin/audit-logs`; `AuditLogQuery.list` kiểm tra quyền ADMIN; `CustomerActivityService.list` cung cấp timeline hồ sơ 360° riêng |
 | FR-29 | `ManagerCareInboxController`: `/api/manager/notifications`, `/notifications/summary`, `/notifications/{id}/read`, `/notifications/read-all`; `ManagerCareInbox` |
@@ -197,7 +197,7 @@ Schema PostgreSQL hiện có 31 bảng vật lý, được chia theo chín miề
 | Khách hàng và xác thực | `customers`, `admins`, `refresh_tokens`, `password_reset_tokens` | Hồ sơ, tài khoản nội bộ, phiên và mã đặt lại |
 | Danh mục và nhà cung cấp | `categories`, `products`, `suppliers` | Danh mục, sản phẩm, tồn kho và nhà cung cấp |
 | Giỏ hàng và đơn hàng | `cart_items`, `wishlists`, `customer_addresses`, `orders`, `order_items`, `order_return_events` | Giỏ, yêu thích, địa chỉ, đơn hàng và lịch sử đổi trả |
-| Thanh toán | `payments`, `payment_attempts`, `payment_webhook_events`, `order_refunds` | Giao dịch, lần thanh toán, webhook và sổ ghi nhận hoàn tiền |
+| Thanh toán | `payments`, `payment_attempts`, `payment_webhook_events` | Giao dịch, lần thanh toán và webhook |
 | CRM | `feedback`, `customer_notifications` | Đánh giá, phản hồi và thông báo Customer |
 | Khảo sát | `survey_definitions`, `survey_questions`, `survey_responses`, `survey_answers`, `survey_recipients`, `survey_notified_customers` | Khảo sát, câu hỏi, câu trả lời và đối tượng nhận |
 | Khuyến mãi | `store_vouchers`, `voucher_usages` | Voucher và lịch sử sử dụng |
@@ -268,7 +268,7 @@ API dùng JSON và status code phù hợp `200`, `201`, `400`, `401`, `403`, `40
 
 ### 10.1. Tích hợp thanh toán payOS
 
-Ứng dụng hỗ trợ COD và tích hợp PayOS cho thanh toán chuyển khoản/VietQR. payOS hiện không có môi trường Sandbox/Staging riêng; giao dịch kiểm thử PayOS có thể chuyển tiền thật. Vì vậy COD là luồng smoke test mặc định. Chỉ kiểm thử PayOS khi chủ tài khoản/người phụ trách đã xác nhận tài khoản, số tiền giới hạn và thời điểm thực hiện. Go-live, refund và đối soát production vẫn ngoài phạm vi MVP. Backend tạo payment link, Return URL/cancelUrl chỉ hiển thị kết quả; trạng thái thanh toán được xác nhận qua webhook.
+Ứng dụng hỗ trợ COD và tích hợp PayOS cho thanh toán chuyển khoản/VietQR. payOS hiện không có môi trường Sandbox/Staging riêng; giao dịch kiểm thử PayOS có thể chuyển tiền thật. Vì vậy COD là luồng smoke test mặc định. Chỉ kiểm thử PayOS khi chủ tài khoản/người phụ trách đã xác nhận tài khoản, số tiền giới hạn và thời điểm thực hiện. Go-live và đối soát production nằm ngoài phạm vi MVP; quy trình hoàn tiền cũng không được cài đặt. Backend tạo payment link, Return URL/cancelUrl chỉ hiển thị kết quả; trạng thái thanh toán được xác nhận qua webhook.
 
 | Thành phần | Quy định |
 | --- | --- |

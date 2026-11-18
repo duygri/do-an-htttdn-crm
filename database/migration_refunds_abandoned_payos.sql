@@ -1,4 +1,6 @@
 BEGIN;
+-- LEGACY ONLY: do not apply to new or upgraded databases. The application refund workflow has been removed.
+-- Retained for reference by existing databases that already applied this historical migration.
 -- Run on a backup/test copy first. No historical collection/refund evidence is inferred.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status VARCHAR(10) NOT NULL DEFAULT 'NONE' CHECK (refund_status IN ('NONE','PENDING','PARTIAL','FULL'));
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_amount NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (refunded_amount >= 0);

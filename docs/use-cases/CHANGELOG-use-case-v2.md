@@ -2,6 +2,8 @@
 
 > Trạng thái của nhánh triển khai này: repo không tích hợp gửi email. Những ghi chú khôi phục qua email bên dưới là lịch sử của phiên bản trước; hiện chỉ còn mã sáu chữ số trong profile development khi bật cờ.
 
+> Tài liệu này là ảnh chụp lịch sử trước khi gỡ quy trình hoàn tiền. Dùng [PRD hiện tại](../prd-htttdn-crm.md) và mã nguồn hiện tại để đối chiếu chức năng đang hỗ trợ; UC-A16 trong changelog không còn là chức năng hoạt động.
+
 
 ## 1. Đối chiếu 19 Use Case cũ
 

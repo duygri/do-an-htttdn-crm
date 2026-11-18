@@ -16,7 +16,7 @@ Tất cả endpoint dưới `/api/manager/users/{id}/profile` chỉ chấp nhậ
 ## Quy tắc số liệu
 
 - Tổng đơn bao gồm mọi trạng thái của customer.
-- Giá trị đơn hoàn thành: tổng `total_amount` của đơn `COMPLETED`, sau giảm giá, chưa trừ hoàn tiền; không phải số tiền đã thu.
+- Giá trị đơn hoàn thành: tổng `total_amount` của đơn `COMPLETED` sau giảm giá; không phải số tiền đã thu.
 - Đơn hoàn thành có yêu cầu đổi trả vẫn được tính và thể hiện trạng thái đổi trả riêng.
 - Ngày đặt gần nhất: `created_at` lớn nhất trong các đơn `COMPLETED`, không phải ngày khách bấm nhận hàng.
 - Feedback ẩn vẫn xuất hiện với nhãn; feedback xóa mềm không xuất hiện.

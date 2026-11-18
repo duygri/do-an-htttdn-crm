@@ -9,12 +9,12 @@ import { X, RefreshCw, Search } from "lucide-react";
 import { money, formatDate, pageData, Table, ListError, PageControls, PanelTitle, PanelLoading, OrderBadge, orderStatuses, orderStatusOptions, paymentMethodLabels, paymentStatusLabels } from "./shared";
 
 export function Orders({ notify }) {
-  const [filters,changeFilters]=useManagerFilters({status:'',q:'',paymentStatus:'',refundStatus:'',paymentReview:'',fromDate:'',toDate:'',sort:'createdAt',direction:'DESC',page:'0'});
+  const [filters,changeFilters]=useManagerFilters({status:'',q:'',paymentStatus:'',paymentReview:'',fromDate:'',toDate:'',sort:'createdAt',direction:'DESC',page:'0'});
   const page=Number(filters.page)||0,setPage=value=>changeFilters({page:String(value)});
   const status=filters.status,setStatus=value=>changeFilters({status:value});
   const search=filters.q,setSearch=value=>changeFilters({q:value});
-  const query=useMemo(()=>({status:filters.status,q:filters.q,paymentStatus:filters.paymentStatus,refundStatus:filters.refundStatus,paymentReview:filters.paymentReview,sort:filters.sort,direction:filters.direction,page,...vietnamDateRange(filters.fromDate,filters.toDate)}),[filters,page]);
-  const summaryEndpoint=useCallback(()=>'/api/manager/orders/summary?'+managerQuery({q:query.q,paymentStatus:query.paymentStatus,refundStatus:query.refundStatus,paymentReview:query.paymentReview,from:query.from,to:query.to}),[query.q,query.paymentStatus,query.refundStatus,query.paymentReview,query.from,query.to]);
+  const query=useMemo(()=>({status:filters.status,q:filters.q,paymentStatus:filters.paymentStatus,paymentReview:filters.paymentReview,sort:filters.sort,direction:filters.direction,page,...vietnamDateRange(filters.fromDate,filters.toDate)}),[filters,page]);
+  const summaryEndpoint=useCallback(()=>'/api/manager/orders/summary?'+managerQuery({q:query.q,paymentStatus:query.paymentStatus,paymentReview:query.paymentReview,from:query.from,to:query.to}),[query.q,query.paymentStatus,query.paymentReview,query.from,query.to]);
   const {data:counts}=useManagerList(summaryEndpoint);
   const [detailId, setDetailId] = useState(null);
   const detailEndpoint = useCallback(() => adminEndpoints.order(detailId), [detailId]);
@@ -161,7 +161,6 @@ export function Orders({ notify }) {
       </div>
       <div className="manager-advanced-filters">
         <label>Thanh toán<select value={filters.paymentStatus} onChange={e=>changeFilters({paymentStatus:e.target.value})}><option value="">Tất cả</option><option value="COD">COD</option><option value="PENDING">Chờ thanh toán</option><option value="PAID">Đã thanh toán</option><option value="EXPIRED">Hết hạn</option><option value="FAILED">Thất bại</option><option value="CANCELLED">Đã hủy thanh toán</option></select></label>
-        <label>Hoàn tiền<select value={filters.refundStatus} onChange={e=>changeFilters({refundStatus:e.target.value})}><option value="">Tất cả</option><option value="NONE">Chưa có khoản hoàn</option><option value="PENDING">Chờ hoàn</option><option value="PARTIAL">Đã hoàn một phần</option><option value="FULL">Đã hoàn đủ</option></select></label>
         <label>Đối soát PayOS<select value={filters.paymentReview} onChange={e=>changeFilters({paymentReview:e.target.value})}><option value="">Tất cả</option><option value="true">Thanh toán cần kiểm tra</option><option value="false">Không có cảnh báo</option></select></label>
         <label>Từ ngày<input type="date" value={filters.fromDate} onChange={e=>changeFilters({fromDate:e.target.value})}/></label>
         <label>Đến ngày<input type="date" value={filters.toDate} onChange={e=>changeFilters({toDate:e.target.value})}/></label>
