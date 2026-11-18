@@ -16,6 +16,9 @@ export function getE2EDatabaseSettings(rawUrl = process.env.E2E_DATABASE_URL) {
   if (databaseUrl.pathname !== '/crm_e2e') {
     throw new Error('Refusing to run E2E against a database other than crm_e2e.');
   }
+  if (databaseUrl.search) {
+    throw new Error('E2E_DATABASE_URL must not include connection-override query parameters.');
+  }
   if (!['localhost', '127.0.0.1', '[::1]'].includes(databaseUrl.hostname)) {
     throw new Error('E2E_DATABASE_URL must point to a local loopback PostgreSQL server.');
   }
