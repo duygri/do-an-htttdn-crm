@@ -24,10 +24,10 @@ it('updates from the return response before the detail reload completes and pres
  });
  render(<OrdersPage route={{orderId:9,tab:'TO_CONFIRM_RECEIPT',keyword:'',page:0}}/>);
  fireEvent.click(await screen.findByText('YÊU CẦU ĐỔI/TRẢ'));
- fireEvent.change(screen.getByLabelText('Lý do'),{target:{value:'Sai sản phẩm'}});
- fireEvent.click(screen.getByText('Xác nhận'));await screen.findByText('Mất kết nối');
- expect(screen.getByLabelText('Lý do').value).toBe('Sai sản phẩm');
- fireEvent.click(screen.getByText('Xác nhận'));
+ fireEvent.change(screen.getByLabelText('Lý do đổi/trả'),{target:{value:'Sai sản phẩm'}});
+ fireEvent.click(screen.getByText('Gửi yêu cầu'));await screen.findByText('Mất kết nối');
+ expect(screen.getByLabelText('Lý do đổi/trả').value).toBe('Sai sản phẩm');
+ fireEvent.click(screen.getByText('Gửi yêu cầu'));
  expect(await screen.findByText(label,{exact:true})).toBeTruthy();
  expect(screen.getByText('Sai sản phẩm')).toBeTruthy();expect(screen.queryByText('Đã giao — chờ bạn xác nhận')).toBeNull();
  expect(screen.queryByText('YÊU CẦU ĐỔI/TRẢ')).toBeNull();

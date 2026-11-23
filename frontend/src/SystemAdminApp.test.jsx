@@ -142,3 +142,22 @@ it('returns to the login screen when the admin session expires', async () => {  
   expect(screen.getByLabelText('Email')).toBeTruthy();
   expect(screen.queryByRole('alert')).toBeNull();
 });
+
+it('registers the refund oversight page in the admin menu and route', async () => {
+  adminRefreshSession.mockResolvedValue({ admin: { fullName: 'Quản trị', email: 'admin@example.com' } });
+  adminApi.mockImplementation(async (url) => {
+    if (url.includes('/admin/refunds/summary')) return { pendingCount: 1, pendingAmount: 50000, completedCount: 1, completedAmount: 100000, rejectedCount: 0 };
+    if (url.includes('/admin/refunds')) return { content: [{ id: 1, orderId: 9, orderCode: 9009, customerName: 'Khách A', amount: 100000, status: 'COMPLETED', reasonType: 'RETURN', method: 'BANK_TRANSFER', requestedAt: '2026-11-20T00:00:00Z', processedAt: null }], totalElements: 1, totalPages: 1, number: 0, size: 20 };
+    if (url.includes('/reports/statistics')) return statisticsPayload();
+    if (url.includes('finance-summary')) return { collected: 0, purchaseCost: 0, paidToSuppliers: 0, difference: 0, collectedOrders: 0 };
+    return { accounts: 5, products: 12, suppliers: 3 };
+  });
+  window.history.replaceState({}, '', '/admin/refunds');
+  render(<SystemAdminApp />, { wrapper });
+  await waitFor(() => expect(screen.getByRole('link', { name: 'Hoàn tiền' })).toBeTruthy());
+  expect(screen.getByRole('link', { name: 'Hoàn tiền' }).getAttribute('href')).toBe('/admin/refunds');
+  expect(await screen.findByText('Khách A')).toBeTruthy();
+  await waitFor(() => expect(document.querySelector('.admin-refund-summary')).toBeTruthy());
+  expect(window.location.pathname).toBe('/admin/refunds');
+  expect(screen.queryByRole('button', { name: /sửa|duyệt hoàn/i })).toBeNull();
+});

@@ -62,10 +62,10 @@ class OrderPaymentIntegrationTest {
         mvc.perform(patch(url).header("Authorization",token).contentType("application/json").content("{\"note\":\" \"}")).andExpect(status().isBadRequest());
         mvc.perform(patch(url).header("Authorization","Bearer "+jwt.issue(customer.getId(),"CUSTOMER")).contentType("application/json").content("{\"note\":\"Test\"}")).andExpect(status().isForbidden());
     }
-    @Test void removedRefundEndpointsAreGone()throws Exception{
+    @Test void legacyRefundRoutesDoNotExposeCustomerEndpoints()throws Exception{
         Order o=order("PAYOS","DELIVERED","PAID");
         mvc.perform(get("/api/manager/refunds").header("Authorization",token)).andExpect(status().isNotFound());
-        mvc.perform(post("/api/manager/orders/"+o.getId()+"/refunds").header("Authorization",token).contentType("application/json").content("{}")).andExpect(status().isNotFound());
+        mvc.perform(post("/api/manager/orders/"+o.getId()+"/refunds").header("Authorization",token).contentType("application/json").content("{}")).andExpect(status().isConflict());
     }
     @Test void autoCancelChecksProviderAgainAndRepeatedWorkersDoNotDuplicateEffects(){
         Order o=order("PAYOS","PENDING","EXPIRED");String link="link-"+o.getId();

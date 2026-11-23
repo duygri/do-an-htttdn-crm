@@ -4,6 +4,8 @@ import { useManagerReadPause } from './useManagerResource';
 import { showReturn, displayOrderLabel, deliveryLabel, returnLabels } from './order-display';
 import './order-display.css';
 import SourceCareCreator from './SourceCareCreator';
+import ShipmentPanel from './ShipmentPanel';
+import RefundPanel from './RefundPanel';
 const OrderPaymentPanel=React.lazy(()=>import('./OrderPaymentPanel'));
 export { returnLabels } from './order-display';
 import { X, User, Calendar, CreditCard, MapPin, RotateCcw, AlertTriangle } from 'lucide-react';
@@ -17,20 +19,21 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
   const [processed, setProcessed] = useState(null);
   const [action, setAction] = useState('');
   const [note, setNote] = useState('');
+  const [restock, setRestock] = useState(false);
   const [busy, setBusy] = useState(false);
   const [financeEditing,setFinanceEditing]=useState(false);
   const [failure, setFailure] = useState('');
   const detail = processed || sourceDetail;
   useManagerReadPause(!!action);
-  useEffect(() => { setProcessed(null); }, [sourceDetail]);
+  useEffect(() => { setProcessed(null); setRestock(false); }, [sourceDetail]);
   const actionLabels={APPROVED:'Chấp thuận đổi trả',REJECTED:'Từ chối đổi trả',COMPLETED:'Hoàn tất đổi trả'};
-  const openAction = value => { setAction(value);setNote('');setFailure(''); };
+  const openAction = value => { setAction(value);setNote('');setRestock(false);setFailure(''); };
   const close = () => { if(busy||financeEditing)return; if(action){setAction('');setFailure('');}else onClose(); };
   const process = async event => {
     event.preventDefault();if(busy)return;
     if(action!=='APPROVED' && !note.trim()){setFailure('Vui lòng nhập lý do hoặc ghi chú xử lý.');return;}
     setBusy(true);setFailure('');
-    try { const updated=await adminApi(`/api/manager/orders/${detail.id}/return`,{method:'PATCH',body:{status:action,note:note.trim()}});setProcessed(updated);setAction(''); }
+    try { const updated=await adminApi(`/api/manager/orders/${detail.id}/return`,{method:'PATCH',body:{status:action,note:note.trim(),...(action==='COMPLETED'?{restock}:{})}});setProcessed(updated);setAction(''); }
     catch(error){setFailure(error.status===404 && /No static resource.*\/return/i.test(error.message)
       ? 'Backend đang chạy phiên bản chưa có chức năng xử lý đổi trả. Cần khởi động lại backend bản mới; chạy migration thôi chưa đủ. Ghi chú của bạn vẫn được giữ để thử lại.'
       : error.message);}
@@ -110,10 +113,19 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
               )}
             </div>
             {detail.finance&&<React.Suspense fallback={<p role="status">Đang tải thông tin thanh toán…</p>}><OrderPaymentPanel key={detail.id} order={detail} onUpdated={setProcessed} onEditingChange={setFinanceEditing}/></React.Suspense>}
+            <ShipmentPanel detail={detail} onUpdated={setProcessed} />
+            <RefundPanel detail={detail} onUpdated={setProcessed} />
             {showReturn(detail) && <section className="admin-return-management" aria-label="Xử lý đổi trả">
               <h3>Theo dõi đổi trả</h3>
               <p>Yêu cầu lúc: {date(detail.returnRequestedAt)}</p>
-              <p>Chỉ ghi nhận xử lý đổi trả. Không tự cộng tồn kho hoặc hoàn lượt voucher.</p>
+              <p>Chỉ nhập kho khi bạn đánh dấu đã nhận lại hàng. Hệ thống không tự hoàn lượt voucher.</p>
+              {!!detail.returnItems?.length && <div><b>Sản phẩm đổi/trả</b><ul className="return-history">
+                {detail.returnItems.map((row,index) => <li key={row.orderItemId ?? index}>
+                  <b>{row.name || 'Sản phẩm'} × {row.quantity}</b>
+                  <small>{row.resolution === 'REFUND' ? 'Hoàn tiền' : row.resolution === 'EXCHANGE' ? 'Đổi hàng' : 'Khác'}</small>
+                  {row.restockedAt && <small>Đã nhập kho {date(row.restockedAt)}</small>}
+                </li>)}
+              </ul></div>}
               <ol className="return-history">
                 {(detail.returnHistory || []).map((entry,index)=><li key={entry.id || index}>
                   <b>{returnLabels[entry.status] || entry.status}</b><small>{date(entry.createdAt)}{entry.managerName ? ` · ${entry.managerName}` : ''}</small>
@@ -131,6 +143,7 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
                 <label htmlFor="return-processing-note">{action==='REJECTED'?'Lý do từ chối':action==='COMPLETED'?'Ghi chú cách giải quyết (đổi hàng/hỗ trợ đã thực hiện bên ngoài)':'Ghi chú (không bắt buộc)'}</label>
                 <textarea id="return-processing-note" autoFocus required={action!=='APPROVED'} maxLength={1000} value={note} disabled={busy} onChange={e=>setNote(e.target.value)}/>
                 <small>{note.length}/1.000 ký tự · Nội dung được thông báo cho khách.</small>
+                {action==='COMPLETED' && <label><input type="checkbox" checked={restock} disabled={busy} onChange={e=>setRestock(e.target.checked)} /> Đã nhận lại hàng và nhập kho</label>}
                 {failure && <p role="alert" className="danger-text">{failure}</p>}
                 <div className="admin-dialog-actions"><button type="button" disabled={busy} onClick={close}>Quay lại</button><button className="admin-primary" disabled={busy || (action!=='APPROVED' && !note.trim())}>{busy?'Đang lưu...':'Xác nhận xử lý'}</button></div>
               </form>}
