@@ -62,7 +62,10 @@ class OrderConfirmationTest {
     final StockService stock = new StockService(products,mock(jakarta.persistence.EntityManager.class),mock(StockMovementRepository.class),mock(InternalNoticeService.class));
     final PaymentReconciliationService reconciliation = new PaymentReconciliationService(payos,attempts,payments,notifications);
     final LoyaltyService loyalty = mock(LoyaltyService.class);
-    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,stock,reconciliation,loyalty);
+    final ShipmentRepository shipments = mock(ShipmentRepository.class);
+    final ShippingCarrierRepository carriers = mock(ShippingCarrierRepository.class);
+    final ShipmentEventRepository shipmentEvents = mock(ShipmentEventRepository.class);
+    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,stock,reconciliation,loyalty,shipments,carriers,shipmentEvents,mock(com.htttdn.crm.repository.OrderReturnItemRepository.class),mock(com.htttdn.crm.repository.OrderRefundRepository.class));
 
     @Test void completedReviewedOrderCannotRequestReturn() {
         User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);

@@ -1,16 +1,21 @@
 package com.htttdn.crm.service;
 
 import com.htttdn.crm.entity.Order;
+import com.htttdn.crm.entity.OrderItem;
+import com.htttdn.crm.entity.OrderReturnItem;
 import com.htttdn.crm.entity.Product;
 import com.htttdn.crm.entity.StockMovement;
 import com.htttdn.crm.exception.ApiException;
+import com.htttdn.crm.repository.OrderReturnItemRepository;
 import com.htttdn.crm.repository.ProductRepository;
 import com.htttdn.crm.repository.StockMovementRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.Optional;
@@ -24,12 +29,21 @@ public class StockService {
     private final EntityManager em;
     private final StockMovementRepository movements;
     private final InternalNoticeService notices;
+    private final OrderReturnItemRepository returnItems;
 
-    public StockService(ProductRepository products, EntityManager em, StockMovementRepository movements, InternalNoticeService notices) {
+    /** Production wiring (explicit so the Spring-injected and the legacy unit-test constructor can coexist). */
+    @Autowired
+    public StockService(ProductRepository products, EntityManager em, StockMovementRepository movements, InternalNoticeService notices, OrderReturnItemRepository returnItems) {
         this.products = products;
         this.em = em;
         this.movements = movements;
         this.notices = notices;
+        this.returnItems = returnItems;
+    }
+
+    /** Legacy 4-arg constructor kept for unit tests; restockReturn fails loudly through it because there is no repository. */
+    public StockService(ProductRepository products, EntityManager em, StockMovementRepository movements, InternalNoticeService notices) {
+        this(products, em, movements, notices, null);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -91,6 +105,23 @@ public class StockService {
             apply(product, quantity, "CANCEL_RELEASE", "ORDER", order.getId(), "Hủy đơn #" + order.getOrderCode());
         });
         order.setStockReleased(true);
+    }
+
+    // Opt-in restock of returned lines; restocked_at marks each line so a replay never doubles stock.
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void restockReturn(Order order, List<OrderReturnItem> items) {
+        // Fail before any stock/ledger mutation so an unwired service can never silently skip the restock.
+        if (returnItems == null) throw new IllegalStateException("OrderReturnItemRepository chưa được cấu hình.");
+        for (OrderReturnItem item : items) {
+            if (item.getRestockedAt() != null) continue;
+            OrderItem line = order.getItems().stream().filter(i -> i.getId() != null && i.getId().equals(item.getOrderItemId())).findFirst()
+                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "RETURN_ITEM_NOT_FOUND", "Không tìm thấy sản phẩm đổi trả trong đơn."));
+            Product product = lockProduct(line.getProduct().getId()).orElseThrow(() -> new ApiException(
+                HttpStatus.CONFLICT, "STOCK_RELEASE_FAILED", "Không tìm thấy sản phẩm để nhập kho."));
+            apply(product, item.getQuantity(), "RETURN_RESTOCK", "ORDER", order.getId(), "Nhập kho đổi trả đơn #" + order.getOrderCode());
+            item.setRestockedAt(Instant.now());
+            returnItems.save(item);
+        }
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

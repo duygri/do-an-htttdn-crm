@@ -19,7 +19,7 @@ it('approves then completes without modifying delivery status and shows the hist
  expect(screen.getByText('Xác nhận xử lý').disabled).toBe(true);
  fireEvent.change(input,{target:{value:'Đã đổi hàng tại cửa hàng'}});fireEvent.click(screen.getByText('Xác nhận xử lý'));
  expect(await screen.findByText('Đã đổi hàng tại cửa hàng')).toBeTruthy();expect(screen.queryByText('Hoàn tất xử lý')).toBeNull();
- expect(adminApi).toHaveBeenLastCalledWith('/api/manager/orders/9/return',{method:'PATCH',body:{status:'COMPLETED',note:'Đã đổi hàng tại cửa hàng'}});
+ expect(adminApi).toHaveBeenLastCalledWith('/api/manager/orders/9/return',{method:'PATCH',body:{status:'COMPLETED',note:'Đã đổi hàng tại cửa hàng',restock:false}});
 });
 it('requires a rejection reason, preserves the draft after failure and locks sending',async()=>{
  let reject;adminApi.mockImplementation(()=>new Promise((_,r)=>{reject=r;}));
@@ -43,4 +43,39 @@ it('explains a missing return endpoint without losing the approval draft',async(
  expect(await screen.findByText(/Backend đang chạy phiên bản chưa có chức năng/)).toBeTruthy();
  expect(screen.getByLabelText('Ghi chú (không bắt buộc)').value).toBe('Giữ ghi chú');
  expect(screen.getByText('Xác nhận xử lý').disabled).toBe(false);
+});
+const withItems={...order,returnStatus:'APPROVED',returnItems:[
+ {orderItemId:11,productId:5,name:'Áo linen',quantity:2,resolution:'EXCHANGE',restockedAt:null},
+ {orderItemId:12,productId:6,name:'Quần jean',quantity:1,resolution:'REFUND',restockedAt:'2026-10-07T00:00:00Z'}]};
+it('lists returned product lines with their resolution and restock stamp',async()=>{
+ adminApi.mockResolvedValue([]);
+ render(<ManagerOrderDetail detail={withItems} onClose={()=>{}}/>);
+ expect(screen.getByText('Sản phẩm đổi/trả')).toBeTruthy();
+ expect(screen.getByText('Áo linen × 2')).toBeTruthy();
+ expect(screen.getByText('Đổi hàng')).toBeTruthy();
+ expect(screen.getByText('Quần jean × 1')).toBeTruthy();
+ expect(screen.getByText('Hoàn tiền')).toBeTruthy();
+ expect(screen.getByText(/Đã nhập kho/)).toBeTruthy();
+});
+it('sends restock=true only when completing with the restock checkbox ticked',async()=>{
+ adminApi.mockImplementation(async(url,{body})=>({...withItems,returnStatus:body.status,returnHistory:[{status:body.status,note:body.note,createdAt:'2026-10-07T00:00:00Z'}]}));
+ render(<ManagerOrderDetail detail={withItems} onClose={()=>{}}/>);
+ fireEvent.click(screen.getByText('Hoàn tất xử lý'));
+ const box=screen.getByLabelText('Đã nhận lại hàng và nhập kho');
+ expect(box.checked).toBe(false);
+ expect(screen.getByText(/Chỉ nhập kho khi bạn đánh dấu đã nhận lại hàng/)).toBeTruthy();
+ fireEvent.change(screen.getByLabelText(/Ghi chú cách giải quyết/),{target:{value:'Đã nhận lại hàng'}});
+ fireEvent.click(box);
+ fireEvent.click(screen.getByText('Xác nhận xử lý'));
+ expect(await screen.findByText('Đã nhận lại hàng')).toBeTruthy();
+ expect(adminApi).toHaveBeenLastCalledWith('/api/manager/orders/9/return',{method:'PATCH',body:{status:'COMPLETED',note:'Đã nhận lại hàng',restock:true}});
+});
+it('omits the restock flag when completing without ticking the checkbox',async()=>{
+ adminApi.mockImplementation(async(url,{body})=>({...order,returnStatus:body.status,returnHistory:[{status:body.status,note:body.note,createdAt:'2026-10-07T00:00:00Z'}]}));
+ render(<ManagerOrderDetail detail={{...order,returnStatus:'APPROVED'}} onClose={()=>{}}/>);
+ fireEvent.click(screen.getByText('Hoàn tất xử lý'));
+ fireEvent.change(screen.getByLabelText(/Ghi chú cách giải quyết/),{target:{value:'Đổi tại cửa hàng'}});
+ fireEvent.click(screen.getByText('Xác nhận xử lý'));
+ expect(await screen.findByText('Đổi tại cửa hàng')).toBeTruthy();
+ expect(adminApi).toHaveBeenLastCalledWith('/api/manager/orders/9/return',{method:'PATCH',body:{status:'COMPLETED',note:'Đổi tại cửa hàng',restock:false}});
 });

@@ -18,8 +18,11 @@ public class ReturnManagementService extends AdminServiceSupport {
     private final UserRepository users;
     private final JwtTokenService jwt;
     private final NotificationService notifications;
-    public ReturnManagementService(OrderRepository orders, OrderReturnEventRepository events, UserRepository users, JwtTokenService jwt, NotificationService notifications) {
-        this.orders=orders;this.events=events;this.users=users;this.jwt=jwt;this.notifications=notifications;
+    private final StockService stock;
+    private final OrderReturnItemRepository returnItems;
+    @org.springframework.beans.factory.annotation.Autowired
+    public ReturnManagementService(OrderRepository orders, OrderReturnEventRepository events, UserRepository users, JwtTokenService jwt, NotificationService notifications, StockService stock, OrderReturnItemRepository returnItems) {
+        this.orders=orders;this.events=events;this.users=users;this.jwt=jwt;this.notifications=notifications;this.stock=stock;this.returnItems=returnItems;
     }
     @Transactional public Order process(String authorization, Long id, Request input) {
         var claims=jwt.parse(authorization);
@@ -39,6 +42,12 @@ public class ReturnManagementService extends AdminServiceSupport {
         boolean valid="REQUESTED".equals(order.getReturnStatus()) && Set.of("APPROVED","REJECTED").contains(status)
             || "APPROVED".equals(order.getReturnStatus()) && "COMPLETED".equals(status);
         if (!valid) throw conflict();
+        if ("COMPLETED".equals(status) && Boolean.TRUE.equals(input.restock())) {
+            if (stock==null || returnItems==null) throw new IllegalStateException("StockService/OrderReturnItemRepository chưa được cấu hình.");
+            var lines=returnItems.findByOrderIdOrderByIdAsc(order.getId());
+            if (lines.isEmpty()) throw new ApiException(HttpStatus.CONFLICT,"RETURN_ITEMS_REQUIRED","Đơn chưa có chi tiết sản phẩm đổi trả nên không thể nhập kho.");
+            stock.restockReturn(order,lines);
+        }
         var before=snapshot(order);
         order.setReturnStatus(status);order.setUpdatedAt(Instant.now());
         OrderReturnEvent event=events.save(new OrderReturnEvent(order,manager,status,note));
@@ -49,5 +58,7 @@ public class ReturnManagementService extends AdminServiceSupport {
         return orders.save(order);
     }
     private ApiException conflict(){return new ApiException(HttpStatus.CONFLICT,"INVALID_RETURN_TRANSITION","Yêu cầu đổi trả đã thay đổi hoặc không đủ điều kiện. Vui lòng tải lại.");}
-    public record Request(@Size(max=30) String status,@Size(max=1000) String note) {}
+    public record Request(@Size(max=30) String status,@Size(max=1000) String note,Boolean restock) {
+        public Request(String status,String note){this(status,note,null);}
+    }
 }

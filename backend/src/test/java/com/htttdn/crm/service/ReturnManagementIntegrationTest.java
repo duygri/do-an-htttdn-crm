@@ -32,7 +32,7 @@ class ReturnManagementIntegrationTest {
     @BeforeEach void setup(){manager=user("Manager","MANAGER");customer=user("Customer","CUSTOMER");root=user("Admin","ADMIN");order=order(10001L,"REQUESTED");em.flush();}
     User user(String name,String role){User u=new User();u.setFullName(name);u.setEmail(name+"@return.test");u.setPasswordHash("hash");u.setRole(role);em.persist(u);return u;}
     Order order(long code,String status){Order o=new Order();o.setOrderCode(code);o.setCustomer(customer);o.setStatus("DELIVERED");o.setPaymentMethod("COD");o.setPaymentStatus("COD");o.setReturnStatus(status);o.setReturnReason("Sai size");o.setTotalAmount(BigDecimal.TEN);o.setDiscountAmount(BigDecimal.ONE);o.setVoucherCode("KEEP");em.persist(o);return o;}
-    String token(User u){return "Bearer "+jwt.issue(u.getId(),u.getRole());}
+    String token(User u){return "Bearer "+jwt.issue(u.getId(),u.getRole());} Product product(String name,BigDecimal price){var c=new Category();c.setName("Đổi trả");em.persist(c);var p=new Product();p.setName(name);p.setCategoryEntity(c);p.setPrice(price);p.setStock(5);p.setActive(true);em.persist(p);return p;}
     Order process(String status,String note){return service.process(token(manager),order.getId(),new ReturnManagementService.Request(status,note));}
     @Test void approveCompletePreservesFinancialDataAndNotifiesOnce(){
         process("APPROVED","  Tiếp nhận hàng  ");process("APPROVED","Tiếp nhận hàng");
@@ -68,5 +68,39 @@ class ReturnManagementIntegrationTest {
             .andExpect(jsonPath("$.returnHistory[0].managerName").doesNotExist()).andExpect(jsonPath("$.returnHistory[0].managerId").doesNotExist());
     }
     @Test void deliveryUpdateCannotBypassReturnHandling(){assertThrows(ApiException.class,()->admin.updateStatus(order.getId(),new com.htttdn.crm.dto.admin.AdminDtos.StatusRequest("DELIVERED",null)));assertEquals("REQUESTED",order.getReturnStatus());}
+    @Test void customerReturnEndpointAcceptsItemLinesAndExposesThemInJson() throws Exception {
+        Order fresh=new Order();fresh.setOrderCode(10005L);fresh.setCustomer(customer);fresh.setStatus("DELIVERED");fresh.setPaymentMethod("COD");fresh.setPaymentStatus("COD");fresh.setTotalAmount(new BigDecimal("400000"));em.persist(fresh);
+        Product shirt=product("Áo",new BigDecimal("150000"));
+        OrderItem line=new OrderItem();line.setOrder(fresh);line.setProduct(shirt);line.setQuantity(2);line.setUnitPrice(new BigDecimal("150000"));fresh.getItems().add(line);em.persist(line);em.flush();
+        mvc.perform(post("/api/orders/"+fresh.getId()+"/return").header("Authorization",token(customer)).contentType("application/json")
+                .content("{\"reason\":\"Áo chật\",\"items\":[{\"orderItemId\":"+line.getId()+",\"quantity\":2,\"resolution\":\"EXCHANGE\"}]}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.returnStatus").value("REQUESTED"))
+            .andExpect(jsonPath("$.items[0].id").value(line.getId()))
+            .andExpect(jsonPath("$.returnItems[0].orderItemId").value(line.getId()))
+            .andExpect(jsonPath("$.returnItems[0].productId").value(shirt.getId()))
+            .andExpect(jsonPath("$.returnItems[0].name").value("Áo"))
+            .andExpect(jsonPath("$.returnItems[0].quantity").value(2))
+            .andExpect(jsonPath("$.returnItems[0].resolution").value("EXCHANGE"))
+            .andExpect(jsonPath("$.returnItems[0].restockedAt").hasJsonPath()).andExpect(jsonPath("$.returnItems[0].restockedAt").isEmpty());
+        mvc.perform(post("/api/orders/"+fresh.getId()+"/return").header("Authorization",token(customer)).contentType("application/json")
+                .content("{\"reason\":\"Lần hai\",\"items\":[{\"orderItemId\":"+line.getId()+",\"quantity\":1,\"resolution\":\"REFUND\"}]}")).andExpect(status().isConflict());
+        mvc.perform(get("/api/manager/orders/"+fresh.getId()).header("Authorization",token(manager)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.returnItems[0].resolution").value("EXCHANGE")).andExpect(jsonPath("$.returnItems[0].productId").value(shirt.getId()));
+    }
+    @Test void returnEndpointRejectsBadLinesBeforeTouchingTheOrder() throws Exception {
+        Order fresh=new Order();fresh.setOrderCode(10006L);fresh.setCustomer(customer);fresh.setStatus("DELIVERED");fresh.setPaymentMethod("COD");fresh.setPaymentStatus("COD");fresh.setTotalAmount(BigDecimal.TEN);em.persist(fresh);
+        Product shirt=product("Áo",BigDecimal.TEN);
+        OrderItem line=new OrderItem();line.setOrder(fresh);line.setProduct(shirt);line.setQuantity(1);line.setUnitPrice(BigDecimal.TEN);fresh.getItems().add(line);em.persist(line);em.flush();
+        for(String body:java.util.List.of(
+            "{\"reason\":\"x\",\"items\":[{\"orderItemId\":"+line.getId()+",\"quantity\":2,\"resolution\":\"REFUND\"}]}",
+            "{\"reason\":\"x\",\"items\":[{\"orderItemId\":999999,\"quantity\":1,\"resolution\":\"REFUND\"}]}",
+            "{\"reason\":\"x\",\"items\":[{\"orderItemId\":"+line.getId()+",\"quantity\":1,\"resolution\":\"BOGUS\"}]}",
+            "{\"reason\":\"x\",\"items\":[{\"orderItemId\":"+line.getId()+",\"quantity\":0,\"resolution\":\"REFUND\"}]}",
+            "{\"reason\":\"x\",\"items\":[{\"quantity\":1,\"resolution\":\"REFUND\"}]}"))
+            mvc.perform(post("/api/orders/"+fresh.getId()+"/return").header("Authorization",token(customer)).contentType("application/json").content(body))
+                .andExpect(status().isBadRequest());
+        assertEquals("NONE",em.find(Order.class,fresh.getId()).getReturnStatus());
+        assertEquals(0,events.count());
+    }
     @Test void completedPurchaseAndMissingOrder(){order.setStatus("COMPLETED");process("APPROVED","");assertEquals("COMPLETED",order.getStatus());assertThrows(ApiException.class,()->service.process(token(manager),999999L,new ReturnManagementService.Request("APPROVED","")));}
 }

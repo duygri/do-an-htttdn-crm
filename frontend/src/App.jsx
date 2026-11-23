@@ -12,6 +12,8 @@ import CustomerVouchers, { RewardSummary } from './CustomerVouchers';
 import OrderReviews from './OrderReviews';
 import CustomerInvoice from './CustomerInvoice';
 import CustomerPassword from './CustomerPassword';
+import ShipmentTimeline from './ShipmentTimeline';
+import ReturnRequestForm from './ReturnRequestForm';
 import CustomerPoints from './CustomerPoints';
 const SupportTickets=React.lazy(()=>import('./SupportTickets'));
 import { useCartSelection, cartLineKey, canBuyLine, transferGuestSelection, subtractPurchased } from './cart-selection';
@@ -2467,15 +2469,24 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
   const cancellableStatuses = ["PENDING_PAYMENT", "PENDING", "CONFIRMED", "PREPARING"];
   const cancel = () => { setAction('cancel'); setReason(''); setActionError(''); };
   const requestReturn = () => { setAction('return'); setReason(''); setActionError(''); };
+  const submitReturn = async payload => {
+    if (actionLock.current) return;
+    actionLock.current = true; setBusy(true); setActionError('');
+    try {
+      const updated = await api(endpoints.returnOrder(order.id), { method: 'POST', body: payload });
+      setAction(null); onNotice?.('Đã gửi yêu cầu đổi/trả.'); await onChanged?.(updated);
+    } catch (error) { setActionError(error.message); }
+    finally { actionLock.current = false; setBusy(false); }
+  };
   const submitAction = async event => {
     event.preventDefault();
     if (actionLock.current) return;
     if (!reason.trim()) { setActionError('Vui lòng nhập lý do.'); return; }
     actionLock.current = true; setBusy(true); setActionError('');
     try {
-      const updated = await api(action === 'cancel' ? endpoints.cancelOrder(order.id) : endpoints.returnOrder(order.id), { method: action === 'cancel' ? 'PATCH' : 'POST', body: { reason: reason.trim() } });
-      if (action === 'cancel' && updated.status !== 'CANCELLED') { setPaid(updated.paymentStatus === 'PAID'); setActionError('Đơn đã được thanh toán nên chưa thể hủy. Vui lòng tải lại trạng thái đơn.'); onPaymentChanged?.(); return; }
-      setAction(null); onNotice?.(action === 'cancel' ? 'Đã hủy đơn hàng.' : 'Đã gửi yêu cầu đổi/trả.'); await onChanged?.(updated);
+      const updated = await api(endpoints.cancelOrder(order.id), { method: 'PATCH', body: { reason: reason.trim() } });
+      if (updated.status !== 'CANCELLED') { setPaid(updated.paymentStatus === 'PAID'); setActionError('Đơn đã được thanh toán nên chưa thể hủy. Vui lòng tải lại trạng thái đơn.'); onPaymentChanged?.(); return; }
+      setAction(null); onNotice?.('Đã hủy đơn hàng.'); await onChanged?.(updated);
     } catch (error) { setActionError(error.message); }
     finally { actionLock.current = false; setBusy(false); }
   };
@@ -2483,7 +2494,8 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
     <div className="order-view">
       <a className="back-link" href={`/ho-tro?orderId=${order.id}&new=1`}>Yêu cầu hỗ trợ đơn hàng này</a>
       {order.status === 'COMPLETED' && <OrderReviews key={order.id} order={order} autoOpen={autoReview} onAutoOpened={onReviewOpened} onReviewStatus={setHasOrderReview}/>}
-      {action && <form className="shop-reason-form" onSubmit={submitAction}><h3>{action === 'cancel' ? 'Hủy đơn hàng' : 'Yêu cầu đổi/trả'}</h3><label>Lý do<textarea autoFocus required maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>{actionError && <p role="alert" className="shop-inline-error">{actionError}</p>}<div className="order-actions"><button type="button" className="button button-light" disabled={busy} onClick={() => setAction(null)}>Quay lại</button><button className="button button-dark" disabled={busy}>{busy ? 'Đang gửi...' : 'Xác nhận'}</button></div></form>}
+      {action === 'cancel' && <form className="shop-reason-form" onSubmit={submitAction}><h3>Hủy đơn hàng</h3><label>Lý do<textarea autoFocus required maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>{actionError && <p role="alert" className="shop-inline-error">{actionError}</p>}<div className="order-actions"><button type="button" className="button button-light" disabled={busy} onClick={() => setAction(null)}>Quay lại</button><button className="button button-dark" disabled={busy}>{busy ? 'Đang gửi...' : 'Xác nhận'}</button></div></form>}
+      {action === 'return' && <ReturnRequestForm items={order.items || []} busy={busy} error={actionError} onSubmit={submitReturn} onCancel={() => setAction(null)} />}
       <div className="order-view-head">
         <div>
           <p className="kicker">MÃ ĐƠN #{order.orderCode}</p>
@@ -2544,10 +2556,13 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
       <p className="shop-order-payment-method"><b>Phương thức thanh toán:</b> {order.paymentMethod === "PAYOS" ? "Quét mã QR PayOS" : "Thanh toán khi nhận hàng"}</p>
       {order.paymentMethod === "PAYOS" && <p className={paid ? "shop-payment-label is-paid" : "shop-payment-label"}>Trạng thái thanh toán: {paid ? "Đã thanh toán" : "Chưa thanh toán"}</p>}
       {order.paymentMethod === "PAYOS" && <PaymentQr orderId={order.id} onPaid={order.paymentStatus === "PAID" ? undefined : () => { setPaid(true); onNotice?.("Thanh toán thành công!"); onPaymentChanged?.(); }} />}
-      {order.trackingCode && <p className="order-address"><b>Mã theo dõi</b><br />{order.trackingCode}</p>}
+      <ShipmentTimeline shipment={order.shipment} trackingCode={order.trackingCode} />
       {order.status === "CANCELLED" && <p className="order-address order-cancel-reason"><b>Lý do hủy đơn</b><br />{order.cancelReason?.trim() || "Chưa có lý do hủy"}</p>}
       {(order.returnStatus || "NONE") !== "NONE" && <p className="order-address"><b>Đổi/trả hàng: {returnLabel(order.returnStatus)}</b><br />{order.returnReason}</p>}
+      {!!order.returnItems?.length && <div className="order-address"><b>Sản phẩm đổi/trả</b><ul>{order.returnItems.map((row, index) => <li key={row.orderItemId ?? index}>{row.name} × {row.quantity} · {row.resolution === 'REFUND' ? 'Hoàn tiền' : row.resolution === 'EXCHANGE' ? 'Đổi hàng' : 'Khác'}</li>)}</ul></div>}
       {!!order.returnHistory?.length && <section className="order-address" aria-label="Lịch sử đổi trả"><b>Lịch sử xử lý đổi trả</b><ol className="return-history">{order.returnHistory.map((entry,index)=><li key={index}><b>{returnLabel(entry.status)}</b><small>{date(entry.createdAt)}</small><p>{entry.note || 'Không có ghi chú'}</p></li>)}</ol></section>}
+      {!!order.refunds?.length && <section className="order-address" aria-label="Hoàn tiền"><b>Hoàn tiền</b>
+        <ul>{order.refunds.map(r => <li key={r.id}>{money(r.amount)} · {r.status === 'COMPLETED' ? 'Đã hoàn' : r.status === 'REJECTED' ? 'Từ chối' : 'Đang xử lý'}{r.processedAt ? ` · ${date(r.processedAt)}` : ''}</li>)}</ul></section>}
       <p className="order-address">
         <b>Địa chỉ giao hàng</b>
         <br />
