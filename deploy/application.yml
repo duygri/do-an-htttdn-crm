@@ -16,7 +16,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/migration_supplier_receipts_invoices.sql,classpath:db/migration_inventory_suppliers_loyalty.sql
+      schema-locations: classpath:db/migration_supplier_receipts_invoices.sql,classpath:db/migration_inventory_suppliers_loyalty.sql,classpath:db/migration_shipping_returns_refunds.sql
 server:
   port: ${PORT:10000}
   forward-headers-strategy: framework

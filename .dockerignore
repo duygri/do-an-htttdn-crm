@@ -12,6 +12,7 @@
 !database/
 !database/migration_supplier_receipts_invoices.sql
 !database/migration_inventory_suppliers_loyalty.sql
+!database/migration_shipping_returns_refunds.sql
 frontend/node_modules
 frontend/dist
 frontend/.env*
