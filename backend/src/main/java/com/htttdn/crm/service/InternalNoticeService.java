@@ -75,6 +75,15 @@ public class InternalNoticeService {
             notices.countByRecipientIdAndReadAtIsNull(recipientId));
     }
 
+    @Transactional
+    public void notifyVariantLowStock(Product product, com.htttdn.crm.entity.ProductVariant variant, int before, int after) {
+        int threshold=product.getLowStockThreshold()!=null?product.getLowStockThreshold():settings.getInt("inventory.lowStockDefault");
+        if(!(before>threshold && after<=threshold))return;
+        notifyManagers("LOW_STOCK", "Biến thể sắp hết",
+            product.getName()+" · "+variant.getColor()+" / "+variant.getSize()+" còn "+after+" (ngưỡng "+threshold+").",
+            "/manager/inventory?tab=low", "LOW_STOCK_VARIANT:"+variant.getId()+":"+LocalDate.now(ZONE));
+    }
+
     @Transactional(readOnly = true)
     public long unread(Long recipientId) {
         return notices.countByRecipientIdAndReadAtIsNull(recipientId);

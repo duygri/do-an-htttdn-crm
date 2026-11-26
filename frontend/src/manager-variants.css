@@ -1,0 +1,6 @@
+.manager-variants {max-width:100%;padding:16px;display:grid;gap:12px}.manager-variants label{display:grid;gap:6px}.manager-variants input,.manager-variants select{max-width:100%;min-height:38px;padding:8px}.manager-variants-scroll{overflow-x:auto;max-width:100%}.manager-variants table{width:100%;min-width:360px;border-collapse:collapse}.manager-variants td,.manager-variants th{padding:10px;text-align:left;border-bottom:1px solid #ddd}.manager-variants fieldset{display:grid;gap:10px;min-width:0}.manager-variants button{min-height:40px}.manager-variants [role=alert]{color:#a11}@media(max-width:600px){.manager-variants{padding:8px}.manager-variants td input{width:100px}}
+
+.manager-shell .manager-variant-dialog { width:min(800px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid var(--admin-border);border-radius:16px;padding:20px;background:var(--admin-card);color:var(--admin-text); }
+.manager-variant-dialog::backdrop {background:rgb(0 0 0 / 50%);}
+.manager-shell[data-theme="dark"] .manager-variants [role="alert"] {color:#fca5a5;}
+.manager-shell .manager-variants :is(input,select) {background:var(--admin-input);color:var(--admin-text);border:1px solid var(--admin-border);border-radius:8px;}

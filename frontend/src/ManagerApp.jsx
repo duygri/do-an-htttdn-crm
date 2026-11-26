@@ -1,3 +1,4 @@
+import {VariantWorkspaceDialog} from './ManagerVariants';
 import { hasReturn, showReturn, displayOrderLabel, returnLabel } from './order-display';
 import {useManagerFilters,managerQuery,vietnamDateRange} from './useManagerFilters';
 import ManagerOrderDetail from './ManagerOrderDetail';
@@ -1242,13 +1243,14 @@ function Products({ notify }) {
   const {data:categoryData}=useManagerList(useCallback(()=>'/api/manager/products/categories',[]));
   const {data:supplierData}=useManagerList(useCallback(()=>'/api/manager/suppliers?size=100&active=true&sort=name&desc=false',[]));
   const suppliers=supplierData?.content||[];
+  const [variantProduct,setVariantProduct]=useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const productWriteLock = useRef(false);
   const [editing, setEditing] = useState(null);
   const [originalStock, setOriginalStock] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(null);
-  useManagerReadPause(dialogOpen || !!confirmArchive);
+  useManagerReadPause(dialogOpen || !!confirmArchive || !!variantProduct);
   const [form, setForm] = useState({
     name: "",
     category: "",
@@ -1375,6 +1377,7 @@ function Products({ notify }) {
   return (
     <div className="admin-panel">
       <PanelTitle title="Sản phẩm" subtitle="Quản lý catalog và tồn kho." />
+      {variantProduct&&<VariantWorkspaceDialog key={variantProduct.id} productId={variantProduct.id} onSaved={load} onClose={()=>setVariantProduct(null)}/>}
 
       {categories.length > 0 && (
         <div className="admin-category-pills" role="tablist" aria-label="Lọc theo danh mục">
@@ -1489,7 +1492,7 @@ function Products({ notify }) {
               </span>
             </td>
             <td>
-              <div className="admin-table-row-actions">
+              <div className="admin-table-row-actions"><button type="button" className="admin-action" onClick={()=>setVariantProduct(product)}>Biến thể / tồn kho</button>
                 <button
                   type="button"
                   className="admin-action"

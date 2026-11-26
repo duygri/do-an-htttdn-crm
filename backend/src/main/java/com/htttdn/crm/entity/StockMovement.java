@@ -10,6 +10,10 @@ import java.time.Instant;
     @Index(name = "idx_stock_movements_created", columnList = "created_at")
 })
 public class StockMovement {
+    @Column(name="variant_id") private Long variantId;
+    public Long getVariantId(){return variantId;}
+    public void setVariantId(Long v){variantId=v;}
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -48,6 +52,10 @@ public class StockMovement {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="variant_id",insertable=false,updatable=false)
+    private ProductVariant variant;
+    public ProductVariant getVariant() { return variant; }
     public Long getId() { return id; }
     public Product getProduct() { return product; }
     public void setProduct(Product product) { this.product = product; }

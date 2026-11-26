@@ -34,6 +34,12 @@ public class PointTransaction {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "request_key", length = 36) private String requestKey;
+    @Column(name = "redemption_result", columnDefinition = "text") private String redemptionResult;
+    public String getRequestKey() { return requestKey; }
+    public void setRequestKey(String value) { requestKey = value; }
+    public String getRedemptionResult() { return redemptionResult; }
+    public void setRedemptionResult(String value) { redemptionResult = value; }
     public PointTransaction() {}
 
     public Long getId() { return id; }

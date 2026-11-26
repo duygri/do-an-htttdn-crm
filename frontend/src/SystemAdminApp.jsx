@@ -3,6 +3,7 @@ import { adminApi, adminRefreshSession, adminSignIn, adminSignOut } from './api'
 import InternalDirectory from './InternalDirectory';
 import AuditLogs from './AuditLogs';
 import AdminSettings from './AdminSettings';
+import AdminEmails from './AdminEmails';
 import './internal-portal.css';
 import {
   LayoutDashboard,
@@ -42,6 +43,7 @@ const menu = {
   accounts: 'Tài khoản nội bộ',
   products: 'Sản phẩm',
   settings: 'Cấu hình',
+  emails: 'Email giao dịch',
   'audit-logs': 'Nhật ký thao tác',
 };
 
@@ -52,6 +54,7 @@ const menuIcons = {
   accounts: ShieldCheck,
   products: Package,
   settings: Settings,
+  emails: Activity,
   'audit-logs': Activity,
 };
 
@@ -621,7 +624,7 @@ export default function SystemAdminApp() {
                 <React.Suspense fallback={<p className="internal-statistics-loading">Đang tải trang hoàn tiền…</p>}>
                   <AdminRefunds />
                 </React.Suspense>
-              ) : section === 'audit-logs' ? <AuditLogs /> : section === 'settings' ? <AdminSettings /> : menu[section] && <InternalDirectory key={section} kind={section} />
+              ) : section === 'emails' ? <AdminEmails /> : section === 'audit-logs' ? <AuditLogs /> : section === 'settings' ? <AdminSettings /> : menu[section] && <InternalDirectory key={section} kind={section} />
             )}
           </main>
         </>

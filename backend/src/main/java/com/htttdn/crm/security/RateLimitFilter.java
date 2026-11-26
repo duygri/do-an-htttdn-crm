@@ -53,7 +53,13 @@ final class RateLimitFilter extends OncePerRequestFilter {
         boolean exempt = !enabled || "OPTIONS".equalsIgnoreCase(method) || webhook;
         String origin = corsOrigin(request);
         boolean hasBody = "POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method);
-        CachedBodyRequest wrapped = hasBody ? new CachedBodyRequest(request, maxBodyBytes) : null;
+        // Leave known multipart uploads unread for servlet multipart parsing and its 5/6 MB limits.
+        String contentType = request.getContentType();
+        boolean attachmentUpload = "POST".equals(method)
+                && Set.of("/api/attachments", "/api/manager/attachments").contains(path)
+                && contentType != null
+                && "multipart/form-data".equalsIgnoreCase(contentType.split(";", 2)[0].trim());
+        CachedBodyRequest wrapped = hasBody && !attachmentUpload ? new CachedBodyRequest(request, maxBodyBytes) : null;
         HttpServletRequest effective = wrapped != null ? wrapped : request;
 
         // Consume the global token before the body check so oversized payloads cannot bypass the limiter.

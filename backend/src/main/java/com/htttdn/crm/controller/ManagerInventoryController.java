@@ -70,10 +70,10 @@ public class ManagerInventoryController {
             @RequestParam(required = false) Instant to) {
         List<String> rows = new java.util.ArrayList<>();
         rows.add(Csv.line("id", "createdAt", "productId", "productName", "type", "quantity",
-            "stockBefore", "stockAfter", "actor", "note"));
+            "stockBefore", "stockAfter", "actor", "note", "variantId", "size", "color"));
         inventory.exportMovements(productId, type, from, to).forEach(movement -> rows.add(Csv.line(
             movement.id(), movement.createdAt(), movement.productId(), movement.productName(), movement.type(),
-            movement.quantity(), movement.stockBefore(), movement.stockAfter(), movement.actorName(), movement.note())));
+            movement.quantity(), movement.stockBefore(), movement.stockAfter(), movement.actorName(), movement.note(), movement.variantId(), movement.size(), movement.color())));
         return Csv.response("the-kho.csv", rows);
     }
 

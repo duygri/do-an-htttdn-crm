@@ -1,3 +1,4 @@
+import ManagerVariants from './ManagerVariants';
 import React, { useCallback, useState } from 'react';
 import { adminApi, adminDownload } from './manager-api';
 import { useManagerList, useManagerReadPause } from './useManagerResource';
@@ -14,6 +15,7 @@ export const movementLabels = {
 
 const stocktakeLabels = { DRAFT: 'Đang mở', COMPLETED: 'Hoàn tất', CANCELLED: 'Đã hủy' };
 const tabs = [
+  ['variants', 'Biến thể'],
   ['low', 'Sắp hết hàng'],
   ['ledger', 'Thẻ kho'],
   ['stocktake', 'Kiểm kê'],
@@ -173,6 +175,7 @@ export default function ManagerInventory() {
 
       {failure && <p role="alert">{failure}</p>}
 
+      {tab === 'variants' && <ManagerVariants/>}
       {tab === 'low' && (
         <div>
           {low.loading && <p role="status">Đang tải cảnh báo tồn kho…</p>}
@@ -185,8 +188,8 @@ export default function ManagerInventory() {
               </thead>
               <tbody>
                 {lowRows.map((row) => (
-                  <tr key={row.productId}>
-                    <td>{row.name}</td>
+                  <tr key={`${row.productId}:${row.variantId||0}`}>
+                    <td>{row.name}{row.variantId&&<small> · {row.color} / {row.size}</small>}</td>
                     <td>{row.category || '—'}</td>
                     <td>{number(row.stock)}</td>
                     <td>
@@ -246,13 +249,13 @@ export default function ManagerInventory() {
           <div className="inventory-table">
             <table>
               <thead>
-                <tr><th>Thời gian</th><th>Sản phẩm</th><th>Loại</th><th>Thay đổi</th><th>Trước → sau</th><th>Người thao tác</th><th>Ghi chú</th></tr>
+                <tr><th>Thời gian</th><th>Sản phẩm</th><th>Loại</th><th>Thay đổi</th><th>Tổng tồn sản phẩm trước → sau</th><th>Người thao tác</th><th>Ghi chú</th></tr>
               </thead>
               <tbody>
                 {ledgerRows.map((row) => (
                   <tr key={row.id}>
                     <td>{dateTime(row.createdAt)}</td>
-                    <td>{row.productName}</td>
+                    <td>{row.productName}{row.variantId&&<small> · {row.color} / {row.size}</small>}</td>
                     <td>{movementLabels[row.type] || row.type}</td>
                     <td className={row.quantity < 0 ? 'inventory-down' : 'inventory-up'}>
                       {row.quantity > 0 ? `+${number(row.quantity)}` : number(row.quantity)}
@@ -367,8 +370,8 @@ export default function ManagerInventory() {
                   </thead>
                   <tbody>
                     {values.products?.map((row) => (
-                      <tr key={row.productId}>
-                        <td>{row.name}</td>
+                      <tr key={`${row.productId}:${row.variantId||0}`}>
+                        <td>{row.name}{row.variantId&&<small> · {row.color} / {row.size}</small>}</td>
                         <td>{row.category || '—'}</td>
                         <td>{number(row.stock)}</td>
                         <td>{number(row.threshold)}</td>

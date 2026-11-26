@@ -67,11 +67,15 @@ public class StocktakeService {
         stocktake.setStatus("DRAFT");
         stocktake.setCreatedAt(Instant.now());
         for (Product product : chosen) {
+            var variants=product.isVariantsAllocated()?product.getVariants():java.util.Collections.<com.htttdn.crm.entity.ProductVariant>singletonList(null);
+            for(var variant:variants){
             var item = new StocktakeItem();
+            item.setVariantId(variant==null?null:variant.getId());
             item.setStocktake(stocktake);
             item.setProduct(product);
-            item.setSystemQuantity(product.getStock());
+            item.setSystemQuantity(variant==null?product.getStock():variant.getStock());
             stocktake.getItems().add(item);
+            }
         }
         stocktakes.saveAndFlush(stocktake);
         stocktake.setCode("KK-" + stocktake.getId());
@@ -128,13 +132,16 @@ public class StocktakeService {
             throw conflict("STOCKTAKE_INCOMPLETE", "Vui lòng nhập số đếm cho tất cả sản phẩm trước khi hoàn tất.");
         var sorted = stocktake.getItems().stream()
             .sorted(Comparator.comparing(item -> item.getProduct().getId())).toList();
+        Map<Long,Product> locked=new TreeMap<>();
+        for(var item:sorted) if(!locked.containsKey(item.getProduct().getId())) locked.put(item.getProduct().getId(),stock.lockProduct(item.getProduct().getId()).orElseThrow());
         int adjustments = 0;
         for (StocktakeItem item : sorted) {
-            var product = stock.lockProduct(item.getProduct().getId()).orElseThrow(() -> conflict(
-                "STOCKTAKE_PRODUCT_MISSING", "Không tìm thấy sản phẩm trong phiếu kiểm kê."));
-            int delta = item.getCountedQuantity() - product.getStock();
+            var product=locked.get(item.getProduct().getId());
+            int current=item.getVariantId()==null?product.getStock():product.getVariants().stream().filter(v->v.getId().equals(item.getVariantId())).findFirst().orElseThrow().getStock();
+            if(current!=item.getSystemQuantity())throw conflict("STOCK_CHANGED","Tồn kho thay đổi sau khi mở phiếu kiểm kê.");
+            int delta = item.getCountedQuantity() - current;
             if (delta == 0) continue;
-            stock.apply(product, delta, "STOCKTAKE", "STOCKTAKE", stocktake.getId(),
+            stock.applyVariant(product, item.getVariantId(), delta, "STOCKTAKE", "STOCKTAKE", stocktake.getId(),
                 "Kiểm kê #" + stocktake.getCode());
             adjustments++;
         }
@@ -162,7 +169,7 @@ public class StocktakeService {
 
     private Detail detailOf(Stocktake stocktake) {
         var items = stocktake.getItems().stream().map(item -> new ItemView(item.getId(),
-            item.getProduct().getId(), item.getProduct().getName(), item.getSystemQuantity(),
+            item.getProduct().getId(), item.getProduct().getName() + (item.getVariantId()==null?"":" / " + item.getProduct().getVariants().stream().filter(v->v.getId().equals(item.getVariantId())).map(v->v.getColor()+" / "+v.getSize()).findFirst().orElse("")), item.getSystemQuantity(),
             item.getCountedQuantity(), item.getDifference(), item.getNote())).toList();
         return new Detail(stocktake.getId(), stocktake.getCode(), stocktake.getStatus(),
             stocktake.getNote(), stocktake.getCreatedAt(), stocktake.getCompletedAt(), items);

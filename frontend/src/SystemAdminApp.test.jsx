@@ -161,3 +161,14 @@ it('registers the refund oversight page in the admin menu and route', async () =
   expect(window.location.pathname).toBe('/admin/refunds');
   expect(screen.queryByRole('button', { name: /sửa|duyệt hoàn/i })).toBeNull();
 });
+
+it('opens the transactional email page from admin navigation', async () => {
+  window.history.replaceState({}, '', '/admin/emails');
+  adminRefreshSession.mockResolvedValue({admin:{email:'admin@example.com'}});
+  adminApi.mockImplementation(path=>Promise.resolve(path.startsWith('/api/admin/emails')?{content:[],totalPages:0}:{}));
+  render(<SystemAdminApp/>);
+  expect(await screen.findByText('Chưa có email phù hợp.')).toBeTruthy();
+  const link=screen.getByRole('link',{name:'Email giao dịch'});
+  expect(link.getAttribute('href')).toBe('/admin/emails');
+  expect(link.getAttribute('aria-current')).toBe('page');
+});

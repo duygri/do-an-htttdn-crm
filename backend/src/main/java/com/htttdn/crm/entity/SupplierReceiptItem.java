@@ -6,6 +6,10 @@ import java.math.BigDecimal;
 
 @Entity @Table(name="supplier_receipt_items")
 public class SupplierReceiptItem {
+    private Long variantId;
+    public Long getVariantId(){return variantId;}
+    public void setVariantId(Long v){variantId=v;}
+
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
     @JsonBackReference @ManyToOne(optional=false) @JoinColumn(name="receipt_id") private SupplierReceipt receipt;
     @ManyToOne(optional=false) @JoinColumn(name="product_id") private Product product;

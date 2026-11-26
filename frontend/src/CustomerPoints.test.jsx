@@ -23,6 +23,22 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it('keeps an unresolved request key across remounts for the same customer',async()=>{
+  sessionStorage.clear();
+  api.mockImplementation(async url=>{if(url==='/api/account/points/redeem')throw new Error('Mất kết nối');return {...points,customerId:91};});
+  const first=render(<CustomerPoints/>);
+  fireEvent.click(await screen.findByRole('button',{name:'ĐỔI ĐIỂM LẤY VOUCHER'}));
+  await screen.findByRole('alert');
+  const key=api.mock.calls.find(([url])=>url==='/api/account/points/redeem')[1].headers['Idempotency-Key'];
+  first.unmount();
+  render(<CustomerPoints/>);
+  fireEvent.click(await screen.findByRole('button',{name:'ĐỔI ĐIỂM LẤY VOUCHER'}));
+  await screen.findByRole('alert');
+  const calls=api.mock.calls.filter(([url])=>url==='/api/account/points/redeem');
+  expect(calls[1][1].headers['Idempotency-Key']).toBe(key);
+  sessionStorage.clear();
+});
+
 it('shows the customer balance and latest point entries', async () => {
   render(<CustomerPoints />);
   expect(await screen.findByText('120 điểm')).toBeTruthy();
@@ -37,7 +53,7 @@ it('redeems points and shows the voucher code', async () => {
   render(<CustomerPoints />);
   fireEvent.click(await screen.findByRole('button', { name: 'ĐỔI ĐIỂM LẤY VOUCHER' }));
   expect(await screen.findByText(/DIEM-ABC12345/)).toBeTruthy();
-  expect(api).toHaveBeenCalledWith('/api/account/points/redeem', { method: 'POST' });
+  expect(api).toHaveBeenCalledWith('/api/account/points/redeem', { method: 'POST', headers: {'Idempotency-Key': expect.any(String)} });
 });
 
 it('shows an error when points cannot be redeemed', async () => {
@@ -48,6 +64,25 @@ it('shows an error when points cannot be redeemed', async () => {
   render(<CustomerPoints />);
   fireEvent.click(await screen.findByRole('button', { name: 'ĐỔI ĐIỂM LẤY VOUCHER' }));
   expect((await screen.findByRole('alert')).textContent).toContain('Bạn không đủ điểm.');
+});
+
+it('reuses the same idempotency key after a lost response', async () => {
+  let attempts=0;
+  api.mockImplementation(async url => {
+    if(url==='/api/account/points/redeem') {
+      if(++attempts===1) throw new Error('Mất kết nối');
+      return {code:'DIEM-RETRY',spentPoints:100,discountValue:20000,balance:20};
+    }
+    return points;
+  });
+  render(<CustomerPoints/>);
+  fireEvent.click(await screen.findByRole('button',{name:'ĐỔI ĐIỂM LẤY VOUCHER'}));
+  await screen.findByRole('alert');
+  fireEvent.click(screen.getByRole('button',{name:'ĐỔI ĐIỂM LẤY VOUCHER'}));
+  await screen.findByText(/DIEM-RETRY/);
+  const calls=api.mock.calls.filter(([url])=>url==='/api/account/points/redeem');
+  expect(calls).toHaveLength(2);
+  expect(calls[0][1].headers['Idempotency-Key']).toBe(calls[1][1].headers['Idempotency-Key']);
 });
 
 it('shows and adjusts customer points inside the manager profile', async () => {

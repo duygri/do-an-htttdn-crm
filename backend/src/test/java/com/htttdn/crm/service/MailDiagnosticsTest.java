@@ -1,77 +1,39 @@
 package com.htttdn.crm.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
-import java.nio.charset.StandardCharsets;
+import org.springframework.test.util.ReflectionTestUtils;
+import java.net.URI;
+import java.net.http.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class MailDiagnosticsTest {
- private final TransactionalMail mail=new TransactionalMail(new ObjectMapper());
- @Test void supportOutputPreservesProviderExplanationButRedactsSensitiveValues() throws Exception {
-  org.springframework.test.util.ReflectionTestUtils.setField(mail,"brevoApiKey","synthetic-private-key");
-  String body=new ObjectMapper().writeValueAsString(java.util.Map.of(
-   "code","permission_denied","message","Sending is blocked. Contact support. synthetic-private-key person@example.com https://shop.example/reset#code=secret 198.51.100.5 2001:db8::1 abcdefghijklmnopqrstuvwxyz0123456789\nforged-log",
-   "api-key","DO-NOT-LOG-EXTRA-FIELDS"));
-  String diagnostic=mail.supportDiagnostic(body.getBytes(StandardCharsets.UTF_8),"person@example.com");
-  assertTrue(diagnostic.contains("permission_denied"));assertTrue(diagnostic.contains("Sending is blocked. Contact support."));
-  for(String secret:java.util.List.of("synthetic-private-key","person@example.com","shop.example","198.51.100.5","2001:db8::1","abcdefghijklmnopqrstuvwxyz0123456789","DO-NOT-LOG-EXTRA-FIELDS"))assertFalse(diagnostic.contains(secret),secret);
-  assertFalse(diagnostic.contains("\n"));assertTrue(diagnostic.contains("\\n"));
-  assertEquals(2,new ObjectMapper().readTree(diagnostic).size());
- }
- @Test void supportOutputRejectsInvalidOrOversizedBodyAndBoundsFields() throws Exception {
-  assertEquals("OVERSIZED_RESPONSE",mail.supportDiagnostic(new byte[16_385],""));
-  for(String invalid:java.util.List.of("","[]","null","<html>secret</html>"))assertEquals("NON_JSON_RESPONSE",mail.supportDiagnostic(invalid.getBytes(StandardCharsets.UTF_8),""));
-  String diagnostic=mail.supportDiagnostic(new ObjectMapper().writeValueAsBytes(java.util.Map.of("message","short words ".repeat(200))),"");
-  assertTrue(new ObjectMapper().readTree(diagnostic).path("message").asText().length()<=1035);
-  assertTrue(diagnostic.contains("[TRUNCATED]"));
- }
- @ParameterizedTest @CsvSource({
-  "We detected an unrecognised IP address,IP_NOT_AUTHORIZED",
-  "Your SMTP account is not yet activated,ACCOUNT_NOT_ACTIVATED_OR_SUSPENDED",
-  "API Key is not enabled,API_KEY_REJECTED",
-  "Sender is not verified,SENDER_NOT_VERIFIED"
- }) void classifiesOnlyKnownReasons(String message,String reason) throws Exception {
-  for(int status:new int[]{403,429}){
-   var failure=mail.failure(status,new ObjectMapper().writeValueAsBytes(java.util.Map.of("message",message,"code","unauthorized")));
-   assertEquals(reason,failure.reason);assertEquals(status,failure.status);
-  }
- }
- @ParameterizedTest @ValueSource(strings={""," \t\r\n","null","[]","[{}]","\"slow down\"","42","true","false"})
- void classifiesRateLimitedEmptyAndNonObjectResponses(String body) {
-  var failure=mail.failure(429,body.getBytes(StandardCharsets.UTF_8));
-  assertEquals("RATE_LIMITED",failure.reason);assertEquals(429,failure.status);
-  assertEquals("NON_JSON_RESPONSE",mail.failure(403,body.getBytes(StandardCharsets.UTF_8)).reason);
- }
- @ParameterizedTest @CsvSource({
-  "not_enough_credits,INSUFFICIENT_CREDITS",
-  "permission_denied,PERMISSION_DENIED",
-  "access_denied,PERMISSION_DENIED",
-  "unauthorized,PROVIDER_UNAUTHORIZED",
-  "unauthorised,PROVIDER_UNAUTHORIZED",
-  "invalid_parameter,REQUEST_VALIDATION_FAILED",
-  "validation_error,REQUEST_VALIDATION_FAILED",
-  "missing_parameter,REQUEST_VALIDATION_FAILED"
- }) void preservesRecognizedJsonErrorsWhenRateLimited(String code,String reason) throws Exception {
-  assertEquals(reason,mail.failure(429,new ObjectMapper().writeValueAsBytes(java.util.Map.of("code",code))).reason);
- }
- @Test void classifiesUnrecognizedJsonObjectAsRateLimited() {
-  assertEquals("RATE_LIMITED",mail.failure(429,"{}".getBytes(StandardCharsets.UTF_8)).reason);
- }
- @Test void neverIncludesProviderTextOrSecretsInDiagnostics() throws Exception {
-  String secret="synthetic-secret-key-and-reset-link";
-  var failure=mail.failure(403,new ObjectMapper().writeValueAsBytes(java.util.Map.of("message",secret,"code",secret)));
-  assertEquals("UNKNOWN",failure.reason);assertFalse(failure.getMessage().contains(secret));
-  assertEquals("EDGE_ACCESS_DENIED",mail.failure(403,"<html>Cloudflare Access denied</html>".getBytes(StandardCharsets.UTF_8)).reason);
-  assertEquals("OVERSIZED_RESPONSE",mail.failure(403,new byte[16_385]).reason);
-  assertEquals("NON_JSON_RESPONSE",mail.failure(403,new byte[0]).reason);
- }
- @Test void capsResponseAndCancelsSubscription() {
-  var body=new TransactionalMail.LimitedErrorBody();var subscription=mock(java.util.concurrent.Flow.Subscription.class);body.onSubscribe(subscription);
-  body.onNext(java.util.List.of(java.nio.ByteBuffer.wrap(new byte[40_000])));
-  assertEquals(16_385,body.getBody().toCompletableFuture().join().length);verify(subscription).cancel();
- }
+    @ParameterizedTest
+    @CsvSource({"401,FAILED,PERMISSION_DENIED", "403,FAILED,PERMISSION_DENIED",
+        "400,FAILED,HTTP_400", "429,RETRYABLE,HTTP_429", "503,RETRYABLE,HTTP_503"})
+    void diagnosticsUseOnlyStatusAndNeverReadOrLogProviderBody(int status, String outcome, String reason) throws Exception {
+        var client=mock(HttpClient.class);
+        var response=mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn(status);
+        doReturn(response).when(client).send(any(HttpRequest.class),any(HttpResponse.BodyHandler.class));
+        var mail=new TransactionalMail(new ObjectMapper(),client,URI.create("http://localhost/email"));
+        ReflectionTestUtils.setField(mail,"enabled",true);
+        ReflectionTestUtils.setField(mail,"apiKey","synthetic-private-key");
+        ReflectionTestUtils.setField(mail,"senderEmail","sender@example.test");
+        ReflectionTestUtils.setField(mail,"origin","https://example.test");
+        ReflectionTestUtils.setField(mail,"testRecipient","person@example.test");
+        var logger=(ch.qos.logback.classic.Logger)org.slf4j.LoggerFactory.getLogger(TransactionalMail.class);
+        var events=new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        events.start();logger.addAppender(events);
+        try {
+            var failure=assertThrows(TransactionalMail.MailFailure.class,
+                ()->mail.send("person@example.test","Private subject","https://example.test/reset#secret","private-event"));
+            assertEquals(TransactionalMail.Outcome.valueOf(outcome),failure.outcome());
+            assertEquals(reason,failure.getMessage());assertNull(failure.getCause());
+            verify(response,never()).body();
+            assertTrue(events.list.isEmpty());
+        } finally { logger.detachAppender(events);events.stop(); }
+    }
 }

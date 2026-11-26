@@ -53,3 +53,38 @@ it('does not navigate from a late create after leaving the page',async()=>{
 it('starts a new message key after explicitly discarding a failed draft',async()=>{
  render(<SupportTickets location="/ho-tro/7" navigate={vi.fn()}/>);await flush();api.mockImplementation(async(url,opts)=>{if(opts?.method==='POST')throw new Error('Response lost');return detail;});fireEvent.change(screen.getByLabelText('Nội dung trả lời'),{target:{value:'Old draft'}});fireEvent.click(screen.getByText('Gửi trả lời'));await flush();const old=api.mock.calls.find(([,o])=>o?.method==='POST')[1].body.requestId;fireEvent.click(screen.getByText('Bỏ bản nháp và tải lại'));await flush();fireEvent.change(screen.getByLabelText('Nội dung trả lời'),{target:{value:'New draft'}});fireEvent.click(screen.getByText('Gửi trả lời'));await flush();expect(api.mock.calls.filter(([,o])=>o?.method==='POST').at(-1)[1].body.requestId).not.toBe(old);
 });
+
+it('submits CSAT once under StrictMode and displays the recorded result',async()=>{
+ const resolved={...detail,ticket:{...ticket,status:'RESOLVED'}};
+ api.mockImplementation(async(url,opts)=>opts?.method==='POST'?{...resolved,ticket:{...resolved.ticket,csatRating:4,csatComment:'Helpful'}}:resolved);
+ render(<React.StrictMode><SupportTickets location="/ho-tro/7" navigate={vi.fn()}/></React.StrictMode>);await flush();
+ fireEvent.change(screen.getByLabelText('Điểm hài lòng'),{target:{value:'4'}});fireEvent.change(screen.getByLabelText('Nhận xét hỗ trợ'),{target:{value:'Helpful'}});
+ fireEvent.submit(screen.getByRole('form',{name:'Đánh giá hỗ trợ'}));fireEvent.submit(screen.getByRole('form',{name:'Đánh giá hỗ trợ'}));await flush();
+ expect(api.mock.calls.filter(([,o])=>o?.method==='POST')).toHaveLength(1);expect(api.mock.calls.find(([,o])=>o?.method==='POST')[1].body).toMatchObject({rating:4,comment:'Helpful'});expect(screen.getByText('Đánh giá hỗ trợ: 4/5')).toBeTruthy();
+});
+it('submits manager priority reason and version',async()=>{
+ adminApi.mockImplementation(async url=>url.includes('/care/staff')?{content:[{id:3,fullName:'Manager'}],totalPages:1}:{...detail,ticket:{...ticket,priority:'NORMAL'}});
+ render(<SupportTickets manager admin={{id:3,fullName:'Manager'}} location="/manager/support-tickets?id=7" navigate={vi.fn()}/>);await flush();fireEvent.click(screen.getByText('Phân công / xử lý phiếu'));await flush();
+ fireEvent.change(screen.getByLabelText('Mức ưu tiên'),{target:{value:'URGENT'}});fireEvent.change(screen.getByLabelText('Lý do đổi ưu tiên'),{target:{value:'Cannot checkout'}});fireEvent.submit(screen.getByRole('form',{name:'Xử lý phiếu'}));await flush();
+ expect(adminApi.mock.calls.find(([,o])=>o?.method==='PATCH')[1].body).toMatchObject({priority:'URGENT',priorityReason:'Cannot checkout',version:0});
+});
+it('customer filters are sent to the list API and keep URL state',async()=>{
+ const navigate=vi.fn();render(<SupportTickets location="/ho-tro?priority=URGENT&unanswered=true&overdue=true&sort=due&page=2" navigate={navigate}/>);await flush();
+ const url=api.mock.calls[0][0];for(const part of ['priority=URGENT','unanswered=true','overdue=true','sort=due'])expect(url).toContain(part);
+ fireEvent.change(screen.getByLabelText('Lọc ưu tiên'),{target:{value:'LOW'}});expect(navigate.mock.calls.at(-1)[0]).toContain('priority=LOW');expect(navigate.mock.calls.at(-1)[0]).toContain('page=0');
+});
+it('manager opens the dated CSAT report and sees distribution and missing records',async()=>{
+ adminApi.mockImplementation(async url=>url.includes('/report?')?{resolvedCount:3,recordedCount:2,unrecordedCount:1,averageRating:4.5,responseRatio:2/3,distribution:{4:1,5:1},slaKnownCount:2,slaMetCount:1,slaMetRatio:0.5}:page);
+ render(<SupportTickets manager location="/manager/support-tickets" navigate={vi.fn()}/>);await flush();fireEvent.click(screen.getByText('Báo cáo hỗ trợ / CSAT'));await flush();
+ expect(screen.getByText(/Điểm trung bình: 4.50/)).toBeTruthy();expect(screen.getByText(/Chưa đánh giá: 1/)).toBeTruthy();expect(screen.getByRole('table').textContent).toContain('5/5');
+ fireEvent.change(screen.getByLabelText('Từ ngày'),{target:{value:'2026-10-01'}});fireEvent.change(screen.getByLabelText('Đến ngày'),{target:{value:'2026-10-31'}});fireEvent.click(screen.getByText('Xem báo cáo hỗ trợ'));await flush();expect(adminApi.mock.calls.some(([url])=>url.includes('from=2026-10-01&to=2026-10-31'))).toBe(true);
+});
+
+it('binds uploaded attachment IDs on create and preserves their metadata in the picker',async()=>{
+ const image={id:'image-uuid',name:'photo.png',contentType:'image/png',size:4,url:'/api/attachments/image-uuid/content'};
+ api.mockImplementation(async(url,opts)=>url==='/api/attachments/config'?{enabled:true}:url==='/api/attachments'?image:opts?.method==='POST'?detail:url.includes('/orders')?{content:[],totalPages:0}:page);
+ render(<SupportTickets location="/ho-tro" navigate={vi.fn()}/>);await flush();fireEvent.click(screen.getByText('Tạo phiếu hỗ trợ'));await flush();
+ fireEvent.change(screen.getByLabelText('Ảnh đính kèm'),{target:{files:[new File(['test'],'photo.png',{type:'image/png'})]}});await flush();expect(screen.getByText('photo.png')).toBeTruthy();
+ fireEvent.change(screen.getByLabelText('Tiêu đề'),{target:{value:'With image'}});fireEvent.change(screen.getByLabelText('Nội dung gửi shop'),{target:{value:'See image'}});fireEvent.submit(screen.getByRole('form',{name:'Tạo phiếu hỗ trợ'}));await flush();
+ expect(api.mock.calls.find(([url,o])=>url==='/api/support-tickets'&&o?.method==='POST')[1].body.attachmentIds).toEqual(['image-uuid']);
+});

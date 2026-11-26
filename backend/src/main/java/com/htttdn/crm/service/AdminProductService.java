@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 
 @Service
+@Transactional(readOnly=true)
 public class AdminProductService extends AdminServiceSupport {
     private final ProductRepository products;
     private final CategoryRepository categories;
@@ -25,11 +26,11 @@ public class AdminProductService extends AdminServiceSupport {
         this.stockService = stockService;
         this.suppliers = suppliers;
     }
-    public Page<Product> list(String q, int page, int size) { return products.findByNameContainingIgnoreCaseAndActiveTrue(q, page(page, size)); }
+    public Page<Product> list(String q, int page, int size) { return Product.prepareForView(products.findByNameContainingIgnoreCaseAndActiveTrue(q, page(page, size))); }
     public Page<Product> search(String q,String category,java.math.BigDecimal minPrice,java.math.BigDecimal maxPrice,String stock,String active,String sort,String direction,int page,int size){
         if(page<0||size<1||size>100||q.length()>120||minPrice!=null&&minPrice.signum()<0||maxPrice!=null&&maxPrice.signum()<0||minPrice!=null&&maxPrice!=null&&minPrice.compareTo(maxPrice)>0||!java.util.Set.of("ALL","AVAILABLE","OUT").contains(stock)||!java.util.Set.of("ALL","true","false").contains(active)||!java.util.Set.of("name","price","stock","createdAt").contains(sort)||!java.util.Set.of("ASC","DESC").contains(direction.toUpperCase(java.util.Locale.ROOT)))
             throw new com.htttdn.crm.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,"INVALID_FILTER","Bộ lọc sản phẩm không hợp lệ.");
-        return products.findAll((root,query,cb)->{
+        return Product.prepareForView(products.findAll((root,query,cb)->{
             if(query.getResultType()!=Long.class)root.fetch("categoryEntity",jakarta.persistence.criteria.JoinType.LEFT);
             var predicates=new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             if(!q.isBlank()){String pattern="%"+q.trim().toLowerCase(java.util.Locale.ROOT).replace("!","!!").replace("%","!%").replace("_","!_")+"%";predicates.add(cb.or(cb.like(cb.lower(root.get("name")),pattern,'!'),cb.like(cb.lower(root.get("categoryEntity").get("name")),pattern,'!')));}
@@ -38,7 +39,7 @@ public class AdminProductService extends AdminServiceSupport {
             if(!"ALL".equals(active))predicates.add(cb.equal(root.get("active"),Boolean.parseBoolean(active)));
             if("AVAILABLE".equals(stock))predicates.add(cb.greaterThan(root.get("stock"),0));if("OUT".equals(stock))predicates.add(cb.equal(root.get("stock"),0));
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
-        },org.springframework.data.domain.PageRequest.of(page,size,org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.fromString(direction),sort).and(org.springframework.data.domain.Sort.by("id").descending())));
+        },org.springframework.data.domain.PageRequest.of(page,size,org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.fromString(direction),sort).and(org.springframework.data.domain.Sort.by("id").descending()))));
     }
     public java.util.List<String> categoryNames(){return categories.findAll().stream().map(Category::getName).sorted().toList();}
     @Transactional public Product create(ProductRequest request) { Product product = new Product(); copy(product, request);product.setStock(request.stock());products.save(product);stockService.initial(product);audit("CREATE","PRODUCT",product.getId(),java.util.Map.of(),product); return product; }

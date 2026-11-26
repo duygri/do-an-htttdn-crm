@@ -65,6 +65,7 @@ class AdminProductConcurrencyTest {
             return new JpaTransactionManager(factory);
         }
         @Bean ObjectMapper objectMapper() { return new ObjectMapper(); }
+        @Bean InternalNoticeService internalNoticeService() { return org.mockito.Mockito.mock(InternalNoticeService.class); }
     }
 
     @Autowired AdminProductService service;

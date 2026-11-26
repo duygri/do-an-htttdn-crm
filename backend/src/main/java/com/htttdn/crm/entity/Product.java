@@ -10,6 +10,18 @@ import java.time.Instant;
 @Entity
 @Table(name = "products")
 public class Product {
+    @Column(nullable=false) private boolean variantsAllocated;
+    @Column(nullable=false) private long stockVersion;
+    @org.hibernate.annotations.BatchSize(size=100)
+    @OneToMany(mappedBy="product", cascade=CascadeType.ALL) @OrderBy("id ASC")
+    private java.util.List<ProductVariant> variants = new java.util.ArrayList<>();
+    public boolean isVariantsAllocated(){return variantsAllocated;}
+    public void setVariantsAllocated(boolean v){variantsAllocated=v;}
+    public long getStockVersion(){return stockVersion;}
+    public void setStockVersion(long v){stockVersion=v;}
+    public java.util.List<ProductVariant> getVariants(){return variants;}
+    public Product prepareForView(){org.hibernate.Hibernate.initialize(variants);return this;}
+    public static <T extends Iterable<Product>> T prepareForView(T values){values.forEach(Product::prepareForView);return values;}
     private Long supplierId;
     public Long getSupplierId(){return supplierId;}
     public void setSupplierId(Long value){supplierId=value;}
@@ -80,9 +92,15 @@ public class Product {
     public String getMaterial() { return material; }
     public void setMaterial(String value) { material = value; }
     public String getSizes() { return sizes; }
-    public void setSizes(String value) { sizes = value; }
+    public void setSizes(String value) { validateOptions(value,true); sizes = value; }
+    private void validateOptions(String value,boolean size){
+        if(!variantsAllocated)return;
+        var options=java.util.Arrays.stream(value==null?new String[0]:value.split(",")).map(String::trim).map(v->v.toLowerCase(java.util.Locale.ROOT)).collect(java.util.stream.Collectors.toSet());
+        if(variants.stream().filter(ProductVariant::isActive).anyMatch(v->!options.contains((size?v.getSize():v.getColor()).trim().toLowerCase(java.util.Locale.ROOT))))
+            throw new com.htttdn.crm.exception.ApiException(org.springframework.http.HttpStatus.CONFLICT,"VARIANT_OPTIONS_IN_USE","Không thể xóa màu/size của biến thể đang hoạt động.");
+    }
     public String getColors() { return colors; }
-    public void setColors(String value) { colors = value; }
+    public void setColors(String value) { validateOptions(value,false); colors = value; }
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal value) { price = value; }
     public BigDecimal getSalePrice() { return salePrice; }

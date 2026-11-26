@@ -76,7 +76,7 @@ class ResendRecoveryTest {
     }
     @Test void sandboxAndOriginMustBeConfigured(){
         var real=new TransactionalMail(new com.fasterxml.jackson.databind.ObjectMapper());
-        assertFalse(real.available());ReflectionTestUtils.setField(real,"enabled",true);ReflectionTestUtils.setField(real,"apiKey","test-only");
+        assertFalse(real.available());ReflectionTestUtils.setField(real,"senderEmail","sender@example.com");ReflectionTestUtils.setField(real,"enabled",true);ReflectionTestUtils.setField(real,"apiKey","test-only");
         ReflectionTestUtils.setField(real,"origin","https://example.com");ReflectionTestUtils.setField(real,"testMode",true);
         ReflectionTestUtils.setField(real,"testRecipient","owner@example.com");assertTrue(real.permits("OWNER@example.com"));
         assertFalse(real.permits("other@example.com"));ReflectionTestUtils.setField(real,"origin","http://example.com");assertFalse(real.available());

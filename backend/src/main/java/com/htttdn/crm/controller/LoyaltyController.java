@@ -30,8 +30,9 @@ public class LoyaltyController {
 
     @PostMapping("/api/account/points/redeem")
     @ResponseStatus(HttpStatus.CREATED)
-    public LoyaltyService.RedeemResult redeem(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        return loyalty.redeem(auth.requireCustomer(authorization));
+    public LoyaltyService.RedeemResult redeem(@RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "Idempotency-Key", required = false) String requestKey) {
+        return loyalty.redeem(auth.requireCustomer(authorization), requestKey == null ? java.util.UUID.randomUUID().toString() : requestKey);
     }
 
     @GetMapping("/api/manager/customers/{id}/points")

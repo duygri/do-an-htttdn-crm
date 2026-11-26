@@ -1,3 +1,4 @@
+import { availableStock, firstAvailableVariant, catalogStock } from './product-variants';
 import { showReturn, returnLabel, displayOrderLabel, deliveryLabel } from './order-display';
 import './order-display.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -14,6 +15,7 @@ import CustomerInvoice from './CustomerInvoice';
 import CustomerPassword from './CustomerPassword';
 import ShipmentTimeline from './ShipmentTimeline';
 import ReturnRequestForm from './ReturnRequestForm';
+import { AttachmentLinks } from './AttachmentPicker';
 import CustomerPoints from './CustomerPoints';
 const SupportTickets=React.lazy(()=>import('./SupportTickets'));
 import { useCartSelection, cartLineKey, canBuyLine, transferGuestSelection, subtractPurchased } from './cart-selection';
@@ -555,6 +557,7 @@ function App() {
     return nextCart;
   };
   const addToCart = async (product, variant = {}, quantity = 1) => {
+    product = { ...product, stock: availableStock(product, variant.size, variant.color) };
     const requestedQuantity = Math.max(1, Number(quantity) || 1);
     const existing = cart.items.find(
       (item) =>
@@ -621,6 +624,7 @@ function App() {
                 .map((item) => ({
                   productId: item.productId,
                   quantity: sameLine(item) ? nextQuantity : item.quantity,
+                  variantId: item.variantId,
                   size: item.size,
                   color: item.color,
                 }))
@@ -1309,7 +1313,7 @@ function App() {
                   key={product.id}
                   product={product}
                   onOpen={() => openProduct(product)}
-                  onAdd={() => addToCart(product, { size: csv(product.sizes)[0], color: csv(product.colors)[0] })}
+                  onAdd={() => addToCart(product, firstAvailableVariant(product))}
                   isWishlisted={wishlist.some((item) => item.productId === product.id)}
                   onWishlist={() => toggleWishlist(product)}
                 />
@@ -1657,6 +1661,7 @@ function CustomerPageFrame({ account, pathname, user, navigate, children }) {
 }
 
 function ProductCard({ product, onOpen, onAdd, isWishlisted, onWishlist }) {
+  const stock = catalogStock(product);
   const sale = discount(product);
   return (
     <article className="product-card">
@@ -1671,7 +1676,7 @@ function ProductCard({ product, onOpen, onAdd, isWishlisted, onWishlist }) {
         <div className="product-labels">
           {product.badge && <span>{product.badge}</span>}
           {sale > 0 && <span className="sale-badge">-{sale}%</span>}
-          {product.stock <= 0 && <span>HẾT HÀNG</span>}
+          {stock <= 0 && <span>HẾT HÀNG</span>}
         </div>
         <button
           className={isWishlisted ? "heart active" : "heart"}
@@ -1690,7 +1695,7 @@ function ProductCard({ product, onOpen, onAdd, isWishlisted, onWishlist }) {
               {csv(product.colors).length} màu sắc
             </span>
           )}
-          <span className={product.stock > 0 ? "" : "is-out-of-stock"}>{product.stock > 0 ? "CÒN HÀNG" : "HẾT HÀNG"}</span>
+          <span className={stock > 0 ? "" : "is-out-of-stock"}>{stock > 0 ? "CÒN HÀNG" : "HẾT HÀNG"}</span>
         </div>
         <h3><button type="button" onClick={onOpen}>{product.name}</button></h3>
         <div className="price-row">
@@ -1699,7 +1704,7 @@ function ProductCard({ product, onOpen, onAdd, isWishlisted, onWishlist }) {
         </div>
         <div className="product-card-actions">
           <button type="button" className="product-card-detail" aria-label={`Chi tiết ${product.name}`} onClick={onOpen}>Chi tiết <ArrowUpRight size={15}/></button>
-          <button type="button" className="product-card-add" aria-label={`Thêm ${product.name} vào giỏ`} title={product.stock > 0 ? "Thêm vào giỏ" : "Hết hàng"} disabled={product.stock <= 0} onClick={onAdd}><Plus size={18}/></button>
+          <button type="button" className="product-card-add" aria-label={`Thêm ${product.name} vào giỏ`} title={stock > 0 ? "Thêm vào giỏ" : "Hết hàng"} disabled={stock <= 0} onClick={onAdd}><Plus size={18}/></button>
         </div>
       </div>
     </article>
@@ -1719,10 +1724,12 @@ const formatReviewDate = (val) => {
 function ProductModal({ page = false, data, user, onClose, onAdd, onBuyNow, isWishlisted, onWishlist, onLogin, onNotice }) {
   const product = data.product;
   const [size, setSize] = useState(
-    csv(product.sizes)[1] || csv(product.sizes)[0] || "M",
+    (product.variantsAllocated?firstAvailableVariant(product).size:null) || csv(product.sizes)[1] || csv(product.sizes)[0] || "M",
   );
-  const [color, setColor] = useState(csv(product.colors)[0] || "Đen");
+  const [color, setColor] = useState((product.variantsAllocated?firstAvailableVariant(product).color:null) || csv(product.colors)[0] || "Đen");
+  const variantStock = availableStock(product, size, color);
   const [quantity, setQuantity] = useState(1);
+  useEffect(() => { setQuantity(current => Math.max(1, Math.min(current, variantStock))); }, [variantStock]);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showAllFeedback, setShowAllFeedback] = useState(false);
   const purchaseLock = useRef(false);
@@ -1804,10 +1811,11 @@ function ProductModal({ page = false, data, user, onClose, onAdd, onBuyNow, isWi
               {csv(product.colors).map((item) => (
                 <button
                   className={
-                    color === item ? "choice-chip active" : "choice-chip"
+                    String(color).trim().toLowerCase() === item.trim().toLowerCase() ? "choice-chip active" : "choice-chip"
                   }
                   key={item}
-                  onClick={() => setColor(item)}
+                  disabled={product.variantsAllocated&&!product.variants?.some(v=>v.active!==false&&v.stock>0&&String(v.color).trim().toLowerCase()===item.trim().toLowerCase())}
+                  onClick={() => {setColor(item);if(product.variantsAllocated&&availableStock(product,size,item)<=0){const next=product.variants?.find(v=>v.active!==false&&v.stock>0&&String(v.color).trim().toLowerCase()===item.trim().toLowerCase());if(next)setSize(next.size);}}}
                 >
                   {item}
                 </button>
@@ -1822,9 +1830,10 @@ function ProductModal({ page = false, data, user, onClose, onAdd, onBuyNow, isWi
               {csv(product.sizes).map((item) => (
                 <button
                   className={
-                    size === item ? "choice-chip active" : "choice-chip"
+                    String(size).trim().toLowerCase() === item.trim().toLowerCase() ? "choice-chip active" : "choice-chip"
                   }
                   key={item}
+                  disabled={product.variantsAllocated&&availableStock(product,item,color)<=0}
                   onClick={() => setSize(item)}
                 >
                   {item}
@@ -1858,30 +1867,30 @@ function ProductModal({ page = false, data, user, onClose, onAdd, onBuyNow, isWi
               <button
                 type="button"
                 aria-label="Tăng số lượng sản phẩm"
-                disabled={quantity >= product.stock}
+                disabled={quantity >= variantStock}
                 onClick={() =>
-                  setQuantity((current) => Math.min(product.stock, current + 1))
+                  setQuantity((current) => Math.min(variantStock, current + 1))
                 }
               >
                 <Plus size={17} />
               </button>
             </div>
-            <small>Còn {product.stock} sản phẩm trong kho</small>
+            <small>Còn {variantStock} sản phẩm trong kho</small>
           </div>
           <div className="product-modal-actions">
             <button
               className="button button-dark add-modal"
-              disabled={!product.stock || purchasing}
+              disabled={!variantStock || quantity > variantStock || purchasing}
               onClick={() => purchase()}
             >
-              {product.stock
+              {variantStock
                 ? `THÊM ${quantity} VÀO GIỎ`
                 : "TẠM HẾT HÀNG"}
             </button>
             <button
               type="button"
               className="buy-now-btn"
-              disabled={!product.stock || purchasing}
+              disabled={!variantStock || quantity > variantStock || purchasing}
               onClick={() => purchase(true)}
             >
               MUA NGAY
@@ -2559,6 +2568,7 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
       <ShipmentTimeline shipment={order.shipment} trackingCode={order.trackingCode} />
       {order.status === "CANCELLED" && <p className="order-address order-cancel-reason"><b>Lý do hủy đơn</b><br />{order.cancelReason?.trim() || "Chưa có lý do hủy"}</p>}
       {(order.returnStatus || "NONE") !== "NONE" && <p className="order-address"><b>Đổi/trả hàng: {returnLabel(order.returnStatus)}</b><br />{order.returnReason}</p>}
+      <AttachmentLinks attachments={order.returnAttachments || []}/>
       {!!order.returnItems?.length && <div className="order-address"><b>Sản phẩm đổi/trả</b><ul>{order.returnItems.map((row, index) => <li key={row.orderItemId ?? index}>{row.name} × {row.quantity} · {row.resolution === 'REFUND' ? 'Hoàn tiền' : row.resolution === 'EXCHANGE' ? 'Đổi hàng' : 'Khác'}</li>)}</ul></div>}
       {!!order.returnHistory?.length && <section className="order-address" aria-label="Lịch sử đổi trả"><b>Lịch sử xử lý đổi trả</b><ol className="return-history">{order.returnHistory.map((entry,index)=><li key={index}><b>{returnLabel(entry.status)}</b><small>{date(entry.createdAt)}</small><p>{entry.note || 'Không có ghi chú'}</p></li>)}</ol></section>}
       {!!order.refunds?.length && <section className="order-address" aria-label="Hoàn tiền"><b>Hoàn tiền</b>

@@ -15,21 +15,21 @@ import static org.mockito.Mockito.*;
 class BrevoMailTest {
  private final HttpClient client=mock(HttpClient.class);
  private TransactionalMail configured(){
-  var service=new TransactionalMail(new ObjectMapper(),client);
-  ReflectionTestUtils.setField(service,"provider","brevo");ReflectionTestUtils.setField(service,"brevoEnabled",true);
-  ReflectionTestUtils.setField(service,"brevoApiKey","dummy-test-key");ReflectionTestUtils.setField(service,"brevoSender","sender@example.com");
-  ReflectionTestUtils.setField(service,"brevoTestRecipient","owner@example.com");ReflectionTestUtils.setField(service,"origin","https://example.com");
+  var service=new TransactionalMail(new ObjectMapper(),client,java.net.URI.create("https://api.brevo.com/v3/smtp/email"));
+  ReflectionTestUtils.setField(service,"provider","brevo");ReflectionTestUtils.setField(service,"enabled",true);
+  ReflectionTestUtils.setField(service,"apiKey","dummy-test-key");ReflectionTestUtils.setField(service,"senderEmail","sender@example.com");
+  ReflectionTestUtils.setField(service,"testRecipient","owner@example.com");ReflectionTestUtils.setField(service,"origin","https://example.com");
   return service;
  }
  @Test void sandboxNeverRedirectsAndLiveModeAllowsDifferentRecipients(){
   var service=configured();assertTrue(service.available());assertTrue(service.permits("OWNER@example.com"));assertFalse(service.permits("other@example.com"));
   assertThrows(IllegalStateException.class,()->service.send("other@example.com","test","text","key"));verifyNoInteractions(client);
-  ReflectionTestUtils.setField(service,"brevoTestMode",false);assertTrue(service.permits("other@example.com"));
+  ReflectionTestUtils.setField(service,"testMode",false);assertTrue(service.permits("other@example.com"));
  }
  @Test void unknownProviderAndMissingConfigurationFailClosed(){
   var service=configured();ReflectionTestUtils.setField(service,"provider","unknown");assertFalse(service.available());
-  ReflectionTestUtils.setField(service,"provider","brevo");ReflectionTestUtils.setField(service,"brevoApiKey","");assertFalse(service.available());
-  ReflectionTestUtils.setField(service,"brevoApiKey","dummy");ReflectionTestUtils.setField(service,"brevoSender","Bad <sender@example.com>");assertFalse(service.available());
+  ReflectionTestUtils.setField(service,"provider","brevo");ReflectionTestUtils.setField(service,"apiKey","");assertFalse(service.available());
+  ReflectionTestUtils.setField(service,"apiKey","dummy");ReflectionTestUtils.setField(service,"senderEmail","Bad <sender@example.com>");assertFalse(service.available());
  }
  @Test void sendsCorrectHttpsPayloadAndEscapesHtmlWithoutResendCredentials() throws Exception {
   var service=configured();var response=mock(HttpResponse.class);when(response.statusCode()).thenReturn(201);
@@ -40,31 +40,14 @@ class BrevoMailTest {
   assertEquals("dummy-test-key",request.getValue().headers().firstValue("api-key").orElseThrow());
   assertTrue(request.getValue().headers().firstValue("Authorization").isEmpty());
   var json=new ObjectMapper().readTree(body(request.getValue()));assertEquals("sender@example.com",json.path("sender").path("email").asText());
-  assertEquals("owner@example.com",json.path("to").get(0).path("email").asText());assertEquals("notification-1",json.path("headers").path("IdempotencyKey").asText());
-  assertFalse(json.path("htmlContent").asText().contains("<script>"));assertTrue(json.path("htmlContent").asText().contains("<a href=\"https://example.com/"));
+  assertEquals("owner@example.com",json.path("to").get(0).path("email").asText());assertEquals(java.util.UUID.nameUUIDFromBytes("notification-1".getBytes(StandardCharsets.UTF_8)).toString(),json.path("headers").path("IdempotencyKey").asText());
+  assertTrue(json.path("htmlContent").asText().contains("disable-tracking=\"true\""));assertTrue(json.path("htmlContent").asText().contains("&amp;email=owner"));assertFalse(json.path("htmlContent").asText().contains("<script>"));assertTrue(json.path("htmlContent").asText().contains("<a href=\"https://example.com/"));
  }
  @Test void rejectsProviderErrorsWithoutLeakingKeyOrBody() throws Exception {
   var service=configured();var response=mock(HttpResponse.class);when(response.statusCode()).thenReturn(403);
   doReturn(response).when(client).send(any(HttpRequest.class),any(HttpResponse.BodyHandler.class));
-  var failure=assertThrows(TransactionalMail.DeliveryFailure.class,()->service.send("owner@example.com","subject","secret-link","key"));
-  assertEquals(403,failure.status);assertFalse(failure.getMessage().contains("dummy-test-key"));assertFalse(failure.getMessage().contains("secret-link"));
- }
- @Test void supportDiagnosticIsOptInAndNeverReachesPublicException() throws Exception {
-  var service=configured();var response=mock(HttpResponse.class);when(response.statusCode()).thenReturn(403);
-  when(response.body()).thenReturn("{\"code\":\"permission_denied\",\"message\":\"Sending blocked for owner@example.com dummy-test-key\"}".getBytes(StandardCharsets.UTF_8));
-  doReturn(response).when(client).send(any(HttpRequest.class),any(HttpResponse.BodyHandler.class));
-  var logger=(ch.qos.logback.classic.Logger)org.slf4j.LoggerFactory.getLogger(TransactionalMail.class);
-  var events=new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();events.start();logger.addAppender(events);
-  try {
-   assertThrows(TransactionalMail.DeliveryFailure.class,()->service.send("owner@example.com","subject","text","key"));
-   assertTrue(events.list.isEmpty());
-   ReflectionTestUtils.setField(service,"brevoErrorDiagnostics",true);
-   var failure=assertThrows(TransactionalMail.DeliveryFailure.class,()->service.send("owner@example.com","subject","text","key"));
-   assertEquals("Email provider rejected request",failure.getMessage());assertNull(failure.getCause());
-   assertEquals(1,events.list.size());String log=events.list.get(0).getFormattedMessage();
-   assertTrue(log.contains("permission_denied"));assertTrue(log.contains("Sending blocked"));
-   assertFalse(log.contains("owner@example.com"));assertFalse(log.contains("dummy-test-key"));
-  }finally{logger.detachAppender(events);events.stop();}
+  var failure=assertThrows(TransactionalMail.MailFailure.class,()->service.send("owner@example.com","subject","secret-link","key"));
+  assertEquals(TransactionalMail.Outcome.FAILED,failure.outcome());assertEquals("PERMISSION_DENIED",failure.getMessage());assertFalse(failure.getMessage().contains("dummy-test-key"));assertFalse(failure.getMessage().contains("secret-link"));
  }
  private String body(HttpRequest request) throws Exception {
   var result=new CompletableFuture<String>();var bytes=new java.io.ByteArrayOutputStream();

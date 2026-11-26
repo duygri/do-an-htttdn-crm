@@ -1,3 +1,5 @@
+> Tài liệu lịch sử Resend. Triển khai hiện tại dùng Brevo và durable outbox; xem [brevo-email.md](brevo-email.md). Biến RESEND_* không điều khiển transport hiện tại.
+
 # Email Resend trên Render
 
 Website vẫn dùng `https://anhlonshop.onrender.com`; tên miền website độc lập với tên miền gửi email.

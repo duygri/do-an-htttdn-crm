@@ -6,6 +6,7 @@ import './order-display.css';
 import SourceCareCreator from './SourceCareCreator';
 import ShipmentPanel from './ShipmentPanel';
 import RefundPanel from './RefundPanel';
+import { AttachmentLinks } from './AttachmentPicker';
 const OrderPaymentPanel=React.lazy(()=>import('./OrderPaymentPanel'));
 export { returnLabels } from './order-display';
 import { X, User, Calendar, CreditCard, MapPin, RotateCcw, AlertTriangle } from 'lucide-react';
@@ -24,6 +25,16 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
   const [financeEditing,setFinanceEditing]=useState(false);
   const [failure, setFailure] = useState('');
   const detail = processed || sourceDetail;
+  const [returnAttachments, setReturnAttachments] = useState([]);
+  const [attachmentError, setAttachmentError] = useState('');
+  useEffect(() => {
+    let live = true; setReturnAttachments([]); setAttachmentError('');
+    if (detail?.id && detail.returnStatus && detail.returnStatus !== 'NONE') {
+      adminApi(`/api/manager/orders/${detail.id}/attachments`).then(rows => { if (live) setReturnAttachments(Array.isArray(rows) ? rows : []); })
+        .catch(error => { if (live) setAttachmentError(error.message); });
+    }
+    return () => { live = false; };
+  }, [detail?.id, detail?.returnStatus]);
   useManagerReadPause(!!action);
   useEffect(() => { setProcessed(null); setRestock(false); }, [sourceDetail]);
   const actionLabels={APPROVED:'Chấp thuận đổi trả',REJECTED:'Từ chối đổi trả',COMPLETED:'Hoàn tất đổi trả'};
@@ -100,7 +111,7 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
               <div>
                 <span><RotateCcw size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: -1 }} />Đổi trả</span>
                 <b>{returnLabels[detail.returnStatus || 'NONE'] || detail.returnStatus}</b>
-                {detail.returnReason && <small>{detail.returnReason}</small>}
+                {detail.returnReason && <small>{detail.returnReason}</small>}<AttachmentLinks attachments={returnAttachments} manager/>{attachmentError && <p role="alert">{attachmentError}</p>}
               </div>
               {detail.status === 'CANCELLED' && (
                 <div className="admin-detail-wide admin-detail-cancel-box">

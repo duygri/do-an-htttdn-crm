@@ -3,8 +3,12 @@ package com.htttdn.crm.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "stocktake_items", uniqueConstraints = @UniqueConstraint(name = "uq_stocktake_item_product", columnNames = {"stocktake_id", "product_id"}))
+@Table(name = "stocktake_items", uniqueConstraints = @UniqueConstraint(name = "uq_stocktake_item_product", columnNames = {"stocktake_id", "product_id", "variant_id"}))
 public class StocktakeItem {
+    private Long variantId;
+    public Long getVariantId(){return variantId;}
+    public void setVariantId(Long v){variantId=v;}
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

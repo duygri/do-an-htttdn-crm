@@ -31,7 +31,7 @@ export default function CheckoutPage({ cart, onPlaced, onShop, onOrders, onCart 
     try {
       const response = await api("/api/orders", { method: "POST", body: {
         deliveryAddress: deliveryText(selected), paymentMethod: method, voucherCode: voucherModel.voucher?.code || undefined,
-        items: cart.items.map(({ productId, quantity, size, color }) => ({ productId, quantity, size, color })),
+        items: cart.items.map(({ productId, quantity, size, color, variantId }) => ({ productId, quantity, size, color, ...(variantId != null ? {variantId} : {}) })),
       } });
       if (alive.current) { voucherModel.remove(); setResult(response); }
       onPlaced?.(response, cart.items);
