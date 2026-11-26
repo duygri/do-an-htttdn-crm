@@ -95,7 +95,11 @@ it('keeps the product page open when adding to the guest cart', async () => {
   refreshSession.mockResolvedValue(null);
   window.history.replaceState({}, '', '/san-pham/4'); render(<App/>);
   await screen.findByRole('heading', { name: product.name });
-  fireEvent.click(screen.getByRole('button', { name: /THÊM 1 VÀO GIỎ/ }));
+  fireEvent.click(screen.getByRole('button', { name: /THÊM VÀO GIỎ/ }));
+  const choices = await screen.findByRole('dialog');
+  fireEvent.click(await within(choices).findByRole('button', { name: 'Đen' }));
+  fireEvent.click(within(choices).getByRole('button', { name: 'M' }));
+  fireEvent.click(within(choices).getByRole('button', { name: 'Xác nhận thêm vào giỏ' }));
   await screen.findByText('Đã thêm sản phẩm vào giỏ tạm. Đăng nhập khi thanh toán nhé.');
   expect(window.location.pathname).toBe('/san-pham/4');
   fireEvent.click(screen.getByRole('button', { name: 'Xem giỏ hàng' }));
@@ -129,4 +133,36 @@ it('renders a not-found page without showing the storefront catalog', async () =
   window.history.replaceState({}, '', '/not-a-route'); render(<App/>);
   await screen.findByText('Không tìm thấy trang');
   expect(document.querySelector('#catalog')).toBeNull();
+});
+
+it('opens catalog choices without changing its route or writing the cart and keeps failed adds open', async () => {
+  window.history.replaceState({}, '', '/san-pham?keyword=polo');
+  api.mockImplementation((path, options) => options?.method === 'POST' ? Promise.reject(new Error('Cart unavailable')) : respond(path));
+  render(<App/>); await screen.findByRole('heading', {name: product.name});
+  await waitFor(() => expect(refreshSession).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole('button', {name: `Thêm ${product.name} vào giỏ`}));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.click(await within(dialog).findByRole('button', {name:'Đen'}));
+  expect(window.location.pathname + window.location.search).toBe('/san-pham?keyword=polo');
+  expect(api.mock.calls.some(([,options])=>options?.method==='POST')).toBe(false);
+  fireEvent.click(within(dialog).getByRole('button',{name:'M'}));
+  fireEvent.click(within(dialog).getByRole('button',{name:'Xác nhận thêm vào giỏ'}));
+  await within(dialog).findByRole('alert');
+  expect(within(dialog).getByRole('button',{name:'M'}).getAttribute('aria-pressed')).toBe('true');
+  expect(window.location.pathname).toBe('/san-pham');
+});
+
+it('defers guest Buy Now until confirmation then uses the existing login return flow', async () => {
+  refreshSession.mockResolvedValue(null);
+  window.history.replaceState({}, '', '/san-pham/4'); render(<App/>);
+  await screen.findByRole('heading', {name:product.name});
+  fireEvent.click(screen.getByRole('button',{name:'MUA NGAY'}));
+  const dialog=await screen.findByRole('dialog');
+  expect(window.location.pathname).toBe('/san-pham/4');
+  fireEvent.click(await within(dialog).findByRole('button',{name:'Đen'}));
+  fireEvent.click(within(dialog).getByRole('button',{name:'L'}));
+  fireEvent.click(within(dialog).getByRole('button',{name:'Xác nhận mua ngay'}));
+  await screen.findByRole('heading',{name:'Chào mừng trở lại.'});
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(new URLSearchParams(window.location.search).get('returnTo')).toBe('/dat-hang');
 });

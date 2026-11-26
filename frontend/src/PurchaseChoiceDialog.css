@@ -1,0 +1,14 @@
+.purchase-choice-dialog{width:min(440px,calc(100vw - 28px));max-height:calc(100dvh - 32px);padding:24px;border:1px solid #ddd;border-radius:18px;background:#fff;color:#202020;box-shadow:0 20px 70px #0004;overflow:auto;box-sizing:border-box}
+.purchase-choice-dialog::backdrop{background:#0008}
+.purchase-choice-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.purchase-choice-dialog h2{font-size:20px;margin:0}.purchase-choice-dialog h3{font-size:16px;margin:18px 0}
+.purchase-choice-dialog button{font:inherit;cursor:pointer;border:1px solid #aaa;border-radius:8px;padding:9px 14px;background:transparent;color:inherit}
+.purchase-choice-dialog button:disabled{opacity:.4;cursor:not-allowed}.purchase-choice-dialog button:focus-visible,.purchase-choice-dialog input:focus-visible{outline:3px solid #6489d8;outline-offset:2px}
+.purchase-choice-dialog fieldset{border:0;padding:0;margin:16px 0}.purchase-choice-dialog legend{margin-bottom:8px;font-weight:600}
+.purchase-choice-options{display:flex;gap:8px;flex-wrap:wrap}.purchase-choice-options button[aria-pressed=true]{background:#222;color:#fff;border-color:#222}
+.purchase-choice-quantity{display:flex;align-items:center;justify-content:space-between;gap:16px}.purchase-choice-quantity input{width:76px;padding:9px;border:1px solid #aaa;border-radius:8px;background:transparent;color:inherit;font:inherit}
+.purchase-choice-dialog .purchase-choice-confirm{width:100%;background:#222;color:#fff;border-color:#222}.purchase-choice-dialog p{font-size:14px;line-height:1.5}.purchase-choice-dialog [role=alert]{color:#b32424}
+[data-shop-theme=dark] .purchase-choice-dialog,.dark .purchase-choice-dialog{background:#202226;color:#f6f6f6;border-color:#555}
+[data-shop-theme=dark] .purchase-choice-dialog [aria-pressed=true], [data-shop-theme=dark] .purchase-choice-dialog .purchase-choice-confirm{background:#eee;color:#151515}
+[data-shop-theme=dark] .purchase-choice-dialog [role=alert]{color:#ffaaaa}
+@media(max-width:480px){.purchase-choice-dialog{padding:18px}.purchase-choice-dialog button{min-height:42px}}

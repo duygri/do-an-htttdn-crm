@@ -1,4 +1,5 @@
-import { availableStock, firstAvailableVariant, catalogStock } from './product-variants';
+import PurchaseChoiceDialog from './PurchaseChoiceDialog';
+import { availableStock, catalogStock } from './product-variants';
 import { showReturn, returnLabel, displayOrderLabel, deliveryLabel } from './order-display';
 import './order-display.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -199,6 +200,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [cart, setCart] = useState(() => readGuestCart());
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [purchaseChoice, setPurchaseChoice] = useState(null);
   const [authAfterLogin, setAuthAfterLogin] = useState(null);
   const [checkoutPage, setCheckoutPage] = useState(() => window.location.pathname === "/dat-hang");
   const [ordersRoute, setOrdersRoute] = useState(readOrdersRoute);
@@ -252,6 +254,7 @@ function App() {
   const buyNow = async (product, variant, quantity) => {
     const next = await addToCart(product, variant, quantity);
     if (next) { selection.only({ productId: product.id, ...variant }, next); goCheckout(); }
+    return next;
   };
   const selection = useCartSelection({ owner: user ? `customer-${user.id}` : 'guest', cart,
     ready: !sessionChecking && !sessionError && !cartLoading && !cartError && (!user || cartOwner === user.id), initialize: cartOpen });
@@ -1313,7 +1316,7 @@ function App() {
                   key={product.id}
                   product={product}
                   onOpen={() => openProduct(product)}
-                  onAdd={() => addToCart(product, firstAvailableVariant(product))}
+                  onAdd={() => setPurchaseChoice({ id: product.id, buy: false })}
                   isWishlisted={wishlist.some((item) => item.productId === product.id)}
                   onWishlist={() => toggleWishlist(product)}
                 />
@@ -1428,6 +1431,9 @@ function App() {
           <button className="toast-close" aria-label="Đóng thông báo" onClick={() => setNotice(null)}><X size={18} aria-hidden="true" /></button>
         </div>
       )}
+      {purchaseChoice && <PurchaseChoiceDialog productId={purchaseChoice.id} buy={purchaseChoice.buy}
+        onClose={() => setPurchaseChoice(null)}
+        onConfirm={(product, variant, quantity) => (purchaseChoice.buy ? buyNow : addToCart)(product, variant, quantity)}/>}
       {extraPage && !ordersRoute && <CustomerPageFrame account={accountPage} pathname={pathname} user={user} navigate={navigate}>
       {needsCustomer(pathname) && (sessionChecking || sessionError || !user) ? <CheckoutState title={sessionChecking ? 'Đang khôi phục tài khoản' : 'Đăng nhập để tiếp tục'} message={sessionError || 'Đang kiểm tra phiên đăng nhập...'} loading={sessionChecking} action={sessionError ? 'Thử lại' : undefined} onAction={retrySession}/> : <>
       {pathname === '/tai-khoan/voucher' && <CustomerVouchers/>}
@@ -1443,10 +1449,8 @@ function App() {
             data={selectedProduct}
             user={user}
             onClose={() => navigate(safeReturn(window.history.state?.customerFrom, '/san-pham'))}
-            onAdd={(variant, quantity) =>
-              addToCart(selectedProduct.product, variant, quantity)
-            }
-            onBuyNow={(variant, quantity) => buyNow(selectedProduct.product, variant, quantity)}
+            onAdd={() => setPurchaseChoice({ id: selectedProduct.product.id, buy: false })}
+            onBuyNow={() => setPurchaseChoice({ id: selectedProduct.product.id, buy: true })}
             isWishlisted={wishlist.some(item => item.productId === selectedProduct.product.id)}
             onWishlist={() => toggleWishlist(selectedProduct.product)}
             onLogin={() => openAuth()}
@@ -1723,23 +1727,8 @@ const formatReviewDate = (val) => {
 
 function ProductModal({ page = false, data, user, onClose, onAdd, onBuyNow, isWishlisted, onWishlist, onLogin, onNotice }) {
   const product = data.product;
-  const [size, setSize] = useState(
-    (product.variantsAllocated?firstAvailableVariant(product).size:null) || csv(product.sizes)[1] || csv(product.sizes)[0] || "M",
-  );
-  const [color, setColor] = useState((product.variantsAllocated?firstAvailableVariant(product).color:null) || csv(product.colors)[0] || "Đen");
-  const variantStock = availableStock(product, size, color);
-  const [quantity, setQuantity] = useState(1);
-  useEffect(() => { setQuantity(current => Math.max(1, Math.min(current, variantStock))); }, [variantStock]);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showAllFeedback, setShowAllFeedback] = useState(false);
-  const purchaseLock = useRef(false);
-  const [purchasing, setPurchasing] = useState(false);
-  const purchase = async (buy = false) => {
-    if (purchaseLock.current) return;
-    purchaseLock.current = true; setPurchasing(true);
-    try { await (buy && onBuyNow ? onBuyNow : onAdd)({ size, color }, quantity); if (!page) onClose(); }
-    finally { purchaseLock.current = false; setPurchasing(false); }
-  };
   const sale = discount(product);
   const submitFeedback = async (event) => {
     event.preventDefault();
@@ -1803,98 +1792,12 @@ function ProductModal({ page = false, data, user, onClose, onAdd, onBuyNow, isWi
             {product.description ||
               "Thiết kế cân bằng giữa công năng và vẻ ngoài hiện đại, phù hợp cho tủ đồ hằng ngày."}
           </p>
-          <div className="choice">
-            <label>
-              MÀU SẮC <b>{color}</b>
-            </label>
-            <div className="choice-row">
-              {csv(product.colors).map((item) => (
-                <button
-                  className={
-                    String(color).trim().toLowerCase() === item.trim().toLowerCase() ? "choice-chip active" : "choice-chip"
-                  }
-                  key={item}
-                  disabled={product.variantsAllocated&&!product.variants?.some(v=>v.active!==false&&v.stock>0&&String(v.color).trim().toLowerCase()===item.trim().toLowerCase())}
-                  onClick={() => {setColor(item);if(product.variantsAllocated&&availableStock(product,size,item)<=0){const next=product.variants?.find(v=>v.active!==false&&v.stock>0&&String(v.color).trim().toLowerCase()===item.trim().toLowerCase());if(next)setSize(next.size);}}}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="choice">
-            <label>
-              KÍCH THƯỚC <b>{size}</b>
-            </label>
-            <div className="choice-row">
-              {csv(product.sizes).map((item) => (
-                <button
-                  className={
-                    String(size).trim().toLowerCase() === item.trim().toLowerCase() ? "choice-chip active" : "choice-chip"
-                  }
-                  key={item}
-                  disabled={product.variantsAllocated&&availableStock(product,item,color)<=0}
-                  onClick={() => setSize(item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="size-guide-link"
-              onClick={() => setShowSizeGuide(true)}
-            >
-              Không chắc size? Xem bảng hướng dẫn kích thước <ChevronRight size={14} />
-            </button>
-          </div>
-          <div className="product-quantity">
-            <label>
-              SỐ LƯỢNG <b>{quantity}</b>
-            </label>
-            <div className="quantity product-quantity-control">
-              <button
-                type="button"
-                aria-label="Giảm số lượng sản phẩm"
-                disabled={quantity <= 1}
-                onClick={() =>
-                  setQuantity((current) => Math.max(1, current - 1))
-                }
-              >
-                <Minus size={17} />
-              </button>
-              <span>{quantity}</span>
-              <button
-                type="button"
-                aria-label="Tăng số lượng sản phẩm"
-                disabled={quantity >= variantStock}
-                onClick={() =>
-                  setQuantity((current) => Math.min(variantStock, current + 1))
-                }
-              >
-                <Plus size={17} />
-              </button>
-            </div>
-            <small>Còn {variantStock} sản phẩm trong kho</small>
-          </div>
+          <button type="button" className="size-guide-link" onClick={() => setShowSizeGuide(true)}>
+            Không chắc size? Xem bảng hướng dẫn kích thước <ChevronRight size={14} />
+          </button>
           <div className="product-modal-actions">
-            <button
-              className="button button-dark add-modal"
-              disabled={!variantStock || quantity > variantStock || purchasing}
-              onClick={() => purchase()}
-            >
-              {variantStock
-                ? `THÊM ${quantity} VÀO GIỎ`
-                : "TẠM HẾT HÀNG"}
-            </button>
-            <button
-              type="button"
-              className="buy-now-btn"
-              disabled={!variantStock || quantity > variantStock || purchasing}
-              onClick={() => purchase(true)}
-            >
-              MUA NGAY
-            </button>
+            <button type="button" className="button button-dark add-modal" disabled={catalogStock(product) <= 0} onClick={onAdd}>THÊM VÀO GIỎ</button>
+            <button type="button" className="buy-now-btn" disabled={catalogStock(product) <= 0} onClick={onBuyNow}>MUA NGAY</button>
           </div>
 
           {showSizeGuide && (
