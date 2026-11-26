@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS stocktake_items (
   difference INTEGER,
   note VARCHAR(500)
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_stocktake_item_product
-  ON stocktake_items(stocktake_id, product_id);
+-- Uniqueness is installed by migration_product_variants.sql (common/variant partial indexes).
+-- Do not recreate the retired product-only index on subsequent deployment startup.
 
 CREATE TABLE IF NOT EXISTS supplier_payments (
   id BIGSERIAL PRIMARY KEY,

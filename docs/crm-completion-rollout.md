@@ -2,7 +2,7 @@
 
 ## Triển khai có kiểm soát
 
-Đây là thay đổi local, chưa phát hành. Không chạy backend mới vào database chưa có migration.
+Nhánh `codex/free-demo-deployment` đóng gói các migration dưới đây và chạy trước Hibernate validate khi khởi động trên Render. Chỉ áp dụng khi chủ dự án bấm Manual Deploy. Không chạy backend local mới vào database chưa có migration.
 Giữ một bản sao lưu và kiểm tra phục hồi trên database thử riêng trước khi nâng cấp.
 Không tự chuyển tồn kho cũ, gán biến thể cho đơn cũ hoặc gửi lại email lịch sử.
 
@@ -98,3 +98,13 @@ Phiếu nhập nhà cung cấp vẫn chỉ ghi chi phí, không tự cộng kho.
 
 Tham chiếu giao thức: [Brevo gửi thư giao dịch](https://developers.brevo.com/reference/send-transac-email),
 [Cloudinary kiểm soát truy cập](https://cloudinary.com/documentation/control_access_to_media).
+
+## Bản phát hành hộp chọn sản phẩm
+
+User phải chọn màu, size và số lượng trong hộp thoại trước khi thêm giỏ hoặc mua ngay. Hộp thoại tải lại sản phẩm, chỉ nhận tổ hợp còn tồn và không tự chọn thay khách. Giữ luồng đăng nhập/checkout hiện tại.
+
+Docker chỉ đóng gói `deploy/application.yml`, không lấy cấu hình bí mật local. Tám migration được liệt kê tường minh, không chạy schema chuẩn hoặc seed trên Render. Các migration bổ sung chạy lại được; không phân bổ biến thể, điền lịch sử hay gửi email cũ. Sao lưu Neon và kiểm tra khả năng phục hồi trước Manual Deploy.
+
+Trên Render chọn đúng dịch vụ **anhlonshop**, nhánh **codex/free-demo-deployment**, rồi **Manual Deploy → Deploy latest commit**. Không cần tạo dịch vụ mới. Không bật tự hủy PayOS hoặc thay các khóa đang dùng. Nếu chưa cấu hình Cloudinary, đính kèm bị vô hiệu hóa; văn bản vẫn hoạt động. Brevo giữ chế độ thử hiện tại đến khi chủ dự án xác minh gửi.
+
+Sau deploy: xác nhận đúng commit Live, refresh trang sản phẩm và thử mở/đóng hộp chọn, đổi màu/size trên desktop/mobile. Không cần đặt đơn hoặc gửi email thật để kiểm tra giao diện. Không rollback ứng dụng bằng cách xóa bảng/cột mới; giữ dữ liệu và đối chiếu log nếu startup thất bại.

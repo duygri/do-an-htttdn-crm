@@ -47,3 +47,16 @@ Vitest dùng tối đa hai thread worker và khoảng chờ phù hợp cho porta
 4. Khởi động lại backend sau migration. Chỉ phát hành sau khi đối chiếu đúng commit và cấu hình môi trường.
 
 Chi tiết: [Hướng dẫn triển khai](crm-completion-rollout.md).
+
+
+## Bản ghép phát hành và hộp chọn sản phẩm — 26/11/2026
+
+- Nhánh kiểm tra: `codex/free-demo-deployment`; gom phần CRM hoàn tất và hộp chọn màu/size trước mua.
+- `npm test`: 64 file, 432 test qua. `npm run build` với `VITE_SAME_ORIGIN=true`: qua.
+- Backend: 481 test, không lỗi/thất bại, 10 test tùy môi trường bỏ qua (471 chạy thành công); dùng giới hạn cache context 8 và heap 1 GB. `mvn package -DskipTests`: qua.
+- Playwright với API giả: 1440×1000 và 390×844, sáng/tối; không tràn ngang, Tab/Shift+Tab, Escape, click ngoài, trả focus/scroll. Mở lại tải size mới và bỏ lựa chọn cũ; không gọi API ghi dữ liệu.
+- Bản jar đóng gói frontend và đủ tám migration: khởi động bằng `deploy/application.yml` vào database PostgreSQL 18.4 thử riêng từ schema cũ. Hibernate validate và `/healthz` qua. Root, `/san-pham`, hai trang login trả HTML; `/api/not-found` trả 404 JSON.
+- Sau lần đầu, chèn dữ liệu giả: hai biến thể cùng sản phẩm trong một phiếu kiểm kê và một email FAILED hết lượt thử. Khởi động lần hai thành công; 48 bảng, hai dòng kiểm kê, hai biến thể và email FAILED/5 được giữ; index cũ theo sản phẩm không tái tạo. Không gửi thư hoặc chạy SQL trên database đang sử dụng.
+- Sửa bộ lọc request để không đọc trước multipart của hai endpoint đính kèm; vẫn giữ rate limit và giới hạn servlet 5 MB/file, 6 MB/request. Test hồi quy qua.
+- Không chạy Docker image vì máy chưa có Docker daemon; đã kiểm tra jar với frontend/migration đóng gói tương ứng. Render build/runtime thực tế cần chủ dự án kiểm tra sau Manual Deploy.
+- Không gửi email, upload Cloudinary, thanh toán thật, thay đổi sản phẩm thật hoặc deploy trong bước kiểm tra này.

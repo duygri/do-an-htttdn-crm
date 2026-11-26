@@ -18,3 +18,8 @@ frontend/dist
 frontend/.env*
 backend/src/main/resources
 **/*.log
+!database/migration_loyalty_idempotency.sql
+!database/migration_email_outbox.sql
+!database/migration_support_experience.sql
+!database/migration_attachment_metadata.sql
+!database/migration_product_variants.sql

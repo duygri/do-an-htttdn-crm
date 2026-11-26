@@ -17,6 +17,11 @@ COPY deploy/application.yml ./src/main/resources/application.yml
 COPY database/migration_supplier_receipts_invoices.sql ./src/main/resources/db/migration_supplier_receipts_invoices.sql
 COPY database/migration_inventory_suppliers_loyalty.sql ./src/main/resources/db/migration_inventory_suppliers_loyalty.sql
 COPY database/migration_shipping_returns_refunds.sql ./src/main/resources/db/migration_shipping_returns_refunds.sql
+COPY database/migration_loyalty_idempotency.sql ./src/main/resources/db/migration_loyalty_idempotency.sql
+COPY database/migration_email_outbox.sql ./src/main/resources/db/migration_email_outbox.sql
+COPY database/migration_support_experience.sql ./src/main/resources/db/migration_support_experience.sql
+COPY database/migration_attachment_metadata.sql ./src/main/resources/db/migration_attachment_metadata.sql
+COPY database/migration_product_variants.sql ./src/main/resources/db/migration_product_variants.sql
 COPY --from=web /web/dist ./src/main/resources/static
 RUN mvn -B -DskipTests package
 

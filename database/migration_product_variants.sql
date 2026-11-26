@@ -24,13 +24,16 @@ DROP INDEX IF EXISTS uq_stocktake_item_product;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_stocktake_item_common ON stocktake_items(stocktake_id,product_id) WHERE variant_id IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_stocktake_item_variant ON stocktake_items(stocktake_id,product_id,variant_id) WHERE variant_id IS NOT NULL;
 -- Enforce ownership even for writes outside the application.
-DO $$
-DECLARE t text;
-BEGIN
- FOREACH t IN ARRAY ARRAY['order_items','cart_items','stock_movements','stocktake_items','supplier_receipt_items','sales_invoice_items'] LOOP
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = t || '_variant_product_fk') THEN
-   EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I FOREIGN KEY (product_id,variant_id) REFERENCES product_variants(product_id,id)', t, t || '_variant_product_fk');
-  END IF;
- END LOOP;
-END $$;
+ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_variant_product_fk;
+ALTER TABLE order_items ADD CONSTRAINT order_items_variant_product_fk FOREIGN KEY (product_id,variant_id) REFERENCES product_variants(product_id,id);
+ALTER TABLE cart_items DROP CONSTRAINT IF EXISTS cart_items_variant_product_fk;
+ALTER TABLE cart_items ADD CONSTRAINT cart_items_variant_product_fk FOREIGN KEY (product_id,variant_id) REFERENCES product_variants(product_id,id);
+ALTER TABLE stock_movements DROP CONSTRAINT IF EXISTS stock_movements_variant_product_fk;
+ALTER TABLE stock_movements ADD CONSTRAINT stock_movements_variant_product_fk FOREIGN KEY (product_id,variant_id) REFERENCES product_variants(product_id,id);
+ALTER TABLE stocktake_items DROP CONSTRAINT IF EXISTS stocktake_items_variant_product_fk;
+ALTER TABLE stocktake_items ADD CONSTRAINT stocktake_items_variant_product_fk FOREIGN KEY (product_id,variant_id) REFERENCES product_variants(product_id,id);
+ALTER TABLE supplier_receipt_items DROP CONSTRAINT IF EXISTS supplier_receipt_items_variant_product_fk;
+ALTER TABLE supplier_receipt_items ADD CONSTRAINT supplier_receipt_items_variant_product_fk FOREIGN KEY (product_id,variant_id) REFERENCES product_variants(product_id,id);
+ALTER TABLE sales_invoice_items DROP CONSTRAINT IF EXISTS sales_invoice_items_variant_product_fk;
+ALTER TABLE sales_invoice_items ADD CONSTRAINT sales_invoice_items_variant_product_fk FOREIGN KEY (product_id,variant_id) REFERENCES product_variants(product_id,id);
 COMMIT;
