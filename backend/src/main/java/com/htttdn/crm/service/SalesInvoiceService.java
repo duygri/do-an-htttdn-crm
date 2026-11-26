@@ -67,7 +67,7 @@ public class SalesInvoiceService {
         BigDecimal subtotal=BigDecimal.ZERO;
         for(OrderItem item:order.getItems()){
             var line=new SalesInvoiceItem();
-            line.setInvoice(invoice);line.setProduct(item.getProduct());line.setProductName(item.getProduct().getName());
+            line.setVariantId(item.getVariantId());line.setInvoice(invoice);line.setProduct(item.getProduct());line.setProductName(item.getProduct().getName());
             line.setSize(item.getSize());line.setColor(item.getColor());line.setQuantity(item.getQuantity());line.setUnitPrice(item.getUnitPrice());
             BigDecimal lineTotal=item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
             line.setLineTotal(lineTotal);subtotal=subtotal.add(lineTotal);invoice.getItems().add(line);

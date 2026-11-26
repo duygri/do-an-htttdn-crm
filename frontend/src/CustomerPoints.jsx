@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { api } from './api';
 import './customer-points.css';
 
@@ -10,28 +10,39 @@ export default function CustomerPoints() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
+  const requestKey = useRef(null);
+  const sending = useRef(false);
 
   const load = useCallback(() => api('/api/account/points').then(setData).catch(current => setError(current.message)), []);
 
   useEffect(() => { load(); }, [load]);
 
   const redeem = async () => {
-    if (busy) return;
+    if (sending.current) return;
+    sending.current = true;
+    const storageKey = data?.customerId ? `crm-point-redemption:${data.customerId}` : null;
+    try { if(storageKey) requestKey.current ||= sessionStorage.getItem(storageKey); } catch { /* In-memory retry remains available. */ }
+    requestKey.current ||= crypto.randomUUID();
+    try { if(storageKey) sessionStorage.setItem(storageKey, requestKey.current); } catch { /* Storage may be unavailable. */ }
     setBusy(true);
     setError('');
     setResult(null);
     try {
-      const redeemed = await api('/api/account/points/redeem', { method: 'POST' });
+      const redeemed = await api('/api/account/points/redeem', { method: 'POST', headers: {'Idempotency-Key': requestKey.current} });
       setResult(redeemed);
+      setData(current => current ? {...current, balance: redeemed.balance} : current);
+      try { if(storageKey && sessionStorage.getItem(storageKey) === requestKey.current) sessionStorage.removeItem(storageKey); } catch { /* The successful response is authoritative. */ }
+      requestKey.current = null;
       await load();
     } catch (current) {
       setError(current.message);
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   };
 
-  if (error && !data) return <section className="profile-points" aria-label="Điểm thưởng"><h3>Điểm thưởng</h3><p role="alert">{error}</p></section>;
+  if (error && !data) return <section className="profile-points" aria-label="Điểm thưởng"><h3>Điểm thưởng</h3><p role="alert">{error}</p><button type="button" onClick={()=>{setError('');load();}}>Thử lại</button></section>;
   if (!data) return <section className="profile-points" aria-label="Điểm thưởng"><p role="status">Đang tải điểm thưởng…</p></section>;
 
   return <section className="profile-points" aria-label="Điểm thưởng">

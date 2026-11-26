@@ -23,6 +23,22 @@ class ProductArchiveIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JwtTokenService jwt;
 
+    @Test void resolvedInternalRoutesRequireAuthorizationIncludingMatrixParameters() throws Exception {
+        long before=em.createQuery("select count(u) from User u",Long.class).getSingleResult();
+        for (String path:java.util.List.of("/api/admin/accounts", "/api/admin;v=1/accounts", "/api;v=1/admin/accounts")) {
+            mvc.perform(get(path)).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+            mvc.perform(post(path).contentType("application/json").content("{}"))
+                .andExpect(status().isUnauthorized());
+        }
+        mvc.perform(get("/api/manager;v=1/products")).andExpect(status().isUnauthorized());
+        assertEquals(before,em.createQuery("select count(u) from User u",Long.class).getSingleResult());
+        var manager=account("MANAGER");
+        mvc.perform(get("/api/admin;v=1/accounts").header("Authorization","Bearer "+jwt.issue(manager.getId(),"MANAGER")))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/manager;v=1/products").header("Authorization","Bearer "+jwt.issue(manager.getId(),"MANAGER")))
+            .andExpect(status().isOk());
+    }
+
     @Test void restoresArchivedProductOnceWithoutChangingDetailsOrStock() throws Exception {
         var manager=account("MANAGER");var product=product();
         product.setDescription("Original description");product.setImageUrl("https://example.test/product.jpg");

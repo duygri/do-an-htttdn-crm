@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
+import AttachmentPicker from './AttachmentPicker';
 import { money } from './ManagerOrderDetail';
 
 const RESOLUTIONS = [['REFUND', 'Trả hàng hoàn tiền'], ['EXCHANGE', 'Đổi hàng'], ['OTHER', 'Khác']];
 const lineKey = (item, index) => item.id ?? `legacy-${index}`;
 
 export default function ReturnRequestForm({ items = [], busy = false, error = '', onSubmit, onCancel }) {
+  const [attachments, setAttachments] = useState([]), [uploading, setUploading] = useState(false);
   const [reason, setReason] = useState('');
   const [selected, setSelected] = useState({});
   const [localError, setLocalError] = useState('');
@@ -18,9 +20,12 @@ export default function ReturnRequestForm({ items = [], busy = false, error = ''
   const update = (key, patch) => setSelected(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   const submit = event => {
     event.preventDefault();
+    if (busy || uploading) return;
     if (!reason.trim() || (!legacy && !chosen.length)) { setLocalError('Chọn ít nhất một sản phẩm và nhập lý do.'); return; }
     setLocalError('');
-    onSubmit(legacy ? { reason: reason.trim() } : { reason: reason.trim(), items: chosen });
+    const payload = legacy ? { reason: reason.trim() } : { reason: reason.trim(), items: chosen };
+    if (attachments.length) payload.attachmentIds = attachments.map(item => item.id);
+    onSubmit(payload);
   };
   return <form className="shop-reason-form return-request-form" noValidate onSubmit={submit}>
     <h3>Yêu cầu đổi/trả</h3>
@@ -42,10 +47,11 @@ export default function ReturnRequestForm({ items = [], busy = false, error = ''
       </li>;
     })}</ul>}
     <label>Lý do đổi/trả<textarea aria-label="Lý do đổi/trả" required maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>
+    <AttachmentPicker value={attachments} onChange={setAttachments} onBusyChange={setUploading} disabled={busy}/>
     {(localError || error) && <p role="alert" className="shop-inline-error">{localError || error}</p>}
     <div className="order-actions">
-      <button type="button" className="button button-light" disabled={busy} onClick={onCancel}>Quay lại</button>
-      <button className="button button-dark" disabled={busy}>{busy ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
+      <button type="button" className="button button-light" disabled={busy || uploading} onClick={onCancel}>Quay lại</button>
+      <button className="button button-dark" disabled={busy || uploading}>{busy ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
     </div>
   </form>;
 }

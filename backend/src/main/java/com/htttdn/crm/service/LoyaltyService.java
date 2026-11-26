@@ -27,6 +27,14 @@ public class LoyaltyService {
     private final SettingsService settings;
     private final NotificationService notifications;
     private final AuditTrail audit;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager em;
+    @org.springframework.beans.factory.annotation.Autowired private com.fasterxml.jackson.databind.ObjectMapper mapper;
+
+    private void lockCustomer(User customer) {
+        User current = em.find(User.class, customer.getId(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (current == null || current.getDeletedAt() != null || !"CUSTOMER".equals(current.getRole()))
+            throw new ApiException(HttpStatus.NOT_FOUND, "CUSTOMER_NOT_FOUND", "Không tìm thấy khách hàng.");
+    }
 
     public LoyaltyService(PointTransactionRepository transactions, StoreVoucherRepository vouchers,
             SettingsService settings, NotificationService notifications, AuditTrail audit) {
@@ -39,7 +47,7 @@ public class LoyaltyService {
 
     public record Entry(Long id, String type, int points, String note, Long orderId, Instant createdAt) {}
 
-    public record Summary(long balance, List<Entry> history) {}
+    public record Summary(long balance, List<Entry> history, Long customerId) {}
 
     public record RedeemResult(String code, BigDecimal discountValue, int spentPoints, long balance, Instant expiresAt) {}
 
@@ -55,12 +63,13 @@ public class LoyaltyService {
             .findTop50ByCustomerIdOrderByCreatedAtDescIdDesc(customer.getId()).stream()
             .map(row -> new Entry(row.getId(), row.getTxnType(), row.getPoints(), row.getNote(),
                 row.getOrderId(), row.getCreatedAt()))
-            .toList());
+            .toList(), customer.getId());
     }
 
     @Transactional
     public void awardForCompletedOrder(Order order) {
-        if (order == null || order.getCustomer() == null || order.getId() == null) return;
+        if (order == null || order.getCustomer() == null || order.getId() == null || !"COMPLETED".equals(order.getStatus())) return;
+        lockCustomer(order.getCustomer());
         int rate = settings.getInt("loyalty.pointsPer10000");
         int earned = order.getTotalAmount()
             .divide(BigDecimal.valueOf(10000), 0, RoundingMode.FLOOR)
@@ -78,6 +87,19 @@ public class LoyaltyService {
 
     @Transactional
     public RedeemResult redeem(User customer) {
+        return redeem(customer, UUID.randomUUID().toString());
+    }
+
+    @Transactional
+    public RedeemResult redeem(User customer, String requestKey) {
+        try { if (requestKey == null || !UUID.fromString(requestKey).toString().equals(requestKey)) throw new IllegalArgumentException(); }
+        catch (IllegalArgumentException e) { throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST_KEY", "Mã yêu cầu đổi điểm không hợp lệ."); }
+        lockCustomer(customer);
+        var previous = transactions.findByCustomerIdAndRequestKey(customer.getId(), requestKey);
+        if (previous.isPresent()) {
+            try { return mapper.readValue(previous.get().getRedemptionResult(), RedeemResult.class); }
+            catch (Exception e) { throw new IllegalStateException("Cannot read redemption result", e); }
+        }
         int cost = settings.getInt("loyalty.redeemPoints");
         int value = settings.getInt("loyalty.redeemValue");
         long balance = balance(customer.getId());
@@ -105,10 +127,14 @@ public class LoyaltyService {
         txn.setTxnType("REDEEM");
         txn.setPoints(-cost);
         txn.setNote("Đổi điểm lấy voucher " + code);
-        transactions.save(txn);
+        RedeemResult result = new RedeemResult(code, voucher.getDiscountValue(), cost, balance - cost, expiresAt);
+        txn.setRequestKey(requestKey);
+        try { txn.setRedemptionResult(mapper.writeValueAsString(result)); }
+        catch (Exception e) { throw new IllegalStateException("Cannot save redemption result", e); }
+        transactions.saveAndFlush(txn);
         notifications.createVoucher(customer, "Đổi điểm thành công",
             "Bạn đã đổi " + cost + " điểm, mã " + code + ".");
-        return new RedeemResult(code, voucher.getDiscountValue(), cost, balance - cost, expiresAt);
+        return result;
     }
 
     @Transactional
@@ -119,6 +145,7 @@ public class LoyaltyService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_POINTS",
                 "Thông tin điều chỉnh điểm không hợp lệ.");
         }
+        lockCustomer(customer);
         var txn = new PointTransaction();
         txn.setCustomer(customer);
         txn.setTxnType("ADJUST");

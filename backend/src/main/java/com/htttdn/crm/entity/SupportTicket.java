@@ -1,6 +1,7 @@
 package com.htttdn.crm.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.Instant;
 
 @Entity @Table(name="support_tickets",uniqueConstraints=@UniqueConstraint(name="uq_support_request",columnNames={"created_by","request_key"}),indexes={@Index(name="idx_support_customer",columnList="customer_id,updated_at,id"),@Index(name="idx_support_queue",columnList="status,assignee_id,updated_at,id")})
@@ -19,6 +20,15 @@ public class SupportTicket {
     @Column(name="created_at",nullable=false) public Instant createdAt;
     @Column(name="updated_at",nullable=false) public Instant updatedAt;
     @Column(name="resolved_at") public Instant resolvedAt;
+    @Column(length=10) public String priority;
+    @Column(name="due_at") public Instant dueAt;
+    @Column(name="first_response_at") public Instant firstResponseAt;
+    @Column(name="priority_reason",length=1000) public String priorityReason;
+    @Column(name="csat_rating") public Integer csatRating;
+    @Column(name="csat_comment",length=1000) public String csatComment;
+    @Column(name="csat_request_key",length=36) public String csatRequestKey;
+    @Column(name="csat_at") public Instant csatAt;
+    @JsonIgnore @Column(columnDefinition="text") public String attachments="[]";
     @Version @Column(nullable=false) public long version;
     @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="customer_id",insertable=false,updatable=false) private User customer;
     @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="order_id",insertable=false,updatable=false) private Order order;

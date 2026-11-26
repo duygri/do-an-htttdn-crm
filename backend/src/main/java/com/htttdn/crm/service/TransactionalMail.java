@@ -2,70 +2,82 @@ package com.htttdn.crm.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.event.TransactionalEventListener;
-import org.springframework.transaction.event.TransactionPhase;
-import java.net.URI;
+import java.net.*;
 import java.net.http.*;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 
-/** No recipient substitution: sandbox mode only permits the configured address. */
+/** Synchronous transport. Reset tokens stay in this call, never in the outbox. */
 @Service
 public class TransactionalMail {
-    @Value("${RESEND_API_KEY:}") private String apiKey;
-    @Value("${RESEND_ENABLED:false}") private boolean enabled;
-    @Value("${RESEND_FROM:ANH LỚN SHOP <onboarding@resend.dev>}") private String from;
-    @Value("${RESEND_TEST_MODE:true}") private boolean testMode;
-    @Value("${RESEND_TEST_RECIPIENT:}") private String testRecipient;
-    @Value("${PUBLIC_ORIGIN:}") private String origin;
+    @Value("${MAIL_PROVIDER:brevo}") private String provider="brevo";
+    @Value("${BREVO_API_KEY:}") private String apiKey="";
+    @Value("${BREVO_ENABLED:false}") private boolean enabled;
+    @Value("${BREVO_SENDER_EMAIL:}") private String senderEmail="";
+    @Value("${BREVO_SENDER_NAME:ANH LON SHOP}") private String senderName="ANH LON SHOP";
+    @Value("${BREVO_TEST_MODE:true}") private boolean testMode=true;
+    @Value("${BREVO_TEST_RECIPIENT:}") private String testRecipient="";
+    @Value("${PUBLIC_ORIGIN:}") private String origin="";
     private final ObjectMapper mapper;
-    private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-    public TransactionalMail(ObjectMapper mapper) { this.mapper=mapper; }
+    private final HttpClient client;
+    private final URI endpoint;
+    @org.springframework.beans.factory.annotation.Autowired
+    public TransactionalMail(ObjectMapper mapper) {
+        this(mapper, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build(),
+            URI.create("https://api.brevo.com/v3/smtp/email"));
+    }
+    // Package-private injection for loopback fake HTTP tests; production endpoint is fixed.
+    TransactionalMail(ObjectMapper mapper, HttpClient client, URI endpoint) {
+        this.mapper=mapper; this.client=client; this.endpoint=endpoint;
+    }
     public boolean available() {
-        try { var uri=URI.create(origin); return enabled && !apiKey.isBlank() && "https".equals(uri.getScheme())
-            && uri.getHost()!=null && uri.getUserInfo()==null && uri.getQuery()==null && uri.getFragment()==null
-            && (uri.getPath().isEmpty() || "/".equals(uri.getPath())) && (!testMode || !testRecipient.isBlank());
+        try {
+            var uri=URI.create(origin);
+            return "brevo".equalsIgnoreCase(provider) && enabled && !apiKey.isBlank() && !senderEmail.isBlank()
+                && "https".equals(uri.getScheme()) && uri.getHost()!=null && uri.getUserInfo()==null
+                && uri.getQuery()==null && uri.getFragment()==null
+                && (uri.getPath().isEmpty() || "/".equals(uri.getPath())) && (!testMode || !testRecipient.isBlank());
         } catch (RuntimeException e) { return false; }
     }
-    public boolean permits(String recipient) { return available() && recipient!=null && (!testMode || recipient.equalsIgnoreCase(testRecipient.trim())); }
+    public boolean sandboxAllows(String recipient) {
+        return recipient!=null && !recipient.isBlank() && (!testMode ||
+            Arrays.stream(testRecipient.split(",")).anyMatch(v->recipient.equalsIgnoreCase(v.trim())));
+    }
+    /** A configured sandbox exclusion is intentional; missing configuration is an observable failure. */
+    public boolean sandboxExcludes(String recipient) {
+        return recipient==null || recipient.isBlank() || (testMode && !testRecipient.isBlank() && !sandboxAllows(recipient));
+    }
+    public boolean permits(String recipient) { return available() && sandboxAllows(recipient); }
     public String link(String path) { return origin.replaceAll("/+$", "") + path; }
-    public void send(String recipient, String subject, String text, String key) {
-        if (!permits(recipient)) throw new IllegalStateException("Email delivery unavailable");
+    public enum Outcome { ACCEPTED, RETRYABLE, FAILED, UNKNOWN }
+    public static class MailFailure extends IllegalStateException {
+        private final Outcome outcome;
+        public MailFailure(Outcome outcome,String reason) { super(reason); this.outcome=outcome; }
+        public Outcome outcome() { return outcome; }
+    }
+    public void send(String recipient,String subject,String text,String key) {
+        if(!permits(recipient)) throw new MailFailure(Outcome.FAILED,"CONFIG_OR_RECIPIENT_BLOCKED");
         try {
-            var body=mapper.writeValueAsString(Map.of("from",from,"to",List.of(recipient),"subject",subject,"text",text));
-            var request=HttpRequest.newBuilder(URI.create("https://api.resend.com/emails"))
-                .timeout(Duration.ofSeconds(10)).header("Authorization","Bearer "+apiKey)
-                .header("Content-Type","application/json").header("Idempotency-Key",key)
-                .POST(HttpRequest.BodyPublishers.ofString(body,StandardCharsets.UTF_8)).build();
-            var response=client.send(request,HttpResponse.BodyHandlers.discarding());
-            if(response.statusCode()<200 || response.statusCode()>=300) throw new IllegalStateException("Email provider rejected request");
-        } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException("Email delivery interrupted"); }
-        catch (java.io.IOException e) { throw new IllegalStateException("Email delivery unavailable"); }
-    }
-    public record Notice(String recipient,String subject,String text,String key) {}
-    @Async("transactionalMailExecutor")
-    @TransactionalEventListener(phase=TransactionPhase.AFTER_COMMIT)
-    public void afterNoticeCommit(Notice message) { deliver(message.recipient(),message.subject(),message.text(),message.key()); }
-    private void deliver(String recipient,String subject,String text,String key) {
-        if(!permits(recipient)) return;
-        try { send(recipient,subject,text,key); }
-        catch(RuntimeException e) { org.slf4j.LoggerFactory.getLogger(getClass()).warn("Transactional email delivery failed; in-app notification retained"); }
-    }
-    @Configuration @EnableAsync
-    static class MailExecutorConfig {
-        @Bean(name="transactionalMailExecutor")
-        ThreadPoolTaskExecutor executor() {
-            var executor=new ThreadPoolTaskExecutor(); executor.setCorePoolSize(1); executor.setMaxPoolSize(1);
-            executor.setQueueCapacity(100); executor.setThreadNamePrefix("transactional-mail-");
-            executor.setRejectedExecutionHandler((task,pool)->org.slf4j.LoggerFactory.getLogger(TransactionalMail.class).warn("Email queue full; in-app notification retained"));
-            return executor;
+            var body=mapper.writeValueAsString(Map.of("sender",Map.of("email",senderEmail,"name",senderName),
+                "to",List.of(Map.of("email",recipient)),"subject",subject,"textContent",text,
+                "headers",Map.of("IdempotencyKey",UUID.nameUUIDFromBytes(key.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString())));
+            var request=HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(10))
+                .header("api-key",apiKey).header("Content-Type","application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body)).build();
+            // Never retain, log, or expose provider response bodies.
+            int status=client.send(request,HttpResponse.BodyHandlers.discarding()).statusCode();
+            if(status>=200 && status<300) return;
+            if(status==429 || status>=500) throw new MailFailure(Outcome.RETRYABLE,"HTTP_"+status);
+            throw new MailFailure(Outcome.FAILED,status==401||status==403?"PERMISSION_DENIED":"HTTP_"+status);
+        } catch(HttpConnectTimeoutException | ConnectException | UnknownHostException e) {
+            throw new MailFailure(Outcome.RETRYABLE,"CONNECTION_FAILED");
+        } catch(InterruptedException e) {
+            Thread.currentThread().interrupt(); throw new MailFailure(Outcome.UNKNOWN,"INTERRUPTED");
+        } catch(IOException e) {
+            // Includes read timeouts, connection resets and partial responses: acceptance is ambiguous.
+            throw new MailFailure(Outcome.UNKNOWN,"AMBIGUOUS_IO");
         }
     }
 }

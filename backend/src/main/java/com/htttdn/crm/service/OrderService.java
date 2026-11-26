@@ -19,6 +19,7 @@ import java.util.*;
 
 @Service
 public class OrderService {
+    @org.springframework.beans.factory.annotation.Autowired private AttachmentService attachments;
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
     private static final Set<String> CUSTOMER_CANCELLABLE_STATUSES = Set.of("PENDING_PAYMENT", "PENDING", "CONFIRMED", "PREPARING");
     private final OrderRepository orders;
@@ -67,7 +68,7 @@ public class OrderService {
         if (request.deliveryAddress() == null || request.deliveryAddress().isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CART", "Vui lòng nhập địa chỉ giao hàng.");
         String method = request.paymentMethod() == null ? "PAYOS" : request.paymentMethod().toUpperCase(Locale.ROOT);
         if (!Set.of("PAYOS", "COD").contains(method)) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PAYMENT_METHOD", "Phương thức thanh toán không hợp lệ.");
-        List<RequestedItem> requested = request.items() != null ? request.items() : carts.findByCustomerIdOrderByIdAsc(customer.getId()).stream().map(i -> new RequestedItem(i.getProduct().getId(), i.getQuantity(), i.getSize(), i.getColor())).toList();
+        List<RequestedItem> requested = request.items() != null ? request.items() : carts.findByCustomerIdOrderByIdAsc(customer.getId()).stream().map(i -> new RequestedItem(i.getProduct().getId(), i.getQuantity(), i.getSize(), i.getColor(), i.getVariantId())).toList();
         if (requested.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CART", "Giỏ hàng đang trống.");
         Map<CartLineKey, RequestedItem> grouped = new LinkedHashMap<>();
         for (RequestedItem line : requested) {
@@ -76,7 +77,7 @@ public class OrderService {
             var previous = grouped.get(key);
             long quantity = (long) line.quantity() + (previous == null ? 0 : previous.quantity());
             if (quantity > Integer.MAX_VALUE) throw invalidCart();
-            grouped.put(key, new RequestedItem(key.productId(), (int) quantity, key.size(), key.color()));
+            grouped.put(key, new RequestedItem(key.productId(), (int) quantity, key.size(), key.color(),line.variantId()));
         }
         requested = grouped.values().stream().sorted(Comparator.comparing(RequestedItem::productId)).toList();
         Instant now = Instant.now(); Order order = new Order(); order.setCustomer(customer); order.setOrderCode(nextCode()); order.setDeliveryAddress(request.deliveryAddress().trim()); order.setPaymentMethod(method); order.setCreatedAt(now); order.setUpdatedAt(now); order.setStatus("PENDING"); order.setPaymentStatus("COD".equals(method) ? "COD" : "PENDING"); order.setExpiresAt("COD".equals(method) ? null : now.plus(Duration.ofMinutes(15)));
@@ -88,7 +89,10 @@ public class OrderService {
             long totalWanted = (long) wanted.getOrDefault(product.getId(), 0) + line.quantity();
             if (totalWanted > product.getStock()) throw new ApiException(HttpStatus.CONFLICT, "OUT_OF_STOCK", "Sản phẩm " + product.getName() + " không đủ số lượng.");
             wanted.put(product.getId(), (int) totalWanted);
-            OrderItem item = new OrderItem(); item.setOrder(order); item.setProduct(product); item.setQuantity(line.quantity()); item.setSize(clean(line.size())); item.setColor(clean(line.color())); item.setUnitPrice(CartService.price(product)); order.getItems().add(item);
+            var variant=stock.resolve(product,clean(line.size()),clean(line.color()));
+            if(line.variantId()!=null&&(variant==null||!line.variantId().equals(variant.getId())))throw invalidCart();
+            if(variant!=null && line.quantity()>variant.getStock()) throw new ApiException(HttpStatus.CONFLICT,"OUT_OF_STOCK","Biến thể không đủ tồn kho.");
+            OrderItem item = new OrderItem(); item.setVariantId(variant==null?null:variant.getId()); item.setOrder(order); item.setProduct(product); item.setQuantity(line.quantity()); item.setSize(clean(line.size())); item.setColor(clean(line.color())); item.setUnitPrice(CartService.price(product)); order.getItems().add(item);
             subtotal = subtotal.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
         }
         BigDecimal discount = BigDecimal.ZERO;
@@ -332,7 +336,9 @@ public class OrderService {
     @Transactional public OrderView requestReturn(User customer, Long id, String reason) { return requestReturn(customer, id, reason, null); }
 
     // Whole-order return when lines are omitted/empty; otherwise only the chosen items are persisted (one row per order item).
-    @Transactional public OrderView requestReturn(User customer, Long id, String reason, List<ReturnLineInput> lines) {
+    @Transactional public OrderView requestReturn(User customer, Long id, String reason, List<ReturnLineInput> lines) { return requestReturn(customer,id,reason,lines,List.of()); }
+
+    @Transactional public OrderView requestReturn(User customer, Long id, String reason, List<ReturnLineInput> lines, List<String> attachmentIds) {
         Order order = lockedOwned(customer, id);
         if (!Set.of("DELIVERED", "COMPLETED").contains(order.getStatus())) throw new ApiException(HttpStatus.CONFLICT, "RETURN_NOT_ALLOWED", "Chỉ có thể yêu cầu đổi trả sau khi đã nhận hàng.");
         if (order.getReturnStatus() != null && !"NONE".equals(order.getReturnStatus())) throw new ApiException(HttpStatus.CONFLICT, "RETURN_ALREADY_REQUESTED", "Đơn hàng đã có yêu cầu đổi trả.");
@@ -358,6 +364,7 @@ public class OrderService {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_RETURN_RESOLUTION", "Hình thức xử lý không hợp lệ.");
             returnItems.save(new OrderReturnItem(order.getId(), item.getId(), line.quantity(), resolution));
         }
+        order.returnAttachments = attachmentIds == null || attachmentIds.isEmpty() ? "[]" : attachments.consume(customer.getId(), attachmentIds, "RETURN", order.getId());
         order.setReturnStatus("REQUESTED"); order.setReturnReason(reason.trim()); order.setReturnRequestedAt(Instant.now()); order.setUpdatedAt(Instant.now()); orders.save(order);
         notifications.create(customer, "Đã tiếp nhận yêu cầu đổi trả", "Yêu cầu đổi trả đơn #" + order.getOrderCode() + " đang chờ xử lý.", "RETURN_REQUESTED", order.getId());
         return view(order);
@@ -429,9 +436,9 @@ public class OrderService {
     /** History cards never render returns/refunds or the shipment timeline, so skip those lookups per row. */
     private OrderView summaryView(Order o) { return orderView(o, lineViews(o), null, List.of(), List.of()); }
 
-    private List<OrderLineView> lineViews(Order o) { return o.getItems().stream().map(i -> new OrderLineView(i.getId(), i.getProduct().getId(), i.getProduct().getName(), i.getProduct().getImageUrl(), i.getQuantity(), i.getUnitPrice(), i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())), i.getSize(), i.getColor())).toList(); }
+    private List<OrderLineView> lineViews(Order o) { return o.getItems().stream().map(i -> new OrderLineView(i.getId(), i.getProduct().getId(), i.getProduct().getName(), i.getProduct().getImageUrl(), i.getQuantity(), i.getUnitPrice(), i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())), i.getSize(), i.getColor(), i.getVariantId())).toList(); }
 
-    private OrderView orderView(Order o, List<OrderLineView> lines, ShipmentView shipment, List<ReturnItemView> returnItems, List<RefundView> refunds) { return new OrderView(o.getId(), o.getOrderCode(), o.getStatus(), o.getPaymentStatus(), o.getPaymentMethod(), o.getDeliveryAddress(), o.getTrackingCode(), o.getCancelReason(), o.getReturnStatus(), o.getReturnReason(), o.getVoucherCode(), o.getDiscountAmount(), o.getTotalAmount(), o.getCreatedAt(), o.getUpdatedAt(), lines, o.getReturnRequestedAt(), o.getReturnHistory().stream().map(e->new ReturnEventView(e.getStatus(),e.getNote(),e.getCreatedAt())).toList(), shipment, returnItems, refunds); }
+    private OrderView orderView(Order o, List<OrderLineView> lines, ShipmentView shipment, List<ReturnItemView> returnItems, List<RefundView> refunds) { return new OrderView(o.getId(), o.getOrderCode(), o.getStatus(), o.getPaymentStatus(), o.getPaymentMethod(), o.getDeliveryAddress(), o.getTrackingCode(), o.getCancelReason(), o.getReturnStatus(), o.getReturnReason(), o.getVoucherCode(), o.getDiscountAmount(), o.getTotalAmount(), o.getCreatedAt(), o.getUpdatedAt(), lines, o.getReturnRequestedAt(), o.getReturnHistory().stream().map(e->new ReturnEventView(e.getStatus(),e.getNote(),e.getCreatedAt())).toList(), shipment, returnItems, refunds, attachments == null ? List.of() : attachments.read(o.returnAttachments)); }
 
     private List<ReturnItemView> returnViews(Order o) {
         return returnItems.findByOrderIdOrderByIdAsc(o.getId()).stream().map(r -> {
@@ -450,7 +457,7 @@ public class OrderService {
 
     private ShipmentView shipment(Long orderId) { return shipments.findByOrderId(orderId).map(s -> new ShipmentView(s.getCarrierCode(), carriers.findById(s.getCarrierCode()).map(ShippingCarrier::getName).orElse(s.getCarrierCode()), s.getTrackingCode(), s.getStatus(), s.getShippedAt(), s.getDeliveredAt(), shipmentEvents.findByShipmentIdOrderByIdAsc(s.getId()).stream().map(e -> new ManagerOrderQuery.ShipmentEventView(e.getStatus(), e.getNote(), e.getOccurredAt())).toList())).orElse(null); }
 
-    public record RequestedItem(Long productId, int quantity, String size, String color) {}
+    public record RequestedItem(Long productId, int quantity, String size, String color, Long variantId) {public RequestedItem(Long productId,int quantity,String size,String color){this(productId,quantity,size,color,null);}}
     private record CartLineKey(Long productId, String size, String color) {}
     public record CheckoutRequest(String deliveryAddress, String paymentMethod, String voucherCode, List<RequestedItem> items) {}
     public record Checkout(OrderView order, String paymentUrl, String paymentLinkId, String qrCode, Instant expiresAt) {}
@@ -459,7 +466,7 @@ public class OrderService {
     public record ReturnLineInput(Long orderItemId,int quantity,String resolution) {}
     public record ReturnItemView(Long orderItemId,Long productId,String name,int quantity,String resolution,Instant restockedAt) {}
     public record RefundView(Long id,BigDecimal amount,String status,String method,Instant processedAt) {}
-    public record OrderView(Long id, Long orderCode, String status, String paymentStatus, String paymentMethod, String deliveryAddress, String trackingCode, String cancelReason, String returnStatus, String returnReason, String voucherCode, BigDecimal discountAmount, BigDecimal totalAmount, Instant createdAt, Instant updatedAt, List<OrderLineView> items, Instant returnRequestedAt, List<ReturnEventView> returnHistory, ShipmentView shipment, List<ReturnItemView> returnItems, List<RefundView> refunds) {}
+    public record OrderView(Long id, Long orderCode, String status, String paymentStatus, String paymentMethod, String deliveryAddress, String trackingCode, String cancelReason, String returnStatus, String returnReason, String voucherCode, BigDecimal discountAmount, BigDecimal totalAmount, Instant createdAt, Instant updatedAt, List<OrderLineView> items, Instant returnRequestedAt, List<ReturnEventView> returnHistory, ShipmentView shipment, List<ReturnItemView> returnItems, List<RefundView> refunds, List<AttachmentService.View> returnAttachments) {}
     public record ShipmentView(String carrierCode, String carrierName, String trackingCode, String status, Instant shippedAt, Instant deliveredAt, List<ManagerOrderQuery.ShipmentEventView> events) {}
-    public record OrderLineView(Long id, Long productId, String name, String imageUrl, int quantity, BigDecimal unitPrice, BigDecimal lineTotal, String size, String color) {}
+    public record OrderLineView(Long id, Long productId, String name, String imageUrl, int quantity, BigDecimal unitPrice, BigDecimal lineTotal, String size, String color, Long variantId) {public OrderLineView(Long id,Long productId,String name,String imageUrl,int quantity,BigDecimal unitPrice,BigDecimal lineTotal,String size,String color){this(id,productId,name,imageUrl,quantity,unitPrice,lineTotal,size,color,null);}}
 }

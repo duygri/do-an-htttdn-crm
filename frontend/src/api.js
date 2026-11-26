@@ -30,14 +30,15 @@ async function parseResponse(response) {
 }
 
 export async function api(path, options = {}, canRefresh = true) {
-  const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
+  const headers = { ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-  const body = options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body;
+  const body = options.body && typeof options.body !== 'string' && !(options.body instanceof FormData) ? JSON.stringify(options.body) : options.body;
   const response = await request(`${API_BASE}${path}`, { ...options, headers, body, credentials: 'include' });
   if (response.status === 401 && canRefresh && !path.startsWith('/api/auth/')) {
     const session = await refreshSession();
     if (session) return api(path, options, false);
   }
+  if (response.ok && options.responseType === 'blob') return response.blob();
   return parseResponse(response);
 }
 

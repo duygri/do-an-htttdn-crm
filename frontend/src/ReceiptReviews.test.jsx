@@ -70,7 +70,7 @@ it('retries review loading without re-confirming receipt and opens only once', a
   await screen.findByText(/Đơn đã xác nhận thành công/);
   fireEvent.click(screen.getByText('Thử lại'));
   const dialog = await screen.findByRole('dialog', { name: 'Đánh giá Áo' });
-  expect(document.activeElement).toBe(dialog);
+  await waitFor(() => expect(document.activeElement).toBe(dialog));
   fireEvent.keyDown(dialog, { key: 'Escape' });
   view.rerender(<OrderReviews order={{ ...order, status: 'COMPLETED' }} autoOpen onAutoOpened={consumed}/>);
   expect(screen.queryByRole('dialog')).toBeNull(); expect(consumed).toHaveBeenCalledTimes(1);

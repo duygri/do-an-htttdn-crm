@@ -15,7 +15,7 @@
 - Trước khi xử lý phải phân công; người mới được giao phải là MANAGER đang hoạt động. Có thể giữ người phụ trách cũ không còn hoạt động để kết thúc lịch sử; Manager có thể giao lại cho người đang hoạt động.
 - Đổi sang Chờ khách/Đã giải quyết phải có nội dung công khai gửi khách. Ghi chú nội bộ và trả lời của Manager có thể ghi riêng; ghi chú nội bộ không tạo thông báo cho khách.
 - Phiếu đã giải quyết chỉ xem; nếu cần hỗ trợ thêm, tạo phiếu mới. Không có xóa cứng/xóa mềm hoặc tự đóng theo thời gian ở bản này.
-- Tiêu đề 1–150, nội dung/tin nhắn 1–4.000 ký tự sau trim. Tối đa 200 tin nhắn trao đổi/ghi chú, cho phép thêm một tin chốt khi giải quyết. Hội thoại lưu dạng JSON text trong cùng phiếu; chưa hỗ trợ file, ảnh, chat realtime hay SLA.
+- Tiêu đề 1–150, nội dung/tin nhắn 1–4.000 ký tự sau trim. Tối đa 200 tin nhắn trao đổi/ghi chú, cho phép thêm một tin chốt khi giải quyết. Hội thoại lưu dạng JSON text trong cùng phiếu; ảnh đính kèm dùng dịch vụ private upload và SLA/CSAT theo phần mở rộng bên dưới; chưa có chat realtime.
 - Mọi thay đổi khóa phiếu trong transaction. Cập nhật dùng `version`; xung đột trả 409 và giữ bản nháp trên web. Mã UUID cho lần tạo và mỗi tin nhắn chống trùng khi gửi lại sau mất phản hồi. Không tự sửa/hủy/thu tiền/hoàn tiền đơn liên quan hoặc đổi trạng thái việc chăm sóc.
 
 ## API
@@ -45,3 +45,15 @@
 - Chưa kiểm thử trực quan đầy đủ trên trình duyệt kết nối backend thật. Không thực hiện thanh toán hoặc xử lý đơn thật để QA.
 
 Kết quả kiểm tra tự động đợt triển khai: 254 test frontend qua (`npm test -- --maxWorkers=2`); `mvn test -q`, build và kiểm tra whitespace qua. Đã chạy riêng hai test PostgreSQL `SupportTicketPostgresTest` và `CareReminderPostgresTest` thành công trên bảng tạm rollback; không cài migration vào database đang dùng.
+
+
+## Support experience: SLA, CSAT và ảnh
+
+- Migration bổ sung: `database/migration_support_experience.sql`; chỉ ALTER bảng hiện có, không tự chạy. Phụ thuộc migration attachment của dịch vụ upload để có `customers.pending_attachments`.
+- Phiếu mới mặc định NORMAL. URGENT = 4 giờ, NORMAL = 24 giờ, LOW = 48 giờ liên tục từ `createdAt`; chờ khách không dừng đồng hồ. Đổi ưu tiên tính lại từ lúc tạo, yêu cầu `version` hiện tại và `priorityReason` không trống (tối đa 1000 ký tự), lưu reason trong audit. Phiếu cũ giữ SLA UNKNOWN, không suy diễn lịch sử.
+- PATCH manager bổ sung `priority`, `priorityReason`. `firstResponseAt` chỉ được ghi một lần khi manager gửi trả lời công khai, bao gồm reply khi xử lý trạng thái; ghi chú nội bộ và lời khách không được tính.
+- GET danh sách customer và manager đều nhận `priority=URGENT|NORMAL|LOW`, `unanswered=true`, `overdue=true`, `sort=due|updated`. Lọc trước phân trang; unanswered/overdue chỉ phiếu chưa giải quyết có SLA ghi nhận. Due tăng dần, null cuối, ID làm khóa sắp xếp phụ.
+- `POST /api/support-tickets/{id}/csat`: `{rating:1..5, comment?:string(max1000), requestId:UUID}`. Chỉ khách sở hữu phiếu đã giải quyết được gửi một lần. Gửi lại cùng requestId và payload trả kết quả cũ; nội dung khác trả 409. Khóa phiếu bảo vệ hai yêu cầu đồng thời.
+- `GET /api/manager/support-tickets/report?from=YYYY-MM-DD&to=YYYY-MM-DD`: theo `resolvedAt`, từ ngày đầu đến hết ngày cuối tại Asia/Ho_Chi_Minh (tối đa 367 ngày). Trả `resolvedCount`, `recordedCount`, `unrecordedCount`, `distribution` đủ điểm 1–5, `averageRating`, `responseRatio` (phân số 0–1, `ratioUnit=FRACTION_0_TO_1`, UI đổi sang %), `slaKnownCount`, `slaMetCount`, `slaMetRatio`. Chỉ tính CUSTOMER chưa xóa (vẫn tính khách bị khóa). Trung bình và tỷ lệ làm tròn 2 chữ số thập phân. Trung bình không tính phiếu chưa đánh giá; không có mẫu thì average/ratio null. Báo cáo tổng hợp SQL không tải hội thoại/ảnh.
+- Create, Reply và Update có `attachmentIds` (tối đa 5 ID upload). Backend chỉ consume ảnh thuộc người gửi, trong cùng transaction với phiếu/tin nhắn. Create trả `Detail.attachments`, tin nhắn có `attachments` metadata từ backend. UUID gửi lại phải giữ cả danh sách ảnh. Tin nội bộ dùng target `SUPPORT_INTERNAL`; customer không thấy metadata và không tải được ảnh đó. Giao diện dùng AttachmentPicker/AttachmentLinks để tải ảnh có xác thực.
+- Frontend có chỉnh ưu tiên và lý do, bộ lọc giữ URL, hạn phản hồi/nhãn UNKNOWN, đánh giá một lần sau giải quyết, báo cáo theo ngày và phân bố điểm. Create/reply/CSAT khôi phục alive ref khi StrictMode replay.

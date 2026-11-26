@@ -27,7 +27,7 @@ public class SupplierReceiptService {
     private final ProductRepository products;
     private final AuditTrail audit;
     public SupplierReceiptService(SupplierReceiptRepository receipts,SupplierRepository suppliers,ProductRepository products,AuditTrail audit){this.receipts=receipts;this.suppliers=suppliers;this.products=products;this.audit=audit;}
-    public record LineRequest(@NotNull Long productId,@Min(1) @Max(1000000) int quantity,@NotNull @DecimalMin("0.0") BigDecimal unitCost){}
+    public record LineRequest(@NotNull Long productId,@Min(1) @Max(1000000) int quantity,@NotNull @DecimalMin("0.0") BigDecimal unitCost,Long variantId){public LineRequest(Long productId,int quantity,BigDecimal unitCost){this(productId,quantity,unitCost,null);}}
     public record CreateRequest(@NotNull Long supplierId,@NotBlank @Size(max=80) String invoiceNumber,@NotNull LocalDate invoiceDate,@Size(max=1000) String note,@NotEmpty List<@jakarta.validation.Valid LineRequest> items){}
     private ApiException bad(String message){return new ApiException(HttpStatus.BAD_REQUEST,"INVALID_SUPPLIER_RECEIPT",message);}
     @Transactional(readOnly=true) public Page<SupplierReceipt> list(Long supplierId,LocalDate from,LocalDate to,int page,int size){
@@ -63,6 +63,10 @@ public class SupplierReceiptService {
             BigDecimal cost=line.unitCost()==null?BigDecimal.ZERO:line.unitCost();
             if(cost.scale()>2)throw bad("Đơn giá chỉ hỗ trợ tối đa 2 chữ số thập phân.");
             var item=new SupplierReceiptItem(receipt,product,line.quantity(),cost);
+            if(product.isVariantsAllocated()){
+                var variant=product.getVariants().stream().filter(v->v.getId().equals(line.variantId())).findFirst().orElseThrow(()->bad("Vui lòng chọn biến thể hợp lệ."));
+                item.setVariantId(variant.getId());
+            } else if(line.variantId()!=null)throw bad("Sản phẩm chưa phân bổ biến thể.");
             receipt.getItems().add(item);
             total=total.add(item.getLineTotal());
         }

@@ -22,7 +22,7 @@ import java.util.*;
 /** Read models for the stock ledger and low-stock alerts. */
 @Service
 public class InventoryQueryService {
-    private static final Set<String> TYPES = Set.of("SALE", "CANCEL_RELEASE", "ADJUST", "INITIAL", "STOCKTAKE");
+    private static final Set<String> TYPES = Set.of("SALE", "CANCEL_RELEASE", "ADJUST", "INITIAL", "STOCKTAKE", "RETURN_RESTOCK");
 
     private final StockMovementRepository movements;
     private final ProductRepository products;
@@ -44,10 +44,10 @@ public class InventoryQueryService {
 
     public record MovementView(Long id, Long productId, String productName, String type, int quantity,
                                int stockBefore, int stockAfter, String referenceType, Long referenceId,
-                               String note, String actorName, Instant createdAt) {}
+                               String note, String actorName, Instant createdAt, Long variantId, String size, String color) {}
 
     public record LowStockRow(Long productId, String name, String category, Long supplierId, int stock,
-                              int threshold, Instant updatedAt) {}
+                              int threshold, Instant updatedAt, Long variantId, String size, String color) {}
 
     @Transactional(readOnly = true)
     public Page<MovementView> movements(Long productId, String type, Instant from, Instant to, int page, int size) {
@@ -56,7 +56,7 @@ public class InventoryQueryService {
         if (normalized != null && !TYPES.contains(normalized)) throw bad();
         if (from != null && to != null && from.isAfter(to)) throw bad();
         Specification<StockMovement> spec = (root, query, cb) -> {
-            if (query.getResultType() != Long.class) root.fetch("product", JoinType.LEFT);
+            if (query.getResultType() != Long.class) {root.fetch("product", JoinType.LEFT);root.fetch("variant", JoinType.LEFT);}
             var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
             if (productId != null) predicates.add(cb.equal(root.get("product").get("id"), productId));
             if (normalized != null) predicates.add(cb.equal(root.get("movementType"), normalized));
@@ -75,7 +75,7 @@ public class InventoryQueryService {
         if (normalized != null && !TYPES.contains(normalized)) throw bad();
         if (from != null && to != null && from.isAfter(to)) throw bad();
         Specification<StockMovement> spec = (root, query, cb) -> {
-            if (query.getResultType() != Long.class) root.fetch("product", JoinType.LEFT);
+            if (query.getResultType() != Long.class) {root.fetch("product", JoinType.LEFT);root.fetch("variant", JoinType.LEFT);}
             var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
             if (productId != null) predicates.add(cb.equal(root.get("product").get("id"), productId));
             if (normalized != null) predicates.add(cb.equal(root.get("movementType"), normalized));
@@ -95,7 +95,7 @@ public class InventoryQueryService {
         Map<String, Object> args = new HashMap<>();
         args.put("fallback", fallback);
         StringBuilder where = new StringBuilder(
-            " WHERE p.active=true AND p.quantity_remaining <= COALESCE(p.low_stock_threshold,:fallback)");
+            " WHERE p.active=true AND ((p.variants_allocated=false AND p.quantity_remaining <= COALESCE(p.low_stock_threshold,:fallback)) OR (p.variants_allocated=true AND v.id IS NOT NULL AND v.stock <= COALESCE(p.low_stock_threshold,:fallback)))");
         if (supplierId != null) {
             where.append(" AND p.supplier_id=:supplierId");
             args.put("supplierId", supplierId);
@@ -104,18 +104,18 @@ public class InventoryQueryService {
             where.append(" AND c.name=:category");
             args.put("category", category.trim());
         }
-        String from = " FROM products p LEFT JOIN categories c ON c.category_id=p.category_id";
+        String from = " FROM products p LEFT JOIN categories c ON c.category_id=p.category_id LEFT JOIN product_variants v ON v.product_id=p.product_id AND p.variants_allocated=true AND v.active=true";
         Long total = db.queryForObject("SELECT COUNT(*)" + from + where, args, Long.class);
         args.put("limit", size);
         args.put("offset", (long) page * size);
         String select = "SELECT p.product_id,p.name,COALESCE(c.name,'') AS category,p.supplier_id,"
-            + "p.quantity_remaining,COALESCE(p.low_stock_threshold,:fallback) AS threshold,p.updated_at"
-            + from + where + " ORDER BY p.quantity_remaining ASC,p.product_id ASC LIMIT :limit OFFSET :offset";
+            + "CASE WHEN p.variants_allocated THEN v.stock ELSE p.quantity_remaining END AS quantity_remaining,COALESCE(p.low_stock_threshold,:fallback) AS threshold,p.updated_at,v.id AS variant_id,v.size AS variant_size,v.color AS variant_color"
+            + from + where + " ORDER BY quantity_remaining ASC,p.product_id ASC,v.id ASC LIMIT :limit OFFSET :offset";
         List<LowStockRow> content = db.query(select, args, (rs, rowNum) -> new LowStockRow(
             rs.getLong("product_id"), rs.getString("name"), rs.getString("category"),
             rs.getObject("supplier_id") == null ? null : rs.getLong("supplier_id"),
             rs.getInt("quantity_remaining"), rs.getInt("threshold"),
-            rs.getTimestamp("updated_at") == null ? null : rs.getTimestamp("updated_at").toInstant()));
+            rs.getTimestamp("updated_at") == null ? null : rs.getTimestamp("updated_at").toInstant(),(Long)rs.getObject("variant_id"),rs.getString("variant_size"),rs.getString("variant_color")));
         return new PageImpl<>(content, PageRequest.of(page, size), total == null ? 0 : total);
     }
 
@@ -141,7 +141,7 @@ public class InventoryQueryService {
     private MovementView view(StockMovement m) {
         return new MovementView(m.getId(), m.getProduct().getId(), m.getProduct().getName(), m.getMovementType(),
             m.getQuantity(), m.getStockBefore(), m.getStockAfter(), m.getReferenceType(), m.getReferenceId(),
-            m.getNote(), m.getActorName(), m.getCreatedAt());
+            m.getNote(), m.getActorName(), m.getCreatedAt(), m.getVariantId(), m.getVariant()==null?null:m.getVariant().getSize(), m.getVariant()==null?null:m.getVariant().getColor());
     }
 
     private static ApiException bad() {

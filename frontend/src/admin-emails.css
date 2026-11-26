@@ -1,0 +1,10 @@
+.admin-emails { display: grid; gap: 16px; }
+.admin-emails p { line-height: 1.6; }
+.email-controls, .admin-emails nav { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.email-table { overflow-x: auto; }
+.email-table table { width: 100%; border-collapse: collapse; text-align: left; }
+.email-table th, .email-table td { padding: 12px; border-bottom: 1px solid var(--internal-border, #64748b); white-space: nowrap; }
+.email-confirm { max-width: min(560px, 90vw); color: inherit; background: var(--internal-card-bg, #182235); padding: 24px; border: 1px solid #94a3b8; border-radius: 12px; }
+.email-confirm button { margin-right: 12px; }
+
+.email-confirm::backdrop { background: rgb(0 0 0 / 60%); }

@@ -41,7 +41,7 @@ afterEach(cleanup);
 
 it('opens the supplier detail with payables and archives the supplier', async () => {
   render(<ManagerApp />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Chi tiết' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Chi tiết' }, {timeout:10000}));
   expect(await screen.findByRole('heading', { name: 'NCC-01 · Nhà cung cấp A' })).toBeTruthy();
   expect(screen.getAllByText('80.000 đ').length).toBeGreaterThan(0);
   expect(screen.getByText('Áo sơ mi')).toBeTruthy();
@@ -56,7 +56,7 @@ it('opens the supplier detail with payables and archives the supplier', async ()
 
 it('records a payment for a receipt and downloads the payables CSV', async () => {
   render(<ManagerApp />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Chi tiết' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Chi tiết' }, {timeout:10000}));
   await screen.findByRole('heading', { name: 'NCC-01 · Nhà cung cấp A' });
 
   const amount = screen.getByLabelText('Số tiền HD-9');

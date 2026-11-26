@@ -20,7 +20,7 @@ class StockServiceTest {
         when(products.findLockedById(1L)).thenReturn(Optional.of(a));when(products.findLockedById(2L)).thenReturn(Optional.of(b));
         service.release(o);service.release(o);
         assertEquals(9,a.getStock());assertEquals(11,b.getStock());assertTrue(o.isStockReleased());
-        var sequence=inOrder(products);sequence.verify(products).findLockedById(1L);sequence.verify(products).save(a);sequence.verify(products).findLockedById(2L);sequence.verify(products).save(b);sequence.verifyNoMoreInteractions();
+        var sequence=inOrder(products);sequence.verify(products).findLockedById(1L);sequence.verify(products).findLockedById(2L);sequence.verify(products).save(a);sequence.verify(products).save(b);sequence.verifyNoMoreInteractions();
     }
     @Test void missingProductDoesNotMarkOrderReleased() {
         Order o=new Order();line(o,product(1),1);
