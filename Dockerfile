@@ -22,6 +22,7 @@ COPY database/migration_email_outbox.sql ./src/main/resources/db/migration_email
 COPY database/migration_support_experience.sql ./src/main/resources/db/migration_support_experience.sql
 COPY database/migration_attachment_metadata.sql ./src/main/resources/db/migration_attachment_metadata.sql
 COPY database/migration_product_variants.sql ./src/main/resources/db/migration_product_variants.sql
+COPY database/migration_membership.sql ./src/main/resources/db/migration_membership.sql
 COPY --from=web /web/dist ./src/main/resources/static
 RUN mvn -B -DskipTests package
 

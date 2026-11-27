@@ -103,8 +103,12 @@ Tham chiếu giao thức: [Brevo gửi thư giao dịch](https://developers.brev
 
 User phải chọn màu, size và số lượng trong hộp thoại trước khi thêm giỏ hoặc mua ngay. Hộp thoại tải lại sản phẩm, chỉ nhận tổ hợp còn tồn và không tự chọn thay khách. Giữ luồng đăng nhập/checkout hiện tại.
 
-Docker chỉ đóng gói `deploy/application.yml`, không lấy cấu hình bí mật local. Tám migration được liệt kê tường minh, không chạy schema chuẩn hoặc seed trên Render. Các migration bổ sung chạy lại được; không phân bổ biến thể, điền lịch sử hay gửi email cũ. Sao lưu Neon và kiểm tra khả năng phục hồi trước Manual Deploy.
+Docker chỉ đóng gói `deploy/application.yml`, không lấy cấu hình bí mật local. Chín migration được liệt kê tường minh, không chạy schema chuẩn hoặc seed trên Render. Các migration bổ sung chạy lại được; không phân bổ biến thể, điền lịch sử hay gửi email cũ. Sao lưu Neon và kiểm tra khả năng phục hồi trước Manual Deploy.
 
 Trên Render chọn đúng dịch vụ **anhlonshop**, nhánh **codex/free-demo-deployment**, rồi **Manual Deploy → Deploy latest commit**. Không cần tạo dịch vụ mới. Không bật tự hủy PayOS hoặc thay các khóa đang dùng. Nếu chưa cấu hình Cloudinary, đính kèm bị vô hiệu hóa; văn bản vẫn hoạt động. Brevo giữ chế độ thử hiện tại đến khi chủ dự án xác minh gửi.
 
 Sau deploy: xác nhận đúng commit Live, refresh trang sản phẩm và thử mở/đóng hộp chọn, đổi màu/size trên desktop/mobile. Không cần đặt đơn hoặc gửi email thật để kiểm tra giao diện. Không rollback ứng dụng bằng cách xóa bảng/cột mới; giữ dữ liệu và đối chiếu log nếu startup thất bại.
+
+## Hạng thành viên (27/11/2026)
+
+Sau các migration trên, startup chạy `migration_membership.sql` để thêm snapshot ưu đãi trên orders. Xem [quy tắc và API hạng thành viên](membership.md). Điểm thưởng đã ngừng cộng/đổi/điều chỉnh; lịch sử điểm và voucher cũ được giữ nguyên. Không tính lại đơn cũ.

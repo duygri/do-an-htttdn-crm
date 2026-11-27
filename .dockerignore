@@ -23,3 +23,4 @@ backend/src/main/resources
 !database/migration_support_experience.sql
 !database/migration_attachment_metadata.sql
 !database/migration_product_variants.sql
+!database/migration_membership.sql
