@@ -33,7 +33,7 @@ class OrderConfirmationTest {
         assertEquals("COD",order.getPaymentStatus());
         verify(notifications,times(1)).create(eq(customer),anyString(),anyString(),eq("ORDER_COMPLETED"),eq(9L));
         verify(orders,times(1)).save(order); verifyNoInteractions(products,carts,vouchers,payos,payments);
-        verify(loyalty,times(1)).awardForCompletedOrder(order);
+        verifyNoInteractions(loyalty);
         verify(audit,times(1)).recordAs(argThat(a->a.id().equals(2L)&&a.role().equals("CUSTOMER")),eq("CUSTOMER_RECEIPT"),eq("ORDER"),eq(9L),
             argThat(s->"DELIVERED".equals(s.get("status"))),argThat(s->"COMPLETED".equals(s.get("status"))));
     }
@@ -65,7 +65,9 @@ class OrderConfirmationTest {
     final ShipmentRepository shipments = mock(ShipmentRepository.class);
     final ShippingCarrierRepository carriers = mock(ShippingCarrierRepository.class);
     final ShipmentEventRepository shipmentEvents = mock(ShipmentEventRepository.class);
-    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,stock,reconciliation,loyalty,shipments,carriers,shipmentEvents,mock(com.htttdn.crm.repository.OrderReturnItemRepository.class),mock(com.htttdn.crm.repository.OrderRefundRepository.class));
+    final MembershipService membership = mock(MembershipService.class);
+    @org.junit.jupiter.api.BeforeEach void membershipDefaults(){when(membership.forCustomer(any())).thenReturn(MembershipService.calculate(BigDecimal.ZERO));}
+    final OrderService service = new OrderService(orders,products,carts,payments,attempts,events,vouchers,notifications,payos,feedback,audit,stock,reconciliation,loyalty,shipments,carriers,shipmentEvents,mock(com.htttdn.crm.repository.OrderReturnItemRepository.class),mock(com.htttdn.crm.repository.OrderRefundRepository.class),membership);
 
     @Test void completedReviewedOrderCannotRequestReturn() {
         User customer = new User(); org.springframework.test.util.ReflectionTestUtils.setField(customer,"id",2L);

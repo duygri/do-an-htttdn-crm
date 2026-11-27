@@ -18,11 +18,11 @@ class SettingsServiceTest {
     @Test void defaultsAndOverrides(){
         assertEquals("Anh Lon Shop",settings.get("invoice.seller.name"));
         assertEquals(5,settings.getInt("inventory.lowStockDefault"));
-        assertEquals(8,settings.all().size());
+        assertEquals(5,settings.all().size());
         var actor=new AuditTrail.Actor(1L,"Admin","ADMIN");
-        settings.update(Map.of("inventory.lowStockDefault","8","loyalty.redeemPoints","150"),actor);
+        settings.update(Map.of("inventory.lowStockDefault","8"),actor);
         assertEquals(8,settings.getInt("inventory.lowStockDefault"));
-        assertEquals(150,settings.getInt("loyalty.redeemPoints"));
+        assertFalse(settings.all().containsKey("loyalty.redeemPoints"));
         assertEquals("Anh Lon Shop",settings.all().get("invoice.seller.name"));
     }
 

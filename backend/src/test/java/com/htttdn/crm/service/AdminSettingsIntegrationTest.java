@@ -38,14 +38,14 @@ class AdminSettingsIntegrationTest {
         var admin = jwt.issue(user("ADMIN").getId(), "ADMIN");
         mvc.perform(get("/api/admin/settings").header("Authorization", "Bearer " + admin))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.length()").value(8))
+            .andExpect(jsonPath("$.length()").value(5))
             .andExpect(jsonPath("$['invoice.seller.name']").value("Anh Lon Shop"));
         mvc.perform(put("/api/admin/settings").header("Authorization", "Bearer " + admin)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"loyalty.redeemPoints\":\"150\"}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"inventory.lowStockDefault\":\"150\"}"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$['loyalty.redeemPoints']").value("150"));
+            .andExpect(jsonPath("$['inventory.lowStockDefault']").value("150"));
         mvc.perform(get("/api/admin/settings").header("Authorization", "Bearer " + admin))
-            .andExpect(jsonPath("$['loyalty.redeemPoints']").value("150"));
+            .andExpect(jsonPath("$['inventory.lowStockDefault']").value("150"));
         mvc.perform(put("/api/admin/settings").header("Authorization", "Bearer " + admin)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"unknown.key\":\"1\"}"))
             .andExpect(status().isBadRequest())

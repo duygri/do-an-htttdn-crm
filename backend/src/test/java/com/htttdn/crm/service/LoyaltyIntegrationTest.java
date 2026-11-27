@@ -49,62 +49,17 @@ class LoyaltyIntegrationTest {
         return order;
     }
 
-    @Test void confirmingReceiptAwardsPointsOnceAndExposesThemToTheCustomer() throws Exception {
-        var customer = user("CUSTOMER");
-        var order = delivered(customer, "255000.00");
-        var token = jwt.issue(customer.getId(), "CUSTOMER");
-
-        mvc.perform(patch("/api/orders/" + order.getId() + "/confirm-receipt")
-                .header("Authorization", "Bearer " + token))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("COMPLETED"));
-        mvc.perform(patch("/api/orders/" + order.getId() + "/confirm-receipt")
-                .header("Authorization", "Bearer " + token))
-            .andExpect(status().isOk());
-
-        mvc.perform(get("/api/account/points").header("Authorization", "Bearer " + token))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.balance").value(25))
-            .andExpect(jsonPath("$.history.length()").value(1))
-            .andExpect(jsonPath("$.history[0].type").value("EARN"))
-            .andExpect(jsonPath("$.history[0].orderId").value(order.getId()));
-        mvc.perform(get("/api/account/points").header("Authorization", "Bearer " + jwt.issue(user("MANAGER").getId(), "MANAGER")))
-            .andExpect(status().isForbidden());
-        mvc.perform(get("/api/account/points")).andExpect(status().isUnauthorized());
-    }
-
-    @Test void managersAdjustPointsAndCustomersRedeemVouchers() throws Exception {
-        var customer = user("CUSTOMER");
-        var manager = user("MANAGER");
-        var managerToken = jwt.issue(manager.getId(), "MANAGER");
-        var customerToken = jwt.issue(customer.getId(), "CUSTOMER");
-
-        mvc.perform(post("/api/manager/customers/" + customer.getId() + "/points")
-                .header("Authorization", "Bearer " + managerToken)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"points\":150,\"note\":\"Bù điểm khiếu nại\"}"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.balance").value(150));
-        mvc.perform(get("/api/manager/customers/" + customer.getId() + "/points")
-                .header("Authorization", "Bearer " + managerToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.balance").value(150));
-        mvc.perform(post("/api/manager/customers/" + customer.getId() + "/points")
-                .header("Authorization", "Bearer " + customerToken)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"points\":50,\"note\":\"Tự cộng\"}"))
-            .andExpect(status().isForbidden());
-        mvc.perform(post("/api/manager/customers/" + customer.getId() + "/points")
-                .header("Authorization", "Bearer " + managerToken)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"points\":0,\"note\":\"Sai\"}"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.code").value("INVALID_POINTS"));
-
-        mvc.perform(post("/api/account/points/redeem").header("Authorization", "Bearer " + customerToken))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.spentPoints").value(100))
-            .andExpect(jsonPath("$.balance").value(50))
-            .andExpect(jsonPath("$.code").value(org.hamcrest.Matchers.startsWith("DIEM-")));
-        mvc.perform(post("/api/account/points/redeem").header("Authorization", "Bearer " + customerToken))
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.code").value("INSUFFICIENT_POINTS"));
+    @Test void completionChangesMembershipWithoutAwardingPoints()throws Exception{
+        var customer=user("CUSTOMER");var order=delivered(customer,"2000000");var token=jwt.issue(customer.getId(),"CUSTOMER");
+        mvc.perform(patch("/api/orders/"+order.getId()+"/confirm-receipt").header("Authorization","Bearer "+token)).andExpect(status().isOk());
+        em.flush();
+        mvc.perform(get("/api/account/membership").header("Authorization","Bearer "+token)).andExpect(status().isOk()).andExpect(jsonPath("$.tier").value("SILVER"));
+        org.junit.jupiter.api.Assertions.assertEquals(0L,em.createQuery("select count(p) from PointTransaction p",Long.class).getSingleResult());
+        mvc.perform(get("/api/account/points").header("Authorization","Bearer "+token)).andExpect(status().isGone());
+        mvc.perform(post("/api/account/points/redeem").header("Authorization","Bearer "+token)).andExpect(status().isGone());
+        var manager=user("MANAGER");var managerToken=jwt.issue(manager.getId(),"MANAGER");
+        mvc.perform(post("/api/manager/customers/"+customer.getId()+"/points").header("Authorization","Bearer "+managerToken).contentType(MediaType.APPLICATION_JSON).content("{\"points\":50,\"note\":\"test\"}")).andExpect(status().isGone());
+        mvc.perform(get("/api/account/membership").header("Authorization","Bearer "+managerToken)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/account/membership")).andExpect(status().isUnauthorized());
     }
 }

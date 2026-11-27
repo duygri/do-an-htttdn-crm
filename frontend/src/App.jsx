@@ -17,7 +17,7 @@ import CustomerPassword from './CustomerPassword';
 import ShipmentTimeline from './ShipmentTimeline';
 import ReturnRequestForm from './ReturnRequestForm';
 import { AttachmentLinks } from './AttachmentPicker';
-import CustomerPoints from './CustomerPoints';
+import MembershipCard from './MembershipCard';
 const SupportTickets=React.lazy(()=>import('./SupportTickets'));
 import { useCartSelection, cartLineKey, canBuyLine, transferGuestSelection, subtractPurchased } from './cart-selection';
 import { useCustomerRouter, actionPaths, isAccountPath, needsCustomer, isKnownPath, safeReturn } from './customer-routing';
@@ -2463,6 +2463,7 @@ export function OrderView({ order, onNotice, onChanged, onPaymentChanged, onRece
           <strong>{money(item.lineTotal)}</strong>
         </div>
       ))}
+      {Number(order.memberDiscountAmount)>0&&<div className="order-total"><span>GIẢM HẠNG THÀNH VIÊN ({order.memberDiscountPercent}%)</span><strong>-{money(order.memberDiscountAmount)}</strong></div>}
       {order.discountAmount > 0 && <div className="order-total"><span>GIẢM GIÁ {order.voucherCode ? `(${order.voucherCode})` : ""}</span><strong>-{money(order.discountAmount)}</strong></div>}
       <div className="order-total"><span>TỔNG ĐƠN HÀNG</span><strong>{money(order.totalAmount)}</strong></div>
       <p className="shop-order-payment-method"><b>Phương thức thanh toán:</b> {order.paymentMethod === "PAYOS" ? "Quét mã QR PayOS" : "Thanh toán khi nhận hàng"}</p>
@@ -2622,7 +2623,7 @@ function ProfileModal({ page = false, user, onClose, onUser, onLogout, onOpenOrd
             {busy ? "ĐANG LƯU..." : "LƯU THAY ĐỔI"}
           </button>
         </form>
-        <CustomerPoints />
+        <MembershipCard />
         <button className="profile-survey-link account-menu-primary" onClick={onOpenOrders}>
           <span>Đơn hàng của tôi</span>
           <ArrowUpRight size={16} aria-hidden="true" />

@@ -5,7 +5,7 @@ import { useManagerResource } from './useManagerResource';
 import ManagerOrderDetail, { money, date, orderLabels, paymentLabels, returnLabels } from './ManagerOrderDetail';
 import './customer-profile.css';
 import CustomerLifecycle, {lifecycleExplanation} from './CustomerLifecycle';
-import ManagerPoints from './ManagerPoints';
+import MembershipCard from './MembershipCard';
 const CustomerCare=React.lazy(()=>import('./CustomerCare'));
 
 const tabs = [['orders','Đơn hàng'],['activities','Lịch sử hoạt động'],['addresses','Địa chỉ'],['feedback','Đánh giá'],['surveys','Khảo sát'],['vouchers','Voucher'],['care','Chăm sóc']];
@@ -59,7 +59,7 @@ export default function CustomerProfile({ customerId, location, go }) {
           ['Ngày đặt gần nhất (đơn hoàn thành)',date(summary.lastCompletedOrderAt)],
         ].map(([label,value]) => <div className="admin-panel" key={label}><span>{label}</span><strong>{value}</strong></div>)}
       </div>
-      <ManagerPoints customerId={customer.id} />
+      {data.membership&&<MembershipCard membership={data.membership}/>}
       <p className="profile-explanation">Giá trị đơn hoàn thành là tổng tiền sau giảm giá của đơn COMPLETED, chưa trừ hoàn tiền; bao gồm đơn có yêu cầu đổi trả. Đây không phải số tiền đã thu.</p>
       <div className="admin-panel">
         <nav className="profile-tabs" aria-label="Nội dung hồ sơ">{tabs.map(([key,label]) => <button key={key} className={tab === key ? 'admin-primary' : 'admin-action'} aria-current={tab === key ? 'page' : undefined} onClick={() => navigate(key)}>{label}</button>)}</nav>

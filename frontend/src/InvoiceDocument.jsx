@@ -22,6 +22,7 @@ export default function InvoiceDocument({invoice}){
     </table>
     <div className="invoice-totals">
       <p><span>Tạm tính</span><b>{money(invoice.subtotal)}</b></p>
+      {Number(invoice.memberDiscountAmount)>0&&<p><span>Giảm hạng thành viên ({invoice.memberDiscountPercent}%)</span><b>-{money(invoice.memberDiscountAmount)}</b></p>}
       {Number(invoice.discountAmount)>0&&<p><span>Giảm giá</span><b>-{money(invoice.discountAmount)}</b></p>}
       <p className="invoice-grand"><span>Tổng cộng</span><b>{money(invoice.totalAmount)}</b></p>
     </div>

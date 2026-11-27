@@ -22,7 +22,7 @@ public class CustomerProfileService {
                            String preferences, Instant createdAt, boolean locked, String lockReason) {}
     public record Summary(long totalOrders, long completedOrders, long cancelledOrders, long returnOrders,
                           BigDecimal completedValue, Instant lastCompletedOrderAt) {}
-    public record Profile(Customer customer, Summary summary, CustomerLifecycle.Segment segmentation) {}
+    public record Profile(Customer customer, Summary summary, CustomerLifecycle.Segment segmentation, MembershipService.Membership membership) {}
     public record Page<T>(List<T> content, long totalElements, long totalPages, int number, int size) {}
     public record Address(long id, String label, String recipientName, String phone, String addressLine,
                           String ward, String district, String province, boolean defaultAddress) {}
@@ -62,7 +62,7 @@ public class CustomerProfileService {
             """, (r,n) -> new Summary(r.getLong("total_orders"),r.getLong("completed_orders"),r.getLong("cancelled_orders"),
                 r.getLong("return_orders"),r.getBigDecimal("completed_value"),instant(r,"last_completed_order_at")),id);
         return new Profile(customer, summary, CustomerLifecycle.calculate(summary.completedOrders(), summary.completedValue(),
-            summary.lastCompletedOrderAt(), java.time.LocalDate.now(CustomerLifecycle.ZONE)));
+            summary.lastCompletedOrderAt(), java.time.LocalDate.now(CustomerLifecycle.ZONE)), MembershipService.calculate(summary.completedValue()));
     }
     private <T> Page<T> page(long id, int page, int size, String select, String from, String order, RowMapper<T> mapper) {
         customer(id);

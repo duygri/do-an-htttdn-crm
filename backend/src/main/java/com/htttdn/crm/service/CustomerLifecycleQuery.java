@@ -32,7 +32,7 @@ public class CustomerLifecycleQuery {
     }
     public record Customer(long id, String fullName, String email, String phone, Integer age, String preferences,
         Instant createdAt, boolean locked, String lockReason, long completedOrders, BigDecimal completedValue,
-        Instant lastCompletedOrderAt, CustomerLifecycle.Segment segmentation) {}
+        Instant lastCompletedOrderAt, CustomerLifecycle.Segment segmentation, MembershipService.Membership membership) {}
     private static ApiException invalid(String message) { return new ApiException(HttpStatus.BAD_REQUEST,"INVALID_CUSTOMER_FILTER",message); }
     private static final Map<String,String> SORTS=Map.of("createdAt","created_at","completedOrders","completed_orders",
         "completedValue","completed_value","lastPurchaseAt","last_completed_order_at");
@@ -107,7 +107,7 @@ public class CustomerLifecycleQuery {
             long completed=r.getLong("completed_orders");BigDecimal value=r.getBigDecimal("completed_value");
             return new Customer(r.getLong("customer_id"),r.getString("full_name"),r.getString("email"),r.getString("phone"),
                 (Integer)r.getObject("age"),r.getString("preferences"),r.getTimestamp("created_at").toInstant(),r.getBoolean("locked"),
-                r.getString("lock_reason"),completed,value,last,CustomerLifecycle.calculate(completed,value,last,today));
+                r.getString("lock_reason"),completed,value,last,CustomerLifecycle.calculate(completed,value,last,today),MembershipService.calculate(value));
         },args.toArray());
         return new CustomerProfileService.Page<>(rows,count,(count+f.size()-1)/f.size(),f.page(),f.size());
     }

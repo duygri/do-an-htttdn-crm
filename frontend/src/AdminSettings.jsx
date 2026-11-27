@@ -12,7 +12,7 @@ export default function AdminSettings() {
     let alive = true;
     adminApi('/api/admin/settings')
       .then((data) => {
-        if (alive) setValues(data);
+        if (alive) setValues(Object.fromEntries(Object.entries(data).filter(([key])=>!key.startsWith('loyalty.'))));
       })
       .catch((e) => {
         if (alive) setError(e.message);
@@ -69,18 +69,7 @@ export default function AdminSettings() {
           </label>
         </fieldset>
 
-        <fieldset>
-          <legend>Điểm thưởng</legend>
-          <label>Điểm mỗi 10.000đ
-            <input type="number" min="0" max="1000" value={values['loyalty.pointsPer10000'] || ''} onChange={(e) => change('loyalty.pointsPer10000', e.target.value)} />
-          </label>
-          <label>Điểm cần để đổi
-            <input type="number" min="1" max="1000000" value={values['loyalty.redeemPoints'] || ''} onChange={(e) => change('loyalty.redeemPoints', e.target.value)} />
-          </label>
-          <label>Giá trị voucher đổi (đ)
-            <input type="number" min="0" max="100000000" value={values['loyalty.redeemValue'] || ''} onChange={(e) => change('loyalty.redeemValue', e.target.value)} />
-          </label>
-        </fieldset>
+
 
         {error && <p role="alert">{error}</p>}
         {saved && <p role="status">{saved}</p>}

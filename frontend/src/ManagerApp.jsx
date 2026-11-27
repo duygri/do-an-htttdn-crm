@@ -1,3 +1,4 @@
+import {MembershipBadge} from './MembershipCard';
 import {VariantWorkspaceDialog} from './ManagerVariants';
 import { hasReturn, showReturn, displayOrderLabel, returnLabel } from './order-display';
 import {useManagerFilters,managerQuery,vietnamDateRange} from './useManagerFilters';
@@ -1112,7 +1113,7 @@ function Users({ notify, location, go }) {
             </td>
             <td>{user.email}</td>
             <td>{user.phone || "—"}</td>
-            <td><CustomerLifecycle segment={user.segmentation}/></td>
+            <td><CustomerLifecycle segment={user.segmentation}/><MembershipBadge membership={user.membership}/></td>
             <td><div className="customer-purchase-metrics"><span>{user.completedOrders??0} đơn hoàn thành</span><strong>{money(user.completedValue??0)}</strong><span>{user.lastCompletedOrderAt?new Date(user.lastCompletedOrderAt).toLocaleDateString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Chưa mua hàng'}</span></div></td>
             <td>
               <span

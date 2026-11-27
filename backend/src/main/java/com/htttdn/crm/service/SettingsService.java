@@ -19,10 +19,7 @@ public class SettingsService {
         "invoice.seller.address", "",
         "invoice.seller.phone", "",
         "invoice.seller.taxCode", "",
-        "inventory.lowStockDefault", "5",
-        "loyalty.pointsPer10000", "1",
-        "loyalty.redeemPoints", "100",
-        "loyalty.redeemValue", "20000");
+        "inventory.lowStockDefault", "5");
 
     private final AppSettingRepository repo;
     private final AuditTrail audit;
@@ -46,7 +43,7 @@ public class SettingsService {
 
     public Map<String,String> all() {
         var values = new TreeMap<String,String>(DEFAULTS);
-        repo.findAll().forEach(setting -> values.put(setting.getKey(), setting.getValue()));
+        repo.findAll().stream().filter(setting -> DEFAULTS.containsKey(setting.getKey())).forEach(setting -> values.put(setting.getKey(), setting.getValue()));
         return values;
     }
 
@@ -70,9 +67,6 @@ public class SettingsService {
         if (!DEFAULTS.containsKey(key) || value == null) throw bad();
         switch (key) {
             case "inventory.lowStockDefault" -> intRange(value, 0, 100000);
-            case "loyalty.pointsPer10000" -> intRange(value, 0, 1000);
-            case "loyalty.redeemPoints" -> intRange(value, 1, 1000000);
-            case "loyalty.redeemValue" -> decimalRange(value, BigDecimal.ZERO, new BigDecimal("100000000"));
             case "invoice.seller.name" -> length(value, 150);
             case "invoice.seller.address" -> length(value, 1000);
             default -> length(value, 40);

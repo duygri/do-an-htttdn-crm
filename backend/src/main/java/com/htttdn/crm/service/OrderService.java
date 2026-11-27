@@ -35,7 +35,7 @@ public class OrderService {
     private final AuditTrail audit;
     private final StockService stock;
     private final PaymentReconciliationService reconciliation;
-    private final LoyaltyService loyalty;
+    private final MembershipService membership;
     private final ShipmentRepository shipments;
     private final ShippingCarrierRepository carriers;
     private final ShipmentEventRepository shipmentEvents;
@@ -47,7 +47,7 @@ public class OrderService {
                         PaymentRepository payments, PaymentAttemptRepository attempts, PaymentWebhookEventRepository webhookEvents,
                         VoucherService vouchers, NotificationService notifications, PayosService payos, FeedbackRepository feedback, AuditTrail audit, StockService stock, PaymentReconciliationService reconciliation, LoyaltyService loyalty,
                         ShipmentRepository shipments, ShippingCarrierRepository carriers, ShipmentEventRepository shipmentEvents,
-                        OrderReturnItemRepository returnItems, OrderRefundRepository refunds) {
+                        OrderReturnItemRepository returnItems, OrderRefundRepository refunds, MembershipService membership) {
         this.orders = orders; this.products = products; this.carts = carts; this.payments = payments;
         this.attempts = attempts;
         this.webhookEvents = webhookEvents; this.vouchers = vouchers; this.notifications = notifications; this.payos = payos;
@@ -55,7 +55,7 @@ public class OrderService {
         this.audit = audit;
         this.stock = stock;
         this.reconciliation=reconciliation;
-        this.loyalty=loyalty;
+        this.membership=membership;
         this.shipments=shipments;
         this.carriers=carriers;
         this.shipmentEvents=shipmentEvents;
@@ -95,10 +95,14 @@ public class OrderService {
             OrderItem item = new OrderItem(); item.setVariantId(variant==null?null:variant.getId()); item.setOrder(order); item.setProduct(product); item.setQuantity(line.quantity()); item.setSize(clean(line.size())); item.setColor(clean(line.color())); item.setUnitPrice(CartService.price(product)); order.getItems().add(item);
             subtotal = subtotal.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
         }
+        var member=membership.forCustomer(customer.getId());
+        order.memberTier=member.tier(); order.memberDiscountPercent=member.discountPercent();
+        order.memberDiscountAmount=MembershipService.discount(subtotal,member);
+        BigDecimal afterMember=subtotal.subtract(order.memberDiscountAmount);
         BigDecimal discount = BigDecimal.ZERO;
         StoreVoucher applied = null;
-        if (request.voucherCode() != null && !request.voucherCode().isBlank()) { applied = vouchers.reserve(request.voucherCode(), subtotal, order); discount = order.getDiscountAmount(); }
-        order.setDiscountAmount(discount); order.setTotalAmount(subtotal.subtract(discount).max(BigDecimal.ZERO));
+        if (request.voucherCode() != null && !request.voucherCode().isBlank()) { applied = vouchers.reserve(request.voucherCode(), afterMember, order); discount = order.getDiscountAmount(); }
+        order.setDiscountAmount(discount); order.setTotalAmount(afterMember.subtract(discount).max(BigDecimal.ZERO));
         if ("PAYOS".equals(method) && order.getTotalAmount().signum() > 0) payos.requireConfigured();
         orders.save(order); stock.sell(order); if(applied!=null) vouchers.record(order,applied);
         // Consume only purchased variants; keep unselected lines and any remaining quantity.
@@ -120,6 +124,41 @@ public class OrderService {
         PayosService.Link link = payos.createPaymentLink(order); payment.setPaymentLinkId(link.paymentLinkId()); payment.setCheckoutUrl(link.checkoutUrl()); payment.setQrCode(link.qrCode()); payments.save(payment);
         saveAttempt(order, order.getOrderCode(), link, order.getExpiresAt());
         return new Checkout(view(order), link.checkoutUrl(), link.paymentLinkId(), link.qrCode(), order.getExpiresAt());
+    }
+
+    public record PreviewRequest(List<RequestedItem> items,String voucherCode) {}
+    public record Preview(BigDecimal subtotal,MembershipService.Membership membership,BigDecimal memberDiscountAmount,BigDecimal afterMemberAmount,VoucherService.Preview voucher,BigDecimal discountAmount,BigDecimal totalAmount) {}
+    @Transactional(readOnly=true)
+    public Preview preview(User customer,PreviewRequest request){
+        if(request==null || request.items()==null || request.items().isEmpty() || request.items().size()>200) throw invalidCart();
+        BigDecimal subtotal=BigDecimal.ZERO;
+        Map<Long,Integer> quantities=new HashMap<>();
+        Map<String,Integer> variants=new HashMap<>();
+        for(var line:request.items()){
+            if(line==null || line.productId()==null || line.quantity()<1) throw invalidCart();
+            Product product=products.findById(line.productId()).orElseThrow(this::invalidCart);
+            if(!product.isActive())throw invalidCart();
+            int total;
+            try{total=Math.addExact(quantities.getOrDefault(product.getId(),0),line.quantity());}catch(ArithmeticException e){throw invalidCart();}
+            quantities.put(product.getId(),total);
+            if(total>product.getStock())throw invalidCart();
+            validateVariant(product,line.size(),line.color());
+            var chosen=stock.resolve(product,clean(line.size()),clean(line.color()));
+            if(line.variantId()!=null && (chosen==null || !line.variantId().equals(chosen.getId())))throw invalidCart();
+            if(chosen!=null){
+                String key=String.valueOf(chosen.getId());
+                int qty;
+                try{qty=Math.addExact(variants.getOrDefault(key,0),line.quantity());}catch(ArithmeticException e){throw invalidCart();}
+                variants.put(key,qty); if(qty>chosen.getStock())throw invalidCart();
+            }
+            subtotal=subtotal.add(CartService.price(product).multiply(BigDecimal.valueOf(line.quantity())));
+        }
+        var member=membership.forCustomer(customer.getId());
+        var memberDiscount=MembershipService.discount(subtotal,member);
+        var after=subtotal.subtract(memberDiscount);
+        var voucher=request.voucherCode()==null || request.voucherCode().isBlank()?null:vouchers.preview(request.voucherCode(),after,customer.getId());
+        var discount=voucher==null?BigDecimal.ZERO:voucher.discountAmount();
+        return new Preview(subtotal,member,memberDiscount,after,voucher,discount,after.subtract(discount).max(BigDecimal.ZERO));
     }
 
     @Transactional(readOnly = true)
@@ -327,7 +366,7 @@ public class OrderService {
             throw new ApiException(HttpStatus.CONFLICT, "RECEIPT_NOT_ALLOWED", "Chỉ xác nhận đơn đã giao và chưa có yêu cầu đổi trả. Vui lòng tải lại đơn hàng.");
         var before = AuditTrail.snapshot(order);
         order.setStatus("COMPLETED"); order.setUpdatedAt(Instant.now()); orders.save(order);
-        loyalty.awardForCompletedOrder(order);
+
         notifications.create(customer, "Đơn hàng hoàn thành", "Bạn đã xác nhận nhận hàng cho đơn #" + order.getOrderCode() + ".", "ORDER_COMPLETED", order.getId());
         recordCustomerAction(customer, "CUSTOMER_RECEIPT", order, before);
         return view(order);
@@ -438,7 +477,7 @@ public class OrderService {
 
     private List<OrderLineView> lineViews(Order o) { return o.getItems().stream().map(i -> new OrderLineView(i.getId(), i.getProduct().getId(), i.getProduct().getName(), i.getProduct().getImageUrl(), i.getQuantity(), i.getUnitPrice(), i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())), i.getSize(), i.getColor(), i.getVariantId())).toList(); }
 
-    private OrderView orderView(Order o, List<OrderLineView> lines, ShipmentView shipment, List<ReturnItemView> returnItems, List<RefundView> refunds) { return new OrderView(o.getId(), o.getOrderCode(), o.getStatus(), o.getPaymentStatus(), o.getPaymentMethod(), o.getDeliveryAddress(), o.getTrackingCode(), o.getCancelReason(), o.getReturnStatus(), o.getReturnReason(), o.getVoucherCode(), o.getDiscountAmount(), o.getTotalAmount(), o.getCreatedAt(), o.getUpdatedAt(), lines, o.getReturnRequestedAt(), o.getReturnHistory().stream().map(e->new ReturnEventView(e.getStatus(),e.getNote(),e.getCreatedAt())).toList(), shipment, returnItems, refunds, attachments == null ? List.of() : attachments.read(o.returnAttachments)); }
+    private OrderView orderView(Order o, List<OrderLineView> lines, ShipmentView shipment, List<ReturnItemView> returnItems, List<RefundView> refunds) { return new OrderView(o.getId(), o.getOrderCode(), o.getStatus(), o.getPaymentStatus(), o.getPaymentMethod(), o.getDeliveryAddress(), o.getTrackingCode(), o.getCancelReason(), o.getReturnStatus(), o.getReturnReason(), o.getVoucherCode(), o.getDiscountAmount(), o.getTotalAmount(), o.getCreatedAt(), o.getUpdatedAt(), lines, o.getReturnRequestedAt(), o.getReturnHistory().stream().map(e->new ReturnEventView(e.getStatus(),e.getNote(),e.getCreatedAt())).toList(), shipment, returnItems, refunds, attachments == null ? List.of() : attachments.read(o.returnAttachments), o.memberTier, o.memberDiscountPercent, o.memberDiscountAmount); }
 
     private List<ReturnItemView> returnViews(Order o) {
         return returnItems.findByOrderIdOrderByIdAsc(o.getId()).stream().map(r -> {
@@ -466,7 +505,7 @@ public class OrderService {
     public record ReturnLineInput(Long orderItemId,int quantity,String resolution) {}
     public record ReturnItemView(Long orderItemId,Long productId,String name,int quantity,String resolution,Instant restockedAt) {}
     public record RefundView(Long id,BigDecimal amount,String status,String method,Instant processedAt) {}
-    public record OrderView(Long id, Long orderCode, String status, String paymentStatus, String paymentMethod, String deliveryAddress, String trackingCode, String cancelReason, String returnStatus, String returnReason, String voucherCode, BigDecimal discountAmount, BigDecimal totalAmount, Instant createdAt, Instant updatedAt, List<OrderLineView> items, Instant returnRequestedAt, List<ReturnEventView> returnHistory, ShipmentView shipment, List<ReturnItemView> returnItems, List<RefundView> refunds, List<AttachmentService.View> returnAttachments) {}
+    public record OrderView(Long id, Long orderCode, String status, String paymentStatus, String paymentMethod, String deliveryAddress, String trackingCode, String cancelReason, String returnStatus, String returnReason, String voucherCode, BigDecimal discountAmount, BigDecimal totalAmount, Instant createdAt, Instant updatedAt, List<OrderLineView> items, Instant returnRequestedAt, List<ReturnEventView> returnHistory, ShipmentView shipment, List<ReturnItemView> returnItems, List<RefundView> refunds, List<AttachmentService.View> returnAttachments, String memberTier, int memberDiscountPercent, BigDecimal memberDiscountAmount) {}
     public record ShipmentView(String carrierCode, String carrierName, String trackingCode, String status, Instant shippedAt, Instant deliveredAt, List<ManagerOrderQuery.ShipmentEventView> events) {}
     public record OrderLineView(Long id, Long productId, String name, String imageUrl, int quantity, BigDecimal unitPrice, BigDecimal lineTotal, String size, String color, Long variantId) {public OrderLineView(Long id,Long productId,String name,String imageUrl,int quantity,BigDecimal unitPrice,BigDecimal lineTotal,String size,String color){this(id,productId,name,imageUrl,quantity,unitPrice,lineTotal,size,color,null);}}
 }

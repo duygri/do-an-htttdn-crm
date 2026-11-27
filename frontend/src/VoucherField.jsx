@@ -40,6 +40,7 @@ export default function VoucherField({ model, disabled }) {
     <button type="button" onClick={model.apply} disabled={disabled || model.busy}>{model.busy ? "ĐANG KIỂM TRA" : "ÁP DỤNG"}</button>
   </div></label>
   {model.error && <p className="shop-field-error" role="alert">{model.error}</p>}
+  {model.appliedCode&&!model.voucher&&<p>{model.busy?"Đang kiểm tra mã ":"Mã chưa được áp dụng: "}{model.appliedCode} <button type="button" disabled={disabled} onClick={model.remove}>Bỏ mã</button></p>}
   {model.voucher && <div className="shop-voucher-applied"><span role="status">Đã áp dụng {model.voucher.code}</span><button type="button" disabled={disabled} onClick={model.remove}>Bỏ mã</button></div>}
   <small>Mỗi đơn dùng một mã. Ưu đãi được kiểm tra lại khi đặt hàng.</small>
   <button type="button" className="button button-light" disabled={disabled} onClick={()=>setWallet(v=>!v)}>{wallet?'Đóng danh sách mã':'Chọn voucher của tôi'}</button>

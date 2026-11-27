@@ -33,7 +33,7 @@ public class SalesInvoiceService {
                        String sellerName,String sellerAddress,String sellerPhone,String sellerTaxCode,
                        String buyerName,String buyerEmail,String buyerPhone,String deliveryAddress,
                        BigDecimal subtotal,BigDecimal discountAmount,BigDecimal totalAmount,
-                       String paymentMethod,String paymentStatus,String note,List<Line> items){}
+                       String paymentMethod,String paymentStatus,String note,List<Line> items,String memberTier,int memberDiscountPercent,BigDecimal memberDiscountAmount){}
     public record IssueRequest(@jakarta.validation.constraints.Size(max=1000) String note){}
     private ApiException conflict(String message){return new ApiException(HttpStatus.CONFLICT,"INVOICE_CONFLICT",message);}
     @Transactional(readOnly=true) public Page<View> list(String keyword,int page,int size){
@@ -84,6 +84,6 @@ public class SalesInvoiceService {
     private View view(SalesInvoice i){
         Order o=i.getOrder();
         List<Line> lines=i.getItems().stream().map(x->new Line(x.getProductName(),x.getSize(),x.getColor(),x.getQuantity(),x.getUnitPrice(),x.getLineTotal())).toList();
-        return new View(i.getId(),i.getInvoiceNumber(),o.getId(),o.getOrderCode(),o.getStatus(),i.getIssuedAt(),i.getSellerName(),i.getSellerAddress(),i.getSellerPhone(),i.getSellerTaxCode(),i.getBuyerName(),i.getBuyerEmail(),i.getBuyerPhone(),i.getDeliveryAddress(),i.getSubtotal(),i.getDiscountAmount(),i.getTotalAmount(),i.getPaymentMethod(),i.getPaymentStatus(),i.getNote(),lines);
+        return new View(i.getId(),i.getInvoiceNumber(),o.getId(),o.getOrderCode(),o.getStatus(),i.getIssuedAt(),i.getSellerName(),i.getSellerAddress(),i.getSellerPhone(),i.getSellerTaxCode(),i.getBuyerName(),i.getBuyerEmail(),i.getBuyerPhone(),i.getDeliveryAddress(),i.getSubtotal(),i.getDiscountAmount(),i.getTotalAmount(),i.getPaymentMethod(),i.getPaymentStatus(),i.getNote(),lines,o.memberTier,o.memberDiscountPercent,o.memberDiscountAmount);
     }
 }

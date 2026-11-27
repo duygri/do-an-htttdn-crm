@@ -52,7 +52,7 @@ Ba portal sử dụng luồng đăng nhập và phiên riêng. Backend kiểm tr
 - **Đơn hàng:** lịch sử có tab trạng thái, tìm kiếm/phân trang, xem chi tiết, tiếp tục thanh toán, hủy đơn theo điều kiện và xác nhận đã nhận hàng.
 - **Đánh giá/đổi trả:** đánh giá gắn với sản phẩm trong đơn hoàn thành; gửi yêu cầu đổi trả khi đủ điều kiện và theo dõi kết quả xử lý.
 - **Khảo sát/voucher:** trả lời khảo sát công khai hoặc được chỉ định, nhận voucher thưởng nếu được cấu hình; xem voucher cá nhân và ưu đãi cửa hàng còn hiệu lực.
-- **Điểm thưởng:** xem số dư và lịch sử điểm trong hồ sơ tài khoản; điểm được cộng khi đơn hoàn thành qua xác nhận nhận hàng và có thể đổi thành voucher giảm giá theo cấu hình của Admin.
+- **Hạng thành viên:** Đồng/Bạc/Vàng/Kim cương theo giá trị đơn hoàn thành toàn thời gian, lần lượt giảm 0/3/5/10% tự động khi đặt hàng. Giảm hạng trước voucher; xem hạng và tiến độ trong hồ sơ. Điểm thưởng đã ngừng, voucher cũ vẫn giữ hiệu lực.
 - **Hỗ trợ:** tạo phiếu gắn với đơn của mình nếu cần, gửi trao đổi và theo dõi tiến trình; không xem được ghi chú nội bộ của Manager.
 - **Thông báo:** xem và đánh dấu đã đọc các thông báo trong web. Có giao diện sáng/tối và bố cục responsive.
 
@@ -86,7 +86,7 @@ Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang 
 - Tạo, sửa, khóa/mở khóa, xóa mềm và đổi quyền tài khoản ADMIN/MANAGER.
 - Bảo vệ thao tác tự khóa/xóa/đổi quyền và tài khoản Admin hoạt động cuối cùng.
 - Xem nhật ký hệ thống, bao gồm các thao tác khách hàng đã được bổ sung ghi nhận.
-- Cấu hình hệ thống: thông tin người bán hóa đơn, ngưỡng tồn thấp mặc định và quy tắc tích điểm/đổi điểm.
+- Cấu hình hệ thống: thông tin người bán hóa đơn, ngưỡng tồn thấp mặc định (hạng thành viên dùng quy tắc cố định).
 - Liên kết đến portal Manager và website khách hàng; không thay thế vai trò vận hành của Manager.
 
 ## Quy tắc nghiệp vụ và chỉ số CRM
@@ -105,7 +105,7 @@ Các màn hình chính nằm dưới `/manager/*`. Dữ liệu màn hình đang 
 - Manager quản lý nhà cung cấp, lập phiếu nhập hàng theo hóa đơn nhà cung cấp (chỉ ghi chi phí, không cộng tồn kho) và phát hành một hóa đơn bán hàng cho mỗi đơn để in.
 - Mọi thay đổi tồn kho sinh một dòng thẻ kho (bán, hoàn kho do hủy, điều chỉnh, khởi tạo, kiểm kê); tồn không được âm. Phiếu kiểm kê hoàn tất điều chỉnh đúng phần chênh lệch. Giá trị tồn dùng đơn giá của lần nhập gần nhất.
 - Nhà cung cấp ngừng hợp tác không được gán sản phẩm mới hoặc lập phiếu nhập mới nhưng vẫn xem được công nợ và ghi nhận thanh toán cũ; không trả vượt số còn nợ.
-- Điểm thưởng chỉ cộng khi khách xác nhận đã nhận hàng, mỗi đơn một lần; đổi điểm tạo voucher cố định thuộc đúng tài khoản. Manager điều chỉnh điểm phải ghi chú; điểm không tự trừ khi đổi trả.
+- Hạng thành viên: Đồng dưới 2 triệu, Bạc từ 2 triệu, Vàng từ 5 triệu, Kim cương từ 10 triệu giá trị đơn hoàn thành; chưa trừ hoàn tiền. Khoản giảm hạng làm tròn xuống đồng, không trần, được chốt riêng trên đơn. Không cộng hoặc đổi điểm mới.
 
 ### Phân nhóm và báo cáo
 
@@ -189,7 +189,8 @@ Sao lưu, xác định phiên bản schema đã triển khai và đọc migratio
 | Chăm sóc khách hàng | `migration_customer_care.sql` → `migration_care_sources.sql` → `migration_care_outcomes.sql` → `migration_care_reminders.sql` |
 | Nhật ký và phiếu hỗ trợ | `migration_audit_logs.sql`, `migration_support_tickets.sql` |
 | Nhà cung cấp, hóa đơn, doanh thu | `migration_supplier_receipts_invoices.sql` |
-| Tồn kho, công nợ, tích điểm, cấu hình | `migration_inventory_suppliers_loyalty.sql` |
+| Hạng thành viên, ưu đãi tự động | `migration_membership.sql` |
+| Tồn kho, công nợ, điểm lịch sử, cấu hình | `migration_inventory_suppliers_loyalty.sql` |
 
 Các script nằm trong `database/`. Migration nhắc hạn cần bảng công việc và thông báo có trước; migration hỗ trợ cần các bảng tài khoản, đơn hàng và thông báo. Backend có ghi audit cần bảng nhật ký trước khi thực hiện nghiệp vụ mới. Xem hướng dẫn từng chức năng ở mục [Tài liệu chi tiết](#tài-liệu-chi-tiết).
 

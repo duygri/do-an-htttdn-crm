@@ -848,3 +848,8 @@ ALTER TABLE supplier_receipt_items ADD CONSTRAINT supplier_receipt_items_variant
 ALTER TABLE sales_invoice_items DROP CONSTRAINT IF EXISTS sales_invoice_items_variant_product_fk;
 ALTER TABLE sales_invoice_items ADD CONSTRAINT sales_invoice_items_variant_product_fk FOREIGN KEY (product_id,variant_id) REFERENCES product_variants(product_id,id);
 COMMIT;
+
+-- Membership snapshot: no historical discount or tier backfill.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS member_tier VARCHAR(10) CHECK(member_tier IN ('BRONZE','SILVER','GOLD','DIAMOND'));
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS member_discount_percent INTEGER NOT NULL DEFAULT 0 CHECK(member_discount_percent IN (0,3,5,10));
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS member_discount_amount NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK(member_discount_amount>=0);

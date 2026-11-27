@@ -96,10 +96,11 @@ it('keeps the cancellation reason after failure and only submits on confirmation
 it('blocks duplicate checkout submission and clears the cart as soon as COD succeeds', async () => {
   let finish;
   const saved = {id:1,recipientName:'Khách thử',phone:'0912345678',addressLine:'12 Đường thử',province:'Thành phố Hà Nội',ward:'Phường Ba Đình',defaultAddress:true};
-  api.mockImplementation(path => path.includes('addresses') ? Promise.resolve([saved]) : new Promise(resolve => { finish=resolve; }));
+  api.mockImplementation(path => path==='/api/orders/preview'?Promise.resolve({subtotal:100,membership:{tier:'BRONZE',discountPercent:0},memberDiscountAmount:0,afterMemberAmount:100,totalAmount:100}):path.includes('addresses') ? Promise.resolve([saved]) : new Promise(resolve => { finish=resolve; }));
   const placed=vi.fn();
   const {container}=render(<CheckoutPage cart={{items:[{productId:1,name:'Áo',quantity:1,lineTotal:100}],subtotal:100}} onPlaced={placed}/>);
   await screen.findByText(saved.phone);
+  await waitFor(()=>expect(screen.getByText('ĐẶT HÀNG').disabled).toBe(false));
   fireEvent.submit(container.querySelector('form')); fireEvent.submit(container.querySelector('form'));
   expect(api.mock.calls.filter(([path]) => path === '/api/orders')).toHaveLength(1);
   finish({order:{orderCode:456,totalAmount:100},paymentUrl:null});

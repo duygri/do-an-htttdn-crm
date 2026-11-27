@@ -3,6 +3,9 @@ package com.htttdn.crm.entity;
 import com.fasterxml.jackson.annotation.JsonManagedReference; import jakarta.persistence.*; import java.math.BigDecimal; import java.time.Instant; import java.util.*;
 @Entity @Table(name="orders")
 public class Order {
+    @Column(name="member_tier",length=10) public String memberTier;
+    @Column(name="member_discount_percent",nullable=false) public int memberDiscountPercent;
+    @Column(name="member_discount_amount",nullable=false,precision=15,scale=2) public BigDecimal memberDiscountAmount=BigDecimal.ZERO;
     @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="paid_at") public Instant paidAt;
     @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="cod_collected_amount",precision=15,scale=2) public BigDecimal codCollectedAmount;
     @com.fasterxml.jackson.annotation.JsonIgnore @Column(name="cod_collected_at") public Instant codCollectedAt;

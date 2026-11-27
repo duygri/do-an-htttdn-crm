@@ -25,7 +25,7 @@ public class LoyaltyController {
 
     @GetMapping("/api/account/points")
     public LoyaltyService.Summary mine(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        return loyalty.summary(auth.requireCustomer(authorization));
+        auth.requireCustomer(authorization); throw LoyaltyService.retired();
     }
 
     @PostMapping("/api/account/points/redeem")
@@ -37,7 +37,7 @@ public class LoyaltyController {
 
     @GetMapping("/api/manager/customers/{id}/points")
     public LoyaltyService.Summary customerPoints(@PathVariable long id) {
-        return loyalty.summary(customer(id));
+        customer(id); throw LoyaltyService.retired();
     }
 
     @PostMapping("/api/manager/customers/{id}/points")

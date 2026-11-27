@@ -125,7 +125,8 @@ export default function ManagerOrderDetail({ detail: sourceDetail, loading, erro
             </div>
             {detail.finance&&<React.Suspense fallback={<p role="status">Đang tải thông tin thanh toán…</p>}><OrderPaymentPanel key={detail.id} order={detail} onUpdated={setProcessed} onEditingChange={setFinanceEditing}/></React.Suspense>}
             <ShipmentPanel detail={detail} onUpdated={setProcessed} />
-            <RefundPanel detail={detail} onUpdated={setProcessed} />
+            <section className="admin-detail-section"><h3>Ưu đãi đơn hàng</h3><p>Giảm hạng thành viên ({detail.memberDiscountPercent??0}%): −{money(detail.memberDiscountAmount)}</p><p>Giảm voucher{detail.voucherCode?' ('+detail.voucherCode+')':''}: −{money(detail.discountAmount)}</p></section>
+          <RefundPanel detail={detail} onUpdated={setProcessed} />
             {showReturn(detail) && <section className="admin-return-management" aria-label="Xử lý đổi trả">
               <h3>Theo dõi đổi trả</h3>
               <p>Yêu cầu lúc: {date(detail.returnRequestedAt)}</p>

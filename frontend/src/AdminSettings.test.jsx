@@ -46,14 +46,15 @@ afterEach(() => {
 it('loads system settings and saves edited values', async () => {
   render(<SystemAdminApp />, { wrapper });
   expect(await screen.findByRole('heading', { name: 'Cấu hình' })).toBeTruthy();
-  const redeem = await screen.findByLabelText('Điểm cần để đổi');
-  expect(redeem.value).toBe('100');
+  const redeem = await screen.findByLabelText('Ngưỡng tồn thấp mặc định');
+  expect(redeem.value).toBe('5');
   fireEvent.change(redeem, { target: { value: '150' } });
   fireEvent.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
   await waitFor(() => expect(screen.getByText('Đã lưu cấu hình.')).toBeTruthy());
   const call = adminApi.mock.calls.find(([url, options]) => url === '/api/admin/settings' && options?.method === 'PUT');
   expect(call).toBeTruthy();
-  expect(call[1].body['loyalty.redeemPoints']).toBe('150');
+  expect(call[1].body['inventory.lowStockDefault']).toBe('150');
+  expect(call[1].body['loyalty.redeemPoints']).toBeUndefined();
   expect(call[1].body['invoice.seller.name']).toBe('Anh Lon Shop');
 });
 
@@ -65,7 +66,7 @@ it('shows an error when saving fails', async () => {
     return { content: [] };
   });
   render(<SystemAdminApp />, { wrapper });
-  await screen.findByLabelText('Điểm cần để đổi');
+  await screen.findByLabelText('Ngưỡng tồn thấp mặc định');
   fireEvent.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
   expect(await screen.findByRole('alert')).toBeTruthy();
 });

@@ -11,6 +11,7 @@ vi.mock("./api", async original => ({ ...await original(), api:vi.fn(), refreshS
 const home = {id:1,recipientName:"Khách ở nhà",phone:"0912345678",addressLine:"12 Đường Nhà",ward:"Phường Ba Đình",province:"Thành phố Hà Nội",defaultAddress:true};
 const office = {...home,id:2,recipientName:"Khách văn phòng",addressLine:"34 Đường Công Ty",defaultAddress:false};
 const cart = {items:[{productId:1,name:"Áo kiểm thử",stock:10,quantity:1,size:"M",color:"Đen",unitPrice:100000,lineTotal:100000}],subtotal:100000,itemCount:1};
+const quote=(voucher=null)=>({subtotal:100000,membership:{tier:'BRONZE',label:'Đồng',discountPercent:0},memberDiscountAmount:0,afterMemberAmount:100000,voucher,discountAmount:voucher?.discountAmount||0,totalAmount:100000-(voucher?.discountAmount||0)});
 const customer = {id:10,fullName:"Khách thử"};
 const deferred = () => {let resolve;const promise = new Promise(r=>{resolve=r;});return {promise,resolve};};
 beforeEach(()=>{
@@ -18,7 +19,8 @@ beforeEach(()=>{
   sessionStorage.clear();
   saveSelection('customer-10', {known:cart.items.map(cartLineKey),selected:cart.items.map(cartLineKey)});
   refreshSession.mockResolvedValue({customer});
-  api.mockImplementation(async path=>{
+  api.mockImplementation(async (path,options)=>{
+    if(path==="/api/orders/preview") return quote(options?.body?.voucherCode?{code:options.body.voucherCode,discountAmount:10000}:null);
     if(path.includes("/addresses")) return [home,office];
     if(path==="/api/cart") return cart;
     if(path.includes("/categories") || path.includes("/wishlist")) return [];
@@ -60,7 +62,7 @@ it("checks out only selected lines and leaves other lines in the cart",async()=>
   await screen.findByText('Áo còn lại');
   expect(screen.queryByText('Áo kiểm thử')).toBeNull();
 });
-const writes = () => api.mock.calls.filter(([,options])=>options?.method);
+const writes = () => api.mock.calls.filter(([path,options])=>path!=="/api/orders/preview"&&options?.method);
 it("shows the default address without an edit form or automatic writes",async()=>{
   render(<CheckoutPage cart={cart}/>);
   await screen.findByText(home.recipientName);
@@ -70,7 +72,7 @@ it("shows the default address without an edit form or automatic writes",async()=
 });
 it("shows PayOS QR after placing an order without creating a second order",async()=>{
   const created={order:{id:7,orderCode:7007,totalAmount:100000,status:"PENDING",paymentMethod:"PAYOS",paymentStatus:"PENDING"},qrCode:"000201010212",paymentUrl:"https://pay.payos.vn/web/test",expiresAt:new Date(Date.now()+600000).toISOString()};
-  api.mockImplementation(async (path,options)=>path.includes("/addresses")?[home]:path==="/api/orders" && options?.method==="POST"?created:path==="/api/orders/7/payment"?{orderCode:7007,amount:100000,paymentStatus:"PENDING",qrCode:created.qrCode,paymentUrl:created.paymentUrl,expiresAt:created.expiresAt}:{content:[]});
+  api.mockImplementation(async (path,options)=>path==="/api/orders/preview"?quote():path.includes("/addresses")?[home]:path==="/api/orders" && options?.method==="POST"?created:path==="/api/orders/7/payment"?{orderCode:7007,amount:100000,paymentStatus:"PENDING",qrCode:created.qrCode,paymentUrl:created.paymentUrl,expiresAt:created.expiresAt}:{content:[]});
   render(<CheckoutPage cart={cart} onPlaced={vi.fn()}/>);
   await screen.findByText(home.recipientName);
   fireEvent.click(screen.getByText("payOS / VietQR"));fireEvent.click(screen.getByText("ĐẶT HÀNG"));
@@ -139,7 +141,7 @@ it.each(["COD","PAYOS"])("submits the confirmed address and voucher for %s, reta
   fireEvent.click(screen.getByRole("radio",{name:/Khách văn phòng/}));fireEvent.click(screen.getByText("Giao đến địa chỉ này"));
   if(method==="PAYOS") fireEvent.click(screen.getByText("payOS / VietQR"));
   fireEvent.change(screen.getByPlaceholderText("Nhập mã voucher"),{target:{value:"SHOP10"}});
-  api.mockResolvedValueOnce({code:"SHOP10",discountAmount:10000});fireEvent.click(screen.getByText("ÁP DỤNG"));
+  api.mockResolvedValueOnce(quote({code:"SHOP10",discountAmount:10000}));fireEvent.click(screen.getByText("ÁP DỤNG"));
   await screen.findByText("Đã áp dụng SHOP10");
   api.mockRejectedValueOnce(new Error("Đặt hàng thất bại"));fireEvent.click(screen.getByText("ĐẶT HÀNG"));
   await screen.findByText("Đặt hàng thất bại");
